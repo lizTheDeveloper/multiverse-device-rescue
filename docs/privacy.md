@@ -1,8 +1,9 @@
 # Privacy
 
 Short version: everything happens on your machine. There is no telemetry, no
-analytics, no crash reporting, and no account. Two things reach the network and
-both need you to ask: `rescue update`, and the optional AI layer.
+analytics, no crash reporting, and no account. Three things reach the network and
+all need you to ask: `rescue update`, the optional AI layer, and the "who runs
+this address" lookups after a connection watch you start.
 
 ## What the tool touches
 
@@ -52,7 +53,7 @@ Nothing else is persisted. A `rescue scan` writes nothing at all.
 
 ## What leaves the machine
 
-Three things, exhaustively:
+Four things, exhaustively:
 
 1. **`rescue update`** contacts the configured content git remote when you run
    it. It sends nothing about your machine — it is a `git fetch`. (On the
@@ -64,6 +65,19 @@ Three things, exhaustively:
    measures throughput, a LAN inventory sends ARP/neighbour queries on your own
    local segment. These talk to your network, not to the project. Read the
    module if you want to be certain what a specific check does.
+4. **The connection watch's lookups.** After a `rescue watch` you start (or
+   for each address you type into `rescue lookup`), each public address is
+   sent to RIPE NCC (`stat.ripe.net`) and to `rdap.org`. rdap.org redirects
+   your computer to the regional registry that holds the address (ARIN, RIPE
+   NCC, APNIC, LACNIC or AFRINIC), and your computer then asks that registry
+   directly. The address is also looked up in reverse DNS, and the name that
+   comes back is looked up again to confirm it, both through your computer's
+   own resolver (which asks your DNS provider). Only the addresses are sent,
+   never what was in the connections, and private addresses are never sent.
+   Like any website, each service also sees your computer's public IP
+   address, and the request names the app and its version (Reclaim City).
+   `rescue watch --no-lookups` turns this off. See
+   [the CLI reference](cli.md#rescue-watch-watch-connections-for-a-few-minutes).
 
 There is no "phone home" on launch, no version check, no usage counter, and no
 error reporting.

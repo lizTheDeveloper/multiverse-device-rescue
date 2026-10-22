@@ -22,6 +22,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MODULES_DIR = REPO_ROOT / "modules"
+WHOIS_PY = REPO_ROOT / "rescue" / "whois.py"
 OUTPUT_PATH = REPO_ROOT / "docs" / "commands.md"
 
 SUBPROCESS_FUNCS = {"run", "check_output", "check_call", "call", "Popen"}
@@ -261,6 +262,82 @@ def commands_for(module_dir: Path) -> tuple[list[str], int, bool]:
     return sorted(found), dynamic, sockets
 
 
+def _https_urls(tree: ast.Module) -> list[str]:
+    """Every ``https://`` URL written in the file, with runtime parts shown as ``…``."""
+    urls = set()
+    # The literal pieces of an f-string are Constants too; only the whole counts.
+    pieces = {id(part) for node in ast.walk(tree) if isinstance(node, ast.JoinedStr)
+              for part in node.values}
+    for node in ast.walk(tree):
+        if id(node) in pieces:
+            continue
+        if isinstance(node, ast.JoinedStr):
+            text = "".join(
+                part.value if isinstance(part, ast.Constant) else "…" for part in node.values
+            )
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            text = node.value
+        else:
+            continue
+        if text.startswith("https://") and " " not in text:
+            urls.add(text)
+    return sorted(urls)
+
+
+def _redirect_hosts(tree: ast.Module) -> list[str]:
+    """The hosts in whois.py's ``_REDIRECT_HOSTS`` allow-list, so the page
+    lists exactly where a lookup can be redirected."""
+    for node in tree.body:
+        if (
+            isinstance(node, ast.Assign)
+            and any(isinstance(t, ast.Name) and t.id == "_REDIRECT_HOSTS" for t in node.targets)
+        ):
+            return sorted(
+                n.value for n in ast.walk(node.value)
+                if isinstance(n, ast.Constant) and isinstance(n.value, str)
+            )
+    raise SystemExit("rescue/whois.py has no _REDIRECT_HOSTS allow-list")
+
+
+def watch_section() -> list[str]:
+    """The connection watch's network use: the lookups of who runs each address."""
+    tree = ast.parse(WHOIS_PY.read_text(encoding="utf-8"))
+    commands: set[str] = set()
+    _scan_tree(tree, commands)
+    out = [
+        "## The connection watch (`rescue watch`) and `rescue lookup`\n",
+        "The watch is not part of a scan. It reads connections with the commands",
+        "listed under `conn_common` above. When it finishes, unless `--no-lookups`",
+        "is given, it looks up who runs each public address it saw (never a private,",
+        "local or reserved one); `rescue lookup` does the same for addresses you",
+        "name. Only the address is sent, to these services over HTTPS:\n",
+        "```text",
+        *_https_urls(tree),
+        "```\n",
+        "rdap.org redirects this computer to the regional registry that holds the",
+        "address, and this computer then asks that registry directly. Redirects",
+        "are followed only to these hosts:\n",
+        "```text",
+        *_redirect_hosts(tree),
+        "```\n",
+        "Each service also sees this computer's public IP address, as any website",
+        "does, and the app's name and version (`User-Agent: ReclaimCity/<version>`,",
+        "and `sourceapp=reclaim-city` for RIPEstat).\n",
+        "Plus reverse DNS for each address, and a lookup of the name that comes",
+        "back to confirm it, both through this computer's own resolver.",
+        "Nothing about the addresses is written to disk.",
+    ]
+    if commands:
+        out += [
+            "\nTo check the services' certificates on a Mac, it also runs:\n",
+            "```text",
+            *sorted(commands),
+            "```",
+        ]
+    out.append("")
+    return out
+
+
 def render() -> str:
     by_category: dict[str, list[tuple[str, list[str], int, bool]]] = defaultdict(list)
     for module_py in sorted(MODULES_DIR.glob("*/*/__init__.py")):
@@ -289,6 +366,7 @@ def render() -> str:
             if sockets:
                 out.append(f"\n{SOCKETS_LINE}")
             out.append("")
+    out.extend(watch_section())
     return "\n".join(out).rstrip() + "\n"
 
 

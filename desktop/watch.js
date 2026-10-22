@@ -12,8 +12,12 @@ const { MONITORING_MODULES } = require('./mark-policy');
 
 const WATCH_MINUTES = [1, 2, 5, 10, 15, 30];
 const WATCH_MODULE = 'connection_watch';
-// How long a watch gets to exit after "stop" before it is killed.
-const STOP_GRACE_MS = 15000;
+// How long a watch gets to exit after "stop" before it is killed. A snapshot
+// already under way can't be cut short and each of its commands may take up
+// to 30 s; the lookups after a stop get 10 s more.
+const STOP_GRACE_MS = 75000;
+// On quit (or when the window goes away) nobody will read the result.
+const QUIT_GRACE_MS = 5000;
 const SCAN_BUSY_MESSAGE = 'A connection watch is running. Stop it, or let it finish, then run the checkup.';
 
 function fail(reason, message) {
@@ -31,9 +35,11 @@ function foundMonitoring(doc) {
 // Pure handler behind ipcMain.handle('run-watch'). Never throws. `runWatch`
 // resolves with the engine's document; `isBusy` covers checkups and watches.
 // `logError` gets the engine's own error (exit code, last stderr lines) when a
-// watch fails; the person sees only the plain message.
-async function handleWatch(minutes, { getLastDoc, setLastDoc, runWatch, policies, isBusy, onEvent, logError = console.error }) {
+// watch fails; the person sees only the plain message. `lookups` (who runs each
+// address) is on unless it is false; anything else that isn't a boolean is refused.
+async function handleWatch(minutes, { lookups = true, getLastDoc, setLastDoc, runWatch, policies, isBusy, onEvent, logError = console.error }) {
   if (!WATCH_MINUTES.includes(minutes)) return fail('bad_minutes', 'Pick how long to watch from the list.');
+  if (typeof lookups !== 'boolean') return fail('bad_lookups', 'The connection watch couldn’t start. Try again.');
   if (isBusy()) return fail('busy', 'Something is already running. Try again when it finishes.');
   const last = getLastDoc();
   if (!last || !Array.isArray(last.modules)) return fail('no_scan', 'Run the checkup first.');
@@ -42,7 +48,7 @@ async function handleWatch(minutes, { getLastDoc, setLastDoc, runWatch, policies
   }
   let result;
   try {
-    result = await runWatch(minutes, onEvent);
+    result = await runWatch(minutes, onEvent, lookups);
   } catch (err) {
     logError('The connection watch failed:', err);
     result = null;
@@ -57,11 +63,11 @@ async function handleWatch(minutes, { getLastDoc, setLastDoc, runWatch, policies
 }
 
 // Ask a running watch to stop; kill it if it hasn't exited within graceMs.
-// Resolves once it exited or was killed. Used by the Stop button, on quit and
-// when the window goes away, so the engine never outlives the app.
-function stopActiveWatch(handle, { graceMs = STOP_GRACE_MS } = {}) {
+// Resolves once it exited or was killed. Used by the Stop button: the watch
+// finishes what it gathered and looks up briefly.
+function stopActiveWatch(handle, { graceMs = STOP_GRACE_MS, stops = 1 } = {}) {
   if (!handle) return Promise.resolve();
-  handle.stop();
+  for (let i = 0; i < stops; i += 1) handle.stop();
   return new Promise((resolve) => {
     const timer = setTimeout(() => { handle.kill(); resolve(); }, graceMs);
     const done = () => { clearTimeout(timer); resolve(); };
@@ -69,4 +75,11 @@ function stopActiveWatch(handle, { graceMs = STOP_GRACE_MS } = {}) {
   });
 }
 
-module.exports = { WATCH_MINUTES, WATCH_MODULE, SCAN_BUSY_MESSAGE, handleWatch, stopActiveWatch };
+// On quit and when the window goes away, so the engine never outlives the
+// app: a second stop ends the lookups too, and it's killed after QUIT_GRACE_MS.
+function quitActiveWatch(handle, { graceMs = QUIT_GRACE_MS } = {}) {
+  return stopActiveWatch(handle, { graceMs, stops: 2 });
+}
+
+module.exports = { WATCH_MINUTES, WATCH_MODULE, SCAN_BUSY_MESSAGE, STOP_GRACE_MS, QUIT_GRACE_MS, handleWatch,
+  stopActiveWatch, quitActiveWatch };

@@ -13,7 +13,7 @@ overstates its own guarantees is teaching you the wrong habit.
 | --- | --- |
 | Does `rescue --auto` change my system? | No. Zero shipped modules opt in to unattended change. |
 | Does it ever ask for a password, 2FA code, or recovery key? | No. There is no such prompt anywhere in the tool. |
-| Does it send anything anywhere? | Only if you explicitly turn on the AI layer. Otherwise nothing leaves the machine. |
+| Does it send anything anywhere? | Only when you ask: the AI layer when you turn it on, `rescue update` when you run it, and the "who runs this address" lookups after a connection watch you start or for addresses you give `rescue lookup`. Those send only the public addresses: to RIPE NCC, to rdap.org, which redirects your computer to the regional registry that holds each address (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC) to ask it directly, and to reverse DNS through your computer's own resolver. Each service also sees your computer's public IP address, as any website does, and the app's name and version. `rescue watch --no-lookups` turns them off. |
 | Can an update push new Python code to my machine? | Not through the sanctioned path. Updates carry data files only, and content commits containing anything else are rejected. |
 | Can I read what a check does before running it? | Yes. Every module is one plain Python file in the source tree. |
 | Does it verify it has not been tampered with? | Yes, at every launch, with a SHA-256 manifest — but the check warns and continues rather than blocking. |
@@ -292,8 +292,19 @@ can put your machine into is a state you cannot leave locally.
 ## Nothing is sent anywhere unless you opt in
 
 There is no telemetry, no analytics, no crash reporting, and no update ping in
-the tool. `rescue update` contacts a git remote when you run it, and the AI
-layer contacts a provider when you enable it. That is the complete list of
+the tool. `rescue update` contacts a git remote when you run it, the AI
+layer contacts a provider when you enable it, and a connection watch you start
+(unless you pass `--no-lookups`), or `rescue lookup` for the addresses you
+give it, looks up who runs each public address: the address is sent to RIPE
+NCC (`stat.ripe.net`); to `rdap.org`, which redirects your computer to the
+regional registry that holds the address (ARIN, RIPE NCC, APNIC, LACNIC or
+AFRINIC), which your computer then asks directly; and to reverse DNS through
+your computer's own resolver (which asks your DNS provider), once for the
+address and once to confirm the name that comes back. Only addresses are
+sent, never private ones. Each service also sees your computer's public IP
+address, as any website does, and the app's name and version (in the
+User-Agent, and RIPEstat's `sourceapp`). The registry hosts are listed in
+[What each check runs](commands.md). That is the complete list of
 outbound network activity initiated by the tool itself. (Individual checks read
 local state; some, like a network speed test, use the network by their nature —
 read the module if you care.)

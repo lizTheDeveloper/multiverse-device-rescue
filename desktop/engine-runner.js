@@ -65,7 +65,8 @@ function runScan(spawnFn = spawn, profile = null, onEvent = () => {}) {
 // minutes. Its stderr carries {"progress": {...}} lines, forwarded as they come;
 // stdout is one scan-shaped document. Writing "stop\n" to stdin ends it early
 // and it still prints the document. Returns at once with {promise, stop, kill};
-// the promise rejects (never throws) on a bad exit or bad output.
+// the promise rejects (never throws) on a bad exit or bad output. It looks up
+// who runs each address it saw unless `opts.lookups` is false.
 const WATCH_KILL_AFTER_MS = 15000;
 
 function runWatch(minutes, onEvent = () => {}, spawnFn = spawn, opts = {}) {
@@ -83,7 +84,8 @@ function runWatch(minutes, onEvent = () => {}, spawnFn = spawn, opts = {}) {
       return reject(new Error(`invalid minutes: ${minutes}`));
     }
     try {
-      p = spawnFn(resolveEnginePath(), ['watch', '--minutes', String(minutes), '--json', '--progress']);
+      const args = ['watch', '--minutes', String(minutes), '--json', '--progress'];
+      p = spawnFn(resolveEnginePath(), opts.lookups === false ? [...args, '--no-lookups'] : args);
     } catch (e) {
       return reject(e);
     }

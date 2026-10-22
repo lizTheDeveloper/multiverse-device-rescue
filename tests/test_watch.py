@@ -59,8 +59,13 @@ def no_dns(platform):
     return {"names": None, "reason": "macOS doesn't show which names were looked up."}
 
 
+def nobody_known(ips, **kw):
+    """Lookups that answer with nothing, so tests about other things see no lookup notes."""
+    return {"results": {}, "skipped": 0, "failed": 0, "over_budget": False, "stopped": False}
+
+
 def watch(snaps, *, platform="darwin", minutes=1, interval=5, dns=no_dns, should_stop=None,
-          verdict=None, on_progress=None):
+          verdict=None, on_progress=None, lookups=nobody_known):
     fake = FakeTime()
     return run_watch(
         platform, minutes, interval,
@@ -69,6 +74,7 @@ def watch(snaps, *, platform="darwin", minutes=1, interval=5, dns=no_dns, should
         should_stop=should_stop or (lambda: False),
         on_progress=on_progress,
         verdict=verdict or (lambda platform, record: "expected"),
+        lookups=lookups,
     )
 
 
@@ -664,3 +670,437 @@ def test_windows_closed_connections_are_not_named_idle():
     for f in result.findings:
         text = f.title + f.description + json.dumps(f.data, default=str)
         assert "Idle" not in text, f.title
+
+
+# --- who runs each address --------------------------------------------------
+
+
+def who(*, registrant=None, as_name=None, hostname=None, confirmed=False, unavailable=()):
+    return {"hostname": hostname, "hostname_confirmed": confirmed, "asn": None,
+            "as_name": as_name, "prefix": None, "network": None, "registrant": registrant,
+            "country": None, "unavailable": list(unavailable)}
+
+
+def fake_lookups(answers, *, skipped=0, failed=0, over_budget=False, stopped=False, calls=None):
+    def lookups(ips, *, should_stop, on_progress, budget):
+        if calls is not None:
+            calls.append(list(ips))
+        lookups.budgets.append(budget)
+        results = {ip: answers[ip] for ip in ips if ip in answers}
+        on_progress(len(results), len(ips))
+        return {"results": results, "skipped": skipped, "failed": failed,
+                "over_budget": over_budget, "stopped": stopped}
+
+    lookups.budgets = []
+    return lookups
+
+
+def _busy_snaps():
+    """Chrome sees 8.8.8.8 in every look, 8.8.4.4 in two, 1.1.1.1 and the router in one."""
+    steady = [rec("Chrome", "8.8.8.8", 443, 50000), rec("Chrome", "8.8.4.4", 443, 50001)]
+    return [
+        snap(steady + [rec("Chrome", "1.1.1.1", 443, 50002), rec("Chrome", "192.168.1.1", 80, 50003)]),
+        snap(steady),
+        snap([rec("Chrome", "8.8.8.8", 443, 50000)]),
+    ]
+
+
+def reasons_of(result):
+    found = by_code(result, "watch_incomplete")
+    return found[0].data["reasons"] if found else []
+
+
+def test_watch_attaches_who():
+    from rescue.whois import SOURCES
+
+    calls = []
+    answers = {
+        "8.8.8.8": who(registrant="Google LLC", as_name="GOOGLE - Google LLC", hostname="dns.google",
+                       confirmed=True),
+        "8.8.4.4": who(as_name="GOOGLE - Google LLC"),
+        # The registry names APNIC; the network's holder is who runs it.
+        "1.1.1.1": who(as_name="CLOUDFLARENET - Cloudflare, Inc.",
+                       registrant="APNIC Research and Development"),
+    }
+    result = watch(_busy_snaps(), lookups=fake_lookups(answers, calls=calls))
+    # One call, busiest first, private addresses left out.
+    assert calls == [["8.8.8.8", "8.8.4.4", "1.1.1.1"]]
+    (summary,) = by_code(result, "watch_summary")
+    by_address = {d["address"]: d["who"] for d in summary.data["destinations"]}
+    assert by_address["8.8.8.8"] == answers["8.8.8.8"]
+    assert by_address["1.1.1.1"]["registrant"] == "APNIC Research and Development"  # kept as it is
+    assert by_address["192.168.1.1"] is None
+    assert summary.data["lookup_sources"] == SOURCES
+    assert "Mostly Google LLC and Cloudflare, Inc." in summary.description
+    assert not by_code(result, "watch_incomplete")
+
+
+def test_owner_is_holder_then_registrant_then_confirmed_hostname():
+    snaps = [snap([rec("App", ip, 443, 50000 + i) for i, ip in enumerate(
+        ("8.8.8.8", "8.8.4.4", "9.9.9.9", "1.1.1.1"))])]
+
+    def mostly(answers):
+        (summary,) = by_code(watch(snaps, lookups=fake_lookups(answers)), "watch_summary")
+        text = summary.description
+        return text[text.index("Mostly"):].split(". This")[0] if "Mostly" in text else None
+
+    # Equally busy: the order the destinations are listed in (8.8.4.4 first).
+    assert mostly({"8.8.8.8": who(registrant="Google LLC"),
+                   "8.8.4.4": who(hostname="dns.google", confirmed=True)}) == \
+        "Mostly dns.google and Google LLC"
+    # An unconfirmed hostname is never an owner; nor is a raw address.
+    assert mostly({"8.8.8.8": who(hostname="www.apple.com"),
+                   "9.9.9.9": who(registrant="Quad9")}) == "Mostly Quad9"
+    # Nothing known about anyone: no sentence at all.
+    assert mostly({"8.8.8.8": who(hostname="www.apple.com", unavailable=["owner", "registry"])}) is None
+    assert mostly({}) is None
+
+
+def test_network_name_reads_as_its_organisation():
+    """RIPEstat's "GOOGLE - Google LLC" and the registry's "Google LLC" are one owner."""
+    snaps = [snap([rec("Chrome", "8.8.8.8", 443, 50000), rec("Chrome", "8.8.4.4", 443, 50001),
+                   rec("Chrome", "9.9.9.9", 443, 50002)])]
+    answers = {"8.8.8.8": who(registrant="Google LLC"), "8.8.4.4": who(as_name="GOOGLE - Google LLC"),
+               "9.9.9.9": who(as_name="LEXIS2-AS - RELX inc.")}
+    result = watch(snaps, lookups=fake_lookups(answers))
+    (summary,) = by_code(result, "watch_summary")
+    assert "Mostly Google LLC and RELX inc. This" in summary.description
+
+
+def test_one_owner_is_named_alone():
+    snaps = [snap([rec("Chrome", "8.8.8.8", 443, 50000)])]
+    result = watch(snaps, lookups=fake_lookups({"8.8.8.8": who(registrant="Google LLC")}))
+    (summary,) = by_code(result, "watch_summary")
+    assert "Mostly Google LLC." in summary.description
+
+
+def test_no_lookups_turned_off():
+    result = watch(_busy_snaps(), lookups=None)
+    (summary,) = by_code(result, "watch_summary")
+    assert all(d["who"] is None for d in summary.data["destinations"])
+    assert summary.data["lookup_sources"] == []
+    assert "Mostly" not in summary.description  # addresses are never named as owners
+    assert "Looking up who runs each address was turned off." in reasons_of(result)
+
+    # Nothing public seen: there was nothing to turn off.
+    result = watch([snap([rec("App", "192.168.1.1", 443, 50000)])], lookups=None)
+    assert reasons_of(result) == []
+
+
+def test_watch_offline_lookups_still_returns():
+    offline = who(unavailable=["dns", "owner", "registry"])
+    answers = {ip: offline for ip in ("8.8.8.8", "8.8.4.4", "1.1.1.1")}
+    result = watch(_busy_snaps(), lookups=fake_lookups(answers, failed=3))
+    (summary,) = by_code(result, "watch_summary")
+    assert summary.data["destinations"][0]["who"] == offline
+    assert reasons_of(result) == [
+        "Couldn't look up 3 address(es) (offline or the service didn't answer)."]
+
+    def offline_call(ips, **kw):
+        raise OSError("network is unreachable")
+
+    result = watch(_busy_snaps(), lookups=offline_call)
+    (summary,) = by_code(result, "watch_summary")
+    assert all(d["who"] is None for d in summary.data["destinations"])
+    assert reasons_of(result) == [
+        "Couldn't look up 3 address(es) (offline or the service didn't answer)."]
+
+
+def test_partial_lookup_failures_are_named():
+    answers = {"8.8.8.8": who(registrant="Google LLC", unavailable=["registry"]),
+               "8.8.4.4": who(as_name="GOOGLE - Google LLC", unavailable=["dns"]),
+               "1.1.1.1": who(unavailable=["owner", "registry"])}
+    result = watch(_busy_snaps(), lookups=fake_lookups(answers, failed=1))
+    assert reasons_of(result) == [
+        "Couldn't look up 1 address(es) (offline or the service didn't answer).",
+        "Couldn't find out everything about 2 address(es): a lookup service didn't answer.",
+    ]
+
+
+def test_a_bug_in_the_lookups_is_not_called_offline():
+    def broken(ips, **kw):
+        raise KeyError("results")
+
+    result = watch(_busy_snaps(), lookups=broken)
+    (reason,) = reasons_of(result)
+    assert "problem in Reclaim City itself" in reason and "KeyError" in reason
+    assert "offline" not in reason
+    assert by_code(result, "watch_summary")  # the watch itself is kept
+
+
+def test_skipped_and_over_budget_lookups_are_named():
+    result = watch(_busy_snaps(), lookups=fake_lookups({}, skipped=4, over_budget=True))
+    assert reasons_of(result) == ["Only the busiest 150 addresses were looked up.",
+                                  "Looking up stopped after 60 seconds."]
+    (summary,) = by_code(result, "watch_summary")
+    assert all(d["who"] is None for d in summary.data["destinations"])
+
+
+def test_lookups_only_public_destinations():
+    calls = []
+    records = [rec("App", addr, 443, 50000 + i) for i, addr in enumerate((
+        "10.0.0.1", "192.168.1.1", "172.16.0.9", "100.64.0.1", "224.0.0.251", "fe80::1",
+        "fd00::1", "127.0.0.1", "0.0.0.0", "240.0.0.1", "8.8.8.8", "2001:4860:4860::8888"))]
+    watch([snap(records)], lookups=fake_lookups({}, calls=calls))
+    assert calls == [["8.8.8.8", "2001:4860:4860::8888"]]
+
+    calls.clear()
+    result = watch([snap([rec("App", "192.168.1.1", 443, 50000)])], lookups=fake_lookups({}, calls=calls))
+    assert calls == []  # nothing public: nothing to ask
+    assert not by_code(result, "watch_incomplete")
+
+
+def test_same_address_two_ways_is_one_lookup():
+    calls = []
+    records = [rec("A", "::ffff:8.8.8.8", 443, 50000), rec("B", "8.8.8.8", 443, 50001)]
+    result = watch([snap(records)], lookups=fake_lookups(
+        {"::ffff:8.8.8.8": who(registrant="Google LLC")}, calls=calls))
+    assert calls == [["::ffff:8.8.8.8"]]
+    for summary in by_code(result, "watch_summary"):
+        assert summary.data["destinations"][0]["who"]["registrant"] == "Google LLC"
+
+
+def test_lookup_progress_lines():
+    events = []
+    watch(_busy_snaps(), on_progress=events.append,
+          lookups=fake_lookups({"8.8.8.8": who(registrant="Google LLC")}))
+    assert events[-1] == {"phase": "lookup", "done": 1, "total": 3}
+    assert all(e["phase"] == "watch" for e in events[:-1])
+
+
+def test_lookups_run_after_snapshots_and_nothing_reaches_disk(tmp_path, monkeypatch):
+    """The real look_up_all, with fake services, after the last snapshot; nothing written."""
+    from rescue import whois
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    events = []
+    collect = scripted(_busy_snaps())
+    bodies = {"stat.ripe.net": (_ROOT / "tests/fixtures/whois/ripe_8.8.8.8.json").read_bytes(),
+              "rdap.org": (_ROOT / "tests/fixtures/whois/rdap_8.8.8.8.json").read_bytes()}
+
+    def logged_collect(platform):
+        events.append("snapshot")
+        return collect(platform)
+
+    def fetch(url, timeout):
+        events.append("fetch")
+        return next(body for host, body in bodies.items() if host in url)
+
+    def resolve(ip):
+        return ("dns.google", [], [ip])
+
+    def lookups(ips, **kw):
+        events.append("lookups")
+        return whois.look_up_all(ips, fetch=fetch, resolve=resolve,
+                                 forward=lambda name: ["8.8.8.8"], **kw)
+
+    result = watch(logged_collect, minutes=1, interval=20, lookups=lookups)
+    assert events[:4] == ["snapshot", "snapshot", "snapshot", "lookups"]
+    assert set(events[4:]) == {"fetch"}
+    (summary,) = by_code(result, "watch_summary")
+    assert summary.data["destinations"][0]["who"]["registrant"] == "Google LLC"
+    assert list(tmp_path.rglob("*")) == []
+
+
+def test_stopped_watch_still_looks_up_briefly():
+    from rescue.watch import STOPPED_BUDGET
+
+    lookups = fake_lookups({"8.8.8.8": who(registrant="Google LLC")})
+    stops = iter([False, True])
+    result = watch(_busy_snaps(), lookups=lookups, should_stop=lambda: next(stops, True))
+    assert STOPPED_BUDGET == 10
+    assert lookups.budgets == [10]
+    (summary,) = by_code(result, "watch_summary")
+    by_address = {d["address"]: d["who"] for d in summary.data["destinations"]}
+    assert by_address["8.8.8.8"]["registrant"] == "Google LLC"
+    assert "Looking up stopped early." not in reasons_of(result)
+
+    # A watch that ran its full time gets the full budget.
+    lookups = fake_lookups({})
+    watch(_busy_snaps(), lookups=lookups)
+    assert lookups.budgets == [60]
+
+
+def test_stopped_watch_lookups_end_only_on_a_new_stop():
+    requests = {"n": 1}
+    seen = []
+
+    def lookups(ips, *, should_stop, on_progress, budget):
+        seen.append(should_stop())  # the first stop doesn't end the lookups
+        requests["n"] += 1          # ... a second one does
+        seen.append(should_stop())
+        return {"results": {}, "skipped": 0, "failed": 0, "over_budget": False, "stopped": True}
+
+    fake = FakeTime()
+    stops = iter([False, True])
+    result = run_watch("darwin", 1, 5, collect=scripted(_busy_snaps()), dns=no_dns,
+                       clock=fake.clock, sleep=fake.sleep, should_stop=lambda: next(stops, True),
+                       verdict=lambda p, r: "expected", lookups=lookups,
+                       stop_requests=lambda: requests["n"])
+    assert seen == [False, True]
+    assert "Looking up stopped early." in reasons_of(result)
+
+    # Without a count of requests, only the shorter budget bounds it.
+    budgets = []
+
+    def plain(ips, *, should_stop, on_progress, budget):
+        budgets.append((should_stop(), budget))
+        return nobody_known(ips)
+
+    stops = iter([False, True])
+    watch(_busy_snaps(), lookups=plain, should_stop=lambda: next(stops, True))
+    assert budgets == [(False, 10)]
+
+
+def test_quick_double_stop_ends_the_lookups_too():
+    """Two stops sent together (a double Ctrl-C, say), both counted before the
+    watch notices: the second one still ends the lookups."""
+    requests = {"n": 0}
+    seen = []
+
+    def collect(platform):
+        requests["n"] += 2  # both stops arrive while this snapshot is read
+        return _busy_snaps()[0]
+
+    def lookups(ips, *, should_stop, on_progress, budget):
+        seen.append(should_stop())
+        return nobody_known(ips)
+
+    fake = FakeTime()
+    run_watch("darwin", 1, 5, collect=collect, dns=no_dns, clock=fake.clock, sleep=fake.sleep,
+              should_stop=lambda: requests["n"] > 0, verdict=lambda p, r: "expected",
+              lookups=lookups, stop_requests=lambda: requests["n"])
+    assert seen == [True]
+
+
+def test_stopped_budget_running_out_is_named():
+    stops = iter([False, True])
+    result = watch(_busy_snaps(), lookups=fake_lookups({}, over_budget=True),
+                   should_stop=lambda: next(stops, True))
+    assert "Looking up stopped after 10 seconds." in reasons_of(result)
+
+
+def test_holder_handles_are_dropped():
+    from rescue.watch import _holder_company
+
+    cases = {
+        "GOOGLE - Google LLC": "Google LLC",
+        "AKAMAI-ASN1 Akamai International B.V.": "Akamai International B.V.",
+        "HETZNER-CLOUD3-AS Hetzner Online GmbH": "Hetzner Online GmbH",
+        "AS13335 Cloudflare": "Cloudflare",
+        "CLOUDFLARENET": "CLOUDFLARENET",          # nothing follows: kept
+        "AKAMAI-ASN1": "AKAMAI-ASN1",
+        "IBM Corporation": "IBM Corporation",      # no digit or hyphen: a word, kept
+        "Fastly, Inc.": "Fastly, Inc.",
+        "Akamai-Tech International": "Akamai-Tech International",  # not all capitals
+        None: None,
+    }
+    for name, company in cases.items():
+        assert _holder_company(name) == company, name
+    snaps = [snap([rec("App", "23.1.1.1", 443, 50000)])]
+    result = watch(snaps, lookups=fake_lookups(
+        {"23.1.1.1": who(as_name="AKAMAI-ASN1 Akamai International B.V.")}))
+    (summary,) = by_code(result, "watch_summary")
+    assert "Mostly Akamai International B.V. This" in summary.description
+
+
+def test_stop_during_lookups_returns_promptly():
+    """A stop while the services hang: the watch returns with what it gathered."""
+    import threading
+    import time as real_time
+
+    from rescue import whois
+
+    stop = threading.Event()
+    started = threading.Event()
+    release = threading.Event()
+
+    def hanging_fetch(url, timeout):
+        started.set()
+        release.wait(5)  # a service that doesn't answer until the test ends
+        return b""
+
+    def no_name(ip):
+        raise OSError("no reverse name")
+
+    def lookups(ips, **kw):
+        return whois.look_up_all(ips, fetch=hanging_fetch, resolve=no_name,
+                                 forward=lambda name: [], **kw)
+
+    threading.Thread(target=lambda: started.wait(5) and stop.set(), daemon=True).start()
+    begun = real_time.monotonic()
+    try:
+        result = watch(_busy_snaps(), lookups=lookups, should_stop=stop.is_set)
+        assert real_time.monotonic() - begun < 2
+    finally:
+        release.set()
+    assert reasons_of(result) == ["Looking up stopped early."]
+    (summary,) = by_code(result, "watch_summary")
+    assert all(d["who"] is None for d in summary.data["destinations"])
+
+
+def _slow_stop_run(dns_seconds, lookups):
+    """A stop lands during a slow snapshot on Windows; the name-cache read
+    after it takes ``dns_seconds``. Returns (result, when the stop was seen)."""
+    fake = FakeTime()
+    stopped = {"at": None}
+
+    def collect(platform):
+        fake.t += 4  # a slow snapshot; the stop arrives while it runs
+        stopped["at"] = fake.t
+        return _busy_snaps()[0]
+
+    def slow_dns(platform):
+        fake.t += dns_seconds
+        return {"names": [], "reason": None}
+
+    result = run_watch("win32", 1, 5, collect=collect, dns=slow_dns, clock=fake.clock,
+                       sleep=fake.sleep, should_stop=lambda: stopped["at"] is not None,
+                       verdict=lambda p, r: "expected", lookups=lookups(fake),
+                       stop_requests=lambda: 1 if stopped["at"] is not None else 0)
+    return result, stopped["at"]
+
+
+def test_stopped_budget_counts_from_the_stop():
+    """The desktop gives a stopped watch 15 seconds: the lookups' 10 count from
+    when the stop is seen, not from after the snapshot and name-cache read."""
+    ended = []
+
+    def lookups(fake):
+        def run(ips, *, should_stop, on_progress, budget):
+            fake.t += budget  # lookups that use all the time they're given
+            ended.append(fake.t)
+            return {"results": {}, "skipped": 0, "failed": 0, "over_budget": True,
+                    "stopped": False}
+        return run
+
+    result, stop_seen = _slow_stop_run(3, lookups)
+    assert ended and ended[0] <= stop_seen + 10
+    assert "Looking up stopped after 7 seconds." in reasons_of(result)
+
+
+def test_stopped_lookups_skipped_when_little_time_is_left():
+    called = []
+
+    def lookups(fake):
+        def run(ips, **kw):
+            called.append(ips)
+            return nobody_known(ips)
+        return run
+
+    result, _ = _slow_stop_run(8.5, lookups)
+    assert called == []
+    assert "Looking up was skipped: the watch was stopped." in reasons_of(result)
+
+
+def test_fake_ip_addresses_are_watched_but_never_looked_up():
+    """A proxy tool's fake-IP mode hands apps 198.18.0.0/15 addresses: the watch
+    still reads them as destinations (check-ins included), but doesn't ask anyone
+    who runs them."""
+    calls = []
+    result = watch(_checkin_snaps({2, 4, 6, 8, 10}, remote="198.18.0.7"),
+                   lookups=fake_lookups({}, calls=calls))
+    [found] = by_code(result, "regular_checkins")
+    assert found.data["address"] == "198.18.0.7"
+    assert calls == []

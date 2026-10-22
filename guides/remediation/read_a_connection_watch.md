@@ -17,7 +17,7 @@ steps_for:
   network.connection_watch.upload_heavy: [1, 3, 5, 9]
   network.connection_watch.dns_lookups: [1, 3, 7, 9]
   network.connection_watch.dns_not_visible: [1, 8]
-  network.connection_watch.watch_incomplete: [1, 8]
+  network.connection_watch.watch_incomplete: [1, 8, 9]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5, 6, 7, 8, 9]
 monitoring_risk: false
@@ -34,9 +34,9 @@ asks you to stop or remove anything.
 The watch is a record of what the programs on this computer did while it was
 running: where each one connected, how often, and, where the computer shows
 it, how much data went each way. It only reads the list of connections your
-computer already keeps. It changes nothing, it sends nothing anywhere, and it
-looks nothing up: every address is shown as a number, so the watch itself
-doesn't tell anyone what you are curious about.
+computer already keeps, and it changes nothing. When it finishes, it looks up
+who runs each internet address it saw (step 9 says what that sends, and to
+whom), unless that was turned off.
 
 It only sees this computer's own connections, never another device's
 traffic. And it only saw the minutes it ran for. A quiet watch lowers the
@@ -164,6 +164,8 @@ the same as clean. Things it may list:
   administrator can see every owner with `sudo ss -tnap`.
 - **Stopped early, or looks that failed.** The result covers only the time
   that was gathered.
+- **Who runs an address.** If looking up was turned off, or some addresses
+  couldn't be looked up, the watch says so (step 9 explains the lookups).
 - **Too much to list.** The watch keeps at most 2,000 program-and-destination
   pairs and the timing of 200 connections per pair. Beyond that it keeps
   counting and says how many more there were.
@@ -172,13 +174,49 @@ If the watch gathered nothing, it says nothing about your connections either
 way. Running it again for the full time, without stopping it early, gives the
 fullest picture this computer allows.
 
-## Step 9: Before looking an address up
+## Step 9: Read who runs an address
 
-Finding out who owns an address belongs to a later part of Reclaim City (the
-Dossier), done one address at a time and only when you choose. That matters
-because a lookup is itself a disclosure: whichever service you ask learns
-which address you are curious about. Addresses on your own network and your
-own address are never worth sending out.
+After the watch, Reclaim City looks up who runs each internet address it
+saw, so a destination reads as a company's name and not just a number. The
+name comes from the internet registries, the organisations that hand out
+addresses, and from the address's own name in DNS.
 
-Until then, the program is the better question: whether you recognise it,
-and whether the pattern fits what it does.
+- **Most names are hosting and cloud companies.** A few companies (such as
+  Amazon, Google, Microsoft, Cloudflare and Akamai) run the computers behind
+  a large part of the internet, and many apps rent space from them. So the
+  name says who runs the address, which is not necessarily who made the app.
+  A chat app that talks to "Amazon.com, Inc." is usually just hosted there.
+- **The name is the network's holder.** The name shown is the company whose
+  network the address belongs to, as the registries list it, not every
+  customer using it. Where that isn't known, it is the company registered for
+  the address, or the address's own name in DNS, but only if that name leads
+  back to the same address (anyone who runs an address can give it any name,
+  even a famous one). A name you don't recognise is worth searching for; it
+  isn't a sign of a problem on its own.
+- **What was sent.** Only the addresses were sent, never what was in the
+  connections, to these services: your computer's own name lookup (reverse
+  DNS, which asks your DNS provider), RIPE NCC (stat.ripe.net) and rdap.org,
+  which sends your computer on to the regional registry that holds the
+  address (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC) to ask it directly.
+  Addresses on your own network, other private addresses, and the special
+  ranges set aside for testing and documentation are never sent.
+  Each service learns which addresses were asked about. Like any website,
+  each also sees your computer's public internet address and that the
+  question came from Reclaim City. The lookups keep no
+  copy of their own: the answers are only part of this watch's result.
+- **When a name is missing.** If the computer was offline, or a service
+  didn't answer, the watch says how many addresses it couldn't look up, and
+  how many it found out only part of. It looks up at most the 150 busiest
+  addresses and stops looking after 60 seconds. If you stop the watch early,
+  it still looks up what it gathered, for at most 10 seconds from the stop
+  (if less than 2 seconds are left by then, it skips them), and stopping
+  again ends that at once. It says so when any of these cuts the lookups
+  short. Couldn't-check is not the
+  same as clean.
+
+To turn the lookups off, untick "Look up who runs each address" before
+starting the watch in the app, or run `rescue watch --no-lookups`. The watch
+then shows addresses as numbers and says that looking up was turned off.
+
+The program is still the better question: whether you recognise it, and
+whether the pattern and the companies it talked to fit what it does.

@@ -3,7 +3,8 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const { EventEmitter } = require('events');
-const { WATCH_MINUTES, handleWatch, stopActiveWatch, SCAN_BUSY_MESSAGE } = require('../watch');
+const { WATCH_MINUTES, handleWatch, stopActiveWatch, quitActiveWatch, SCAN_BUSY_MESSAGE, STOP_GRACE_MS,
+  QUIT_GRACE_MS } = require('../watch');
 const { runWatch } = require('../engine-runner');
 const { MONITORING_MODULES } = require('../mark-policy');
 
@@ -48,6 +49,22 @@ test('only the listed durations are accepted', async () => {
     assert.strictEqual((await handleWatch(m, t.d)).ok, true, String(m));
     assert.deepStrictEqual(t.ran, [m]);
   }
+});
+
+test('lookups: on unless false; anything but a boolean is refused before the watch starts', async () => {
+  const seen = [];
+  const run = async (minutes, onEvent, lookups) => { seen.push(lookups); return WATCH_DOC; };
+  assert.strictEqual((await handleWatch(5, { ...deps({ runWatch: run }).d })).ok, true);
+  assert.strictEqual((await handleWatch(5, { ...deps({ runWatch: run }).d, lookups: true })).ok, true);
+  assert.strictEqual((await handleWatch(5, { ...deps({ runWatch: run }).d, lookups: false })).ok, true);
+  assert.deepStrictEqual(seen, [true, true, false]);
+  for (const bad of ['false', 0, 1, null, 'yes', [], {}, NaN]) {
+    const t = deps({ runWatch: run });
+    const r = await handleWatch(5, { ...t.d, lookups: bad });
+    assert.strictEqual(r.ok, false, JSON.stringify(bad));
+    assert.strictEqual(r.reason, 'bad_lookups');
+  }
+  assert.strictEqual(seen.length, 3, 'a refused flag starts nothing');
 });
 
 test('no scan, no watch', async () => {
@@ -157,6 +174,28 @@ test('runWatch spawns the engine read-only with the minutes and forwards progres
   assert.deepStrictEqual(events, [{ progress: { phase: 'watch', elapsed: 1, total: 300, snapshots: 1 } }]);
 });
 
+test('runWatch adds --no-lookups only when lookups is false', () => {
+  const argsFor = (opts) => {
+    let args;
+    runWatch(2, () => {}, (_bin, a) => { args = a; const c = fakeChild(); setImmediate(() => c.emit('close', 1)); return c; }, opts)
+      .promise.catch(() => {});
+    return args;
+  };
+  assert.deepStrictEqual(argsFor({ lookups: false }), ['watch', '--minutes', '2', '--json', '--progress', '--no-lookups']);
+  for (const opts of [undefined, {}, { lookups: true }, { lookups: 'false' }, { lookups: 0 }]) {
+    assert.deepStrictEqual(argsFor(opts), ['watch', '--minutes', '2', '--json', '--progress'], JSON.stringify(opts));
+  }
+});
+
+test('main passes the checkbox’s flag through as it came; preload sends it', () => {
+  const main = read('main.js');
+  const handler = main.slice(main.indexOf("ipcMain.handle('run-watch'"), main.indexOf("ipcMain.handle('stop-watch'"));
+  assert.match(handler, /\(e, minutes, lookups\) =>/);
+  assert.match(handler, /handleWatch\(minutes, \{\s*lookups,/);
+  assert.match(handler, /runWatch\(m, onEvent, undefined, \{ lookups: on \}\)/);
+  assert.ok(read('preload.js').includes("runWatch: (minutes, lookups) => ipcRenderer.invoke('run-watch', minutes, lookups)"));
+});
+
 test('runWatch stop() writes "stop\\n" to stdin and still resolves with the document', async () => {
   let child;
   const h = runWatch(10, () => {}, () => (child = fakeChild()));
@@ -204,6 +243,10 @@ test('runWatch default timeout is the watch plus two minutes', () => {
   assert.match(src, /minutes \* 60_?000 \+ 120_?000/);
 });
 
+test('a stopped watch gets 75 seconds: a snapshot already under way can take up to 30 s a command', () => {
+  assert.strictEqual(STOP_GRACE_MS, 75000);
+});
+
 test('stopActiveWatch: stop, and kill only if it has not exited within the grace period', async () => {
   let child;
   let h = runWatch(5, () => {}, () => (child = fakeChild()));
@@ -223,13 +266,38 @@ test('stopActiveWatch: stop, and kill only if it has not exited within the grace
   await stopActiveWatch(null); // nothing running
 });
 
+test('quitActiveWatch: on quit nobody reads the result, so stop twice and kill after 5 s', async () => {
+  assert.strictEqual(QUIT_GRACE_MS, 5000);
+  let child;
+  let h = runWatch(5, () => {}, () => (child = fakeChild()));
+  const done = quitActiveWatch(h, { graceMs: 50 });
+  assert.deepStrictEqual(child.written, ['stop\n', 'stop\n'], 'the second stop ends the lookups too');
+  child.stdout.emit('data', DOC_TEXT);
+  child.emit('close', 0);
+  await done;
+  assert.strictEqual(child.killed, 0, 'exited in time: not killed');
+
+  h = runWatch(5, () => {}, () => (child = fakeChild()));
+  h.promise.catch(() => {});
+  await quitActiveWatch(h, { graceMs: 10 });
+  assert.strictEqual(child.killed, 1, 'still running: killed');
+  child.emit('close', null);
+
+  await quitActiveWatch(null); // nothing running
+});
+
 test('stops the watch when the app quits, and when the window goes away', () => {
   const main = read('main.js');
   const quit = main.slice(main.indexOf("app.on('before-quit'"));
   assert.ok(main.includes("app.on('before-quit'"), 'before-quit is handled');
-  assert.match(quit.slice(0, 600), /stopActiveWatch\(/);
+  assert.match(quit.slice(0, 600), /quitActiveWatch\(/);
+  assert.doesNotMatch(quit.slice(0, 600), /stopActiveWatch\(/);
   assert.match(quit.slice(0, 600), /preventDefault\(\)/);
   assert.match(main, /'destroyed'/);
+  assert.match(main, /const onGone = \(\) => quitActiveWatch\(watch\)/, 'the window going away is a quit too');
+  // Only STOP pressed in the panel gets the long grace.
+  const stopHandler = main.slice(main.indexOf("ipcMain.handle('stop-watch'"), main.indexOf("ipcMain.handle('run-fix'"));
+  assert.match(stopHandler, /stopActiveWatch\(activeWatch\)/);
 });
 
 test('one flag covers the checkup and the watch', () => {

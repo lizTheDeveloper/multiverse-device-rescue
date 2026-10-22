@@ -2,6 +2,8 @@
 // read after the person tags it. Pure. Only clues the evidence supports are
 // made. Every place note and every "how to read this" line names a file in
 // this repo and a phrase from it; desktop/test/game-clues.test.js checks both.
+import { WATCH_GROUP_CODE, WATCH_SUMMARY_CODE } from './signals.js';
+
 const LAUNCH = { source: 'guides/remediation/review_launch_persistence.md', quote: 'starts on every login' };
 const TEMP = { source: 'rescue/attribution.py', quote: 'a temporary folder any program can write to' };
 const HIDDEN = { source: 'guides/remediation/clean_ai_worm_filesystem.md', quote: 'dropped scripts under' };
@@ -65,11 +67,13 @@ export const READING = {
     source: 'guides/remediation/review_launch_persistence.md', quote: 'reported in the finding' },
   what: { text: 'This is the checkup’s own plain-language description of what it found.',
     source: 'AGENTS.md', quote: 'plain-language explanation' },
+  went: { text: 'Who runs an address is usually a hosting or cloud company, not the app’s maker. Lookups sent the addresses, not what was in them.',
+    source: 'docs/cli.md', quote: 'only the address is sent' },
   when: { text: 'The date the scan recorded for it. Did you install something around then? If you didn’t, something else may have.',
     source: 'guides/remediation/review_changes_since_baseline.md', quote: "did I install something around then? If you didn't, something else may have." },
 };
 
-export const CLUE_LABEL = { maker: 'WHO MADE IT', where: 'WHERE IT LIVES', what: 'WHAT IT DOES', when: 'WHEN IT SHOWED UP' };
+export const CLUE_LABEL = { maker: 'WHO MADE IT', where: 'WHERE IT LIVES', went: 'WHERE THEY WENT', what: 'WHAT IT DOES', when: 'WHEN IT SHOWED UP' };
 export const COULDNT_READ = 'Noted. This check couldn’t run, so nothing here was looked at. That doesn’t mean it’s safe.';
 
 // Data fields that hold the path of the thing a finding names, most useful first.
@@ -127,8 +131,92 @@ function makerClue(entries) {
   return { kind: 'maker', label: CLUE_LABEL.maker, lines, reading };
 }
 
+// --- WHERE THEY WENT: the connection watch, grouped (signals.js) -----------
+// Names from registries and reverse DNS are whatever their owners typed:
+// control characters go, and each is cut short. The view escapes them.
+const SHOWN_MAX = 80;
+const MAX_APPS = 25;
+const MAX_PLACES = 8;
+const MAX_OWNERS = 5;
+const UNNAMED = 'unknown'; // rescue/watch.py _UNKNOWN
+// rescue/watch.py _look_up's reason when lookups are off; the clue says it once, its own way.
+const TURNED_OFF = 'Looking up who runs each address was turned off.';
+const shown = (v, max = SHOWN_MAX) => {
+  const s = String(v).replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').replace(/\s+/g, ' ').trim();
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+};
+const textOf = (v) => (typeof v === 'string' && v.trim() ? shown(v) || null : null);
+const whole = (n) => Math.max(0, Math.floor(Number(n) || 0));
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+// rescue/watch.py _holder_company: "HANDLE - Company" or "HANDLE Company" → "Company".
+const HANDLE = /^[A-Z0-9-]*[0-9-][A-Z0-9-]*$/;
+export function holderCompany(name) {
+  if (typeof name !== 'string' || !name) return null;
+  const dash = name.indexOf(' - ');
+  if (dash >= 0) return name.slice(dash + 3).trim() || name;
+  const space = name.indexOf(' ');
+  if (space >= 0 && name.slice(space + 1).trim() && HANDLE.test(name.slice(0, space))) return name.slice(space + 1).trim();
+  return name;
+}
+
+// rescue/watch.py _owner: the holder's company, else the registrant, else a
+// hostname that leads back to the address. Never an unconfirmed hostname.
+export function ownerOf(who) {
+  if (!who || typeof who !== 'object') return null;
+  return textOf(holderCompany(who.as_name)) || textOf(who.registrant)
+    || (who.hostname_confirmed === true ? textOf(who.hostname) : null);
+}
+
+function placeOf(x) {
+  const address = textOf(x.address) || 'an address';
+  const at = Number.isInteger(x.port) ? `${address.includes(':') ? `[${address}]` : address}:${x.port}` : address;
+  const who = x.who && typeof x.who === 'object' ? x.who : null;
+  const host = who && textOf(who.hostname);
+  const name = ownerOf(who) || (host ? `${host} (unverified)` : null);
+  return name ? `${name} (${at})` : at;
+}
+
+// `notes`: the watch_summary findings; `gaps`: watch_incomplete's reasons.
+function wentClue(notes, gaps) {
+  const apps = notes.filter((n) => n && n.code === WATCH_SUMMARY_CODE).map((n) => {
+    const d = dataOf(n);
+    const places = (Array.isArray(d.destinations) ? d.destinations : []).filter((x) => x && typeof x === 'object');
+    const name = typeof d.target === 'string' && d.target.trim() && d.target !== UNNAMED ? shown(d.target)
+      : 'A program Reclaim City couldn’t name';
+    return { name, places, unlisted: whole(d.more) + whole(d.not_stored), busy: places.reduce((t, x) => t + whole(x.snapshots), 0),
+      sources: d.lookup_sources };
+  }).sort((a, b) => (b.busy - a.busy) || a.name.localeCompare(b.name));
+  const lines = [];
+  // Owners by how many apps talked to them; ties keep the busiest app's order.
+  const owners = new Map();
+  apps.forEach((a, i) => {
+    for (const x of a.places) {
+      const o = ownerOf(x.who);
+      if (o) owners.set(o, (owners.get(o) || new Set()).add(i));
+    }
+  });
+  const top = [...owners].sort((a, b) => b[1].size - a[1].size).slice(0, MAX_OWNERS);
+  if (top.length) lines.push(`Talked to: ${top.map(([o, s], i) => `${o} (${i ? s.size : plural(s.size, 'app')})`).join(', ')}`);
+  for (const a of apps.slice(0, MAX_APPS)) {
+    const more = a.places.length - Math.min(a.places.length, MAX_PLACES) + a.unlisted;
+    const listed = a.places.slice(0, MAX_PLACES).map(placeOf).join(', ');
+    lines.push(`${a.name}: ${listed || 'no places listed'}${more ? `, and ${more} more` : ''}`);
+  }
+  if (apps.length > MAX_APPS) lines.push(`And ${plural(apps.length - MAX_APPS, 'more app')}.`);
+  for (const r of gaps) if (typeof r === 'string' && r.trim() && r.trim() !== TURNED_OFF) lines.push(shown(r, 400));
+  const said = apps.filter((a) => Array.isArray(a.sources));
+  const sources = [...new Set(said.flatMap((a) => a.sources).filter((x) => typeof x === 'string' && x.trim()).map((x) => shown(x, 200)))];
+  if (sources.length) lines.push(`Looked up with: ${sources.join('; ')}.`);
+  else if (said.length) lines.push('Not looked up (turned off).');
+  return { kind: 'went', label: CLUE_LABEL.went, lines, reading: READING.went };
+}
+
 export function cluesFor(finding) {
   if (!finding || typeof finding !== 'object') return [];
+  if (finding.code === WATCH_GROUP_CODE) {
+    return [wentClue(Array.isArray(finding.watch) ? finding.watch : [], Array.isArray(finding.incomplete) ? finding.incomplete : [])];
+  }
   const out = [];
   const entries = Array.isArray(finding.made_by) ? finding.made_by.filter((e) => e && typeof e === 'object') : [];
   if (entries.length) out.push(makerClue(entries));

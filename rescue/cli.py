@@ -14,6 +14,7 @@ from rescue.app_fixes import AppFixesError, load_app_actions, load_app_fixes
 from rescue.case import RescueCase, write_case
 from rescue.guides import discover_guides
 from rescue.models import ActionKind, CheckResult, Mode, RiskLevel
+from rescue.netaddr import address_key
 from rescue.orchestrator import Orchestrator
 from rescue.profiler.base import detect_platform, gather_profile
 from rescue.profiles import Profile, ProfileValidationError, discover_profiles, validate_profile_modules
@@ -35,6 +36,7 @@ from rescue.update.repo import ContentRepo, GitError
 from rescue.update.sideload import SideloadError, load_sideload_repo
 from rescue.validate import validate_catalog
 from rescue.watch import MAX_INTERVAL, MAX_MINUTES, MIN_INTERVAL, MIN_MINUTES, WATCH_CODES, WatchModule, run_watch
+from rescue.whois import SOURCES, is_lookupable, look_up_all
 
 
 def _project_root() -> Path:
@@ -228,23 +230,61 @@ def _listening_verdict():
     return None
 
 
-def _stop_on_request():
-    """An Event that a ``stop`` line on stdin, SIGINT or SIGTERM sets.
+class _StopRequests:
+    """Stop requests so far: the first one stops, and each is counted so a later one can be told apart.
 
-    Returns (event, restore). End of input is not a stop. ``restore`` puts the
-    signal handlers back.
+    The watch stops at the first request; when it then looks up who runs each
+    address, a second request ends that too.
+
+    ``request()`` runs inside a signal handler, so it takes no lock: it only
+    appends to a list, which is atomic. A threading.Event would not do: its
+    set() takes the lock that wait() holds, and a signal landing on the main
+    thread inside wait() would then never return. ``wait()`` polls the list
+    in short slices instead, so a stop wakes it promptly.
+    """
+
+    POLL_SECONDS = 0.1
+
+    def __init__(self):
+        self._requests: list[None] = []
+
+    def request(self) -> None:
+        self._requests.append(None)
+
+    def count(self) -> int:
+        return len(self._requests)
+
+    def is_set(self) -> bool:
+        return bool(self._requests)
+
+    def wait(self, seconds: float) -> bool:
+        import time
+
+        deadline = time.monotonic() + seconds
+        while not self._requests:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                return False
+            time.sleep(min(left, self.POLL_SECONDS))
+        return True
+
+
+def _stop_on_request():
+    """Stop requests from a ``stop`` line on stdin, SIGINT or SIGTERM; each one counts.
+
+    Returns (requests, restore). End of input is not a stop. ``restore`` puts
+    the signal handlers back.
     """
     import signal
     import threading
 
-    stop = threading.Event()
+    stop = _StopRequests()
 
     def read_stdin():
         try:
             for line in sys.stdin:
                 if line.strip().lower() == "stop":
-                    stop.set()
-                    return
+                    stop.request()
         except (OSError, ValueError):
             pass  # no usable stdin: nothing to read, not a stop
 
@@ -253,7 +293,7 @@ def _stop_on_request():
     previous = {}
     for sig in (signal.SIGINT, signal.SIGTERM):
         try:
-            previous[sig] = signal.signal(sig, lambda *_: stop.set())
+            previous[sig] = signal.signal(sig, lambda *_: stop.request())
         except ValueError:
             pass  # not the main thread: stdin and the caller can still stop it
 
@@ -286,11 +326,23 @@ def _stop_on_request():
     is_flag=True,
     help='Write one {"progress": ...} JSON line per look to stderr.',
 )
-def watch(minutes, interval, as_json, progress):
+@click.option(
+    "--no-lookups",
+    is_flag=True,
+    help="Don't look up who runs each address afterwards. By default each public "
+    "address (never what was in the connection) is sent to RIPE NCC and to rdap.org, "
+    "which redirects this computer to the regional registry that holds it (ARIN, "
+    "RIPE NCC, APNIC, LACNIC or AFRINIC) to ask directly, and looked up in reverse "
+    "DNS through this computer's own resolver. Each service also sees this "
+    "computer's public IP address and the app's name and version.",
+)
+def watch(minutes, interval, as_json, progress, no_lookups):
     """Watch this computer's connections for a few minutes (opt-in, read-only).
 
-    Ends early if you send the line "stop" on standard input, or press Ctrl-C.
-    The result is still printed, marked as stopped early.
+    Afterwards it looks up who runs each public address it saw, unless you pass
+    --no-lookups. Ends early if you send the line "stop" on standard input, or
+    press Ctrl-C. The result is still printed, marked as stopped early, after
+    a short lookup of what was gathered; a second stop ends that lookup too.
     """
     from rescue.serialize import checks_to_json
 
@@ -310,8 +362,10 @@ def watch(minutes, interval, as_json, progress):
             interval,
             sleep=sleep,
             should_stop=stop.is_set,
+            stop_requests=stop.count,
             on_progress=on_progress if progress else None,
             verdict=_listening_verdict(),
+            lookups=None if no_lookups else look_up_all,
         )
     finally:
         restore()
@@ -324,6 +378,51 @@ def watch(minutes, interval, as_json, progress):
         return
     for finding in result.findings:
         click.echo(f"- {finding.title}")
+    destinations = [
+        d for f in result.findings if f.code == "network.connection_watch.watch_summary"
+        for d in f.data.get("destinations") or []
+    ]
+    if no_lookups:
+        if any(is_lookupable(d.get("address")) for d in destinations):
+            click.echo("Addresses were not looked up (--no-lookups).")
+    elif any(d.get("who") for d in destinations):
+        click.echo("Looked up who runs each public address with: " + "; ".join(SOURCES) + ".")
+
+
+@main.command()
+@click.argument("addresses", nargs=-1, required=True)
+def lookup(addresses):
+    """Look up who runs each public address (read-only).
+
+    Prints {address: who} as JSON. Only the address is sent: to RIPE NCC, to
+    rdap.org, which redirects this computer to the regional registry that holds
+    it (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC) to ask directly, and to
+    reverse DNS through this computer's own resolver. Each service also sees
+    this computer's public IP address and the app's name and version. Private,
+    local and reserved addresses are never looked up; they print null.
+    """
+    public = [ip for ip in addresses if is_lookupable(ip)]
+    distinct = {address_key(ip) for ip in public}
+    for ip in addresses:
+        if ip not in public:
+            click.echo(
+                f"{ip}: not looked up. Only public internet addresses are; private, local "
+                "and reserved addresses are never looked up.",
+                err=True,
+            )
+    found = look_up_all(public) if public else {"results": {}, "skipped": 0, "over_budget": False}
+    if found["skipped"]:
+        click.echo(
+            f"Only the first {len(distinct) - found['skipped']} addresses were looked up.", err=True
+        )
+    if found["over_budget"]:
+        click.echo("Looking up stopped before every address was done.", err=True)
+    # One answer per address, however it was written (::ffff:8.8.8.8 is 8.8.8.8).
+    by_address = {address_key(ip): who for ip, who in found["results"].items()}
+    click.echo(json.dumps(
+        {ip: by_address.get(address_key(ip)) if ip in public else None for ip in addresses},
+        indent=2,
+    ))
 
 
 def _run_traced(orch):

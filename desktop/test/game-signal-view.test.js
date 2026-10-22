@@ -114,3 +114,35 @@ test('the Training Grounds offer the DRILL RANGE, with or without a scan', async
   assert.match(html, /data-go="range"[^>]*>DRILL RANGE ▶/);
   assert.match(html, /Nothing in the range touches your computer/);
 });
+
+test('test_clue_escapes_registry_text: a looked-up name is shown as text in WHERE THEY WENT', async () => {
+  const v = await views();
+  const who = { hostname: EVIL, hostname_confirmed: false, as_name: null, registrant: EVIL, unavailable: [] };
+  const note = { module: 'connection_watch', code: 'network.connection_watch.watch_summary', title: 'x', severity: 'info',
+    data: { target: EVIL, destinations: [{ address: '1.2.3.4', port: 443, protocol: 'tcp', snapshots: 1, who }], lookup_sources: [EVIL] } };
+  const finding = { module: 'connection_watch', code: 'network.connection_watch.group', watch: [note] };
+  const signal = real({ id: 'connection_watch|group', severity: 'info', title: 'Connection watch: 1 app talked to 1 place', finding, missionId: null });
+  const html = await panel({ signal, clues: v.cluesFor(finding), opened: ['went'] });
+  assert.match(html, /WHERE THEY WENT/);
+  assert.ok(!html.includes(EVIL), 'nothing from a registry or DNS is markup');
+  assert.ok(html.includes('&lt;img src=x onerror=alert(1)&gt;'));
+});
+
+test('WHERE THEY WENT: an unconfirmed hostname is never the owner, and a confirmed one is shown as text', async () => {
+  const v = await views();
+  const at = (address, who) => ({ address, port: 443, protocol: 'tcp', snapshots: 1, who });
+  const note = { module: 'connection_watch', code: 'network.connection_watch.watch_summary', title: 'x', severity: 'info',
+    data: { target: 'App', lookup_sources: [], destinations: [
+      at('1.1.1.1', { hostname: EVIL, hostname_confirmed: false, as_name: null, registrant: null, unavailable: [] }),
+      at('2.2.2.2', { hostname: `ok${EVIL}`, hostname_confirmed: true, as_name: null, registrant: null, unavailable: [] }),
+    ] } };
+  const finding = { module: 'connection_watch', code: 'network.connection_watch.group', watch: [note], incomplete: [] };
+  const [clue] = v.cluesFor(finding);
+  assert.strictEqual(clue.lines[0], `Talked to: ok${EVIL} (1 app)`, 'only the confirmed hostname is an owner');
+  assert.strictEqual(clue.lines[1], `App: ${EVIL} (unverified) (1.1.1.1:443), ok${EVIL} (2.2.2.2:443)`);
+  const signal = real({ id: 'connection_watch|group', severity: 'info', title: 'Connection watch: 1 app talked to 2 places', finding, missionId: null });
+  const html = await panel({ signal, clues: [clue], opened: ['went'] });
+  assert.ok(!html.includes(EVIL), 'neither hostname is markup');
+  assert.ok(html.includes('&lt;img src=x onerror=alert(1)&gt; (unverified) (1.1.1.1:443)'));
+  assert.ok(html.includes('ok&lt;img src=x onerror=alert(1)&gt; (2.2.2.2:443)'));
+});
