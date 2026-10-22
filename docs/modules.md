@@ -32,13 +32,13 @@ $ rescue run <module_name>
 
 ## Coverage at a glance
 
-**284 modules** ship in the tree.
+**285 modules** ship in the tree.
 
 | Platform | Modules that run there |
 | --- | ---: |
-| macOS | 196 |
-| Windows | 101 |
-| Linux | 29 |
+| macOS | 197 |
+| Windows | 102 |
+| Linux | 30 |
 
 A module can support more than one platform, so these numbers add up to more than the total.
 
@@ -48,7 +48,7 @@ A module can support more than one platform, so these numbers add up to more tha
 | [integrity](#integrity) | 106 |
 | [network](#network) | 8 |
 | [performance](#performance) | 51 |
-| [security](#security) | 115 |
+| [security](#security) | 116 |
 
 ## bloatware
 
@@ -259,11 +259,12 @@ Why the machine is slow: CPU and memory pressure, thermals, disk space, startup 
 
 Malware and spyware indicators, persistence, remote access, credential exposure, and system hardening posture.
 
-115 modules — macOS 80, Windows 46, Linux 19.
+116 modules — macOS 81, Windows 47, Linux 20.
 
 | Module | Platforms | Risk | Duration | What it checks |
 | --- | --- | --- | --- | --- |
 | `accessibility_permissions` | macOS | safe | 5s | — |
+| `ai_agent_audit` | macOS, Windows, Linux | safe | about a second; the first run also downloads about 51 MB | ai_agent_audit: what AI tools on this computer can reach, using HackMyAgent. |
 | `ai_threat_indicators` | macOS | safe | 5s | — |
 | `ai_worm_filesystem` | macOS, Windows, Linux | moderate | 10s | — |
 | `ai_worm_git_ssh` | macOS, Windows, Linux | moderate | 10s | — |

@@ -17,3 +17,10 @@ def _no_real_app_names(monkeypatch):
     from rescue import app_names
 
     monkeypatch.setattr(app_names, "_index_cache", {})
+
+
+@pytest.fixture(autouse=True)
+def _no_real_downloads(tmp_path_factory, monkeypatch):
+    """A scan in a test never fetches anything, and never runs a copy fetched for real."""
+    monkeypatch.setenv("RESCUE_NO_DOWNLOADS", "1")
+    monkeypatch.setenv("RESCUE_CACHE_DIR", str(tmp_path_factory.mktemp("user-cache")))

@@ -31,6 +31,7 @@ def test_profile_includes_all_modules():
         "launchd_persistence_audit",
         "scheduled_tasks_audit",
         "mvt_spyware_scan",
+        "ai_agent_audit",
     }
     assert set(profile.include_modules) == expected
 
@@ -55,6 +56,7 @@ def test_profile_filters_modules():
         "launchd_persistence_audit",
         "scheduled_tasks_audit",
         "mvt_spyware_scan",
+        "ai_agent_audit",
     }
     assert filtered_names == expected
 
@@ -75,6 +77,7 @@ def test_all_modules_discoverable():
         "launchd_persistence_audit",
         "scheduled_tasks_audit",
         "mvt_spyware_scan",
+        "ai_agent_audit",
     }
     assert expected.issubset(module_names)
 

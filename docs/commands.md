@@ -26,7 +26,11 @@ In the desktop app, open **Show technical details** while a checkup runs.
 
 Besides commands, checks read files (launch agents, browser profiles, logs)
 directly; read a module's `__init__.py` for the full picture. No check writes
-anything — `fix()` is separate and always asks first.
+anything — `fix()` is separate and always asks first — with one exception:
+`ai_agent_audit` downloads HackMyAgent once, with `npm ci` from the pinned
+lockfile in `vendor/hackmyagent/`, into the user cache folder
+(`ReclaimCity/hackmyagent-<version>`), and reuses it after that.
+`rescue scan --no-downloads` turns the download off.
 
 
 ## Bloatware
@@ -1320,6 +1324,16 @@ Runs no external commands; reads files and system APIs only.
 ```text
 sqlite3 … "SELECT client FROM access WHERE service='kTCCServiceAccessibility' AND auth_value=2"
 ```
+
+### `ai_agent_audit`
+
+```text
+node --version
+node node_modules/hackmyagent/dist/cli.js detect … --json --depth 0
+npm ci --ignore-scripts --no-audit --no-fund --registry=https://registry.npmjs.org/ --cache …
+```
+
+Plus 3 command(s) built at runtime.
 
 ### `ai_threat_indicators`
 
