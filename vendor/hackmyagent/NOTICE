@@ -1,0 +1,16 @@
+Third-party software: HackMyAgent
+
+The ai_agent_audit check downloads and runs HackMyAgent, which is not part of
+Reclaim City and is not bundled with it.
+
+  HackMyAgent, version 0.33.2
+  Copyright OpenA2A (https://github.com/opena2a-org/hackmyagent)
+  Licensed under the Apache License, Version 2.0
+  https://www.apache.org/licenses/LICENSE-2.0
+
+The packages HackMyAgent depends on are pinned in package-lock.json in this
+folder, each with its own license as recorded there. The downloaded copy
+contains each package's own license file.
+
+stub/ is Reclaim City's own two-file replacement for onnxruntime-node, which
+detect does not use.

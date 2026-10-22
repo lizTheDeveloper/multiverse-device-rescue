@@ -13,7 +13,7 @@ overstates its own guarantees is teaching you the wrong habit.
 | --- | --- |
 | Does `rescue --auto` change my system? | No. Zero shipped modules opt in to unattended change. |
 | Does it ever ask for a password, 2FA code, or recovery key? | No. There is no such prompt anywhere in the tool. |
-| Does it send anything anywhere? | Only when you ask: the AI layer when you turn it on, `rescue update` when you run it, and the "who runs this address" lookups after a connection watch you start or for addresses you give `rescue lookup`. Those send only the public addresses: to RIPE NCC, to rdap.org, which redirects your computer to the regional registry that holds each address (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC) to ask it directly, and to reverse DNS through your computer's own resolver. Each service also sees your computer's public IP address, as any website does, and the app's name and version. `rescue watch --no-lookups` turns them off. |
+| Does it send anything anywhere? | Only when you ask: the AI layer when you turn it on, `rescue update` when you run it, and the "who runs this address" lookups after a connection watch you start or for addresses you give `rescue lookup`. Those send only the public addresses: to RIPE NCC, to rdap.org, which redirects your computer to the regional registry that holds each address (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC) to ask it directly, and to reverse DNS through your computer's own resolver. Each service also sees your computer's public IP address, as any website does, and the app's name and version. `rescue watch --no-lookups` turns them off. One download happens during a normal scan: the AI tools check fetches HackMyAgent from the npm registry once, pinned by integrity hash, and nothing about your computer is sent. `rescue scan --no-downloads` turns it off. |
 | Can an update push new Python code to my machine? | Not through the sanctioned path. Updates carry data files only, and content commits containing anything else are rejected. |
 | Can I read what a check does before running it? | Yes. Every module is one plain Python file in the source tree. |
 | Does it verify it has not been tampered with? | Yes, at every launch, with a SHA-256 manifest — but the check warns and continues rather than blocking. |
@@ -42,6 +42,7 @@ history or page contents, or opens your documents and photos. The
 | `~/.rescue/known_items.json` | `rescue known add` / `remove`, or "It's mine" in the app ("I did this" writes nothing). A scan may also **remove** a mark from this file when the check that reported the item no longer sees it (see below); it never adds one and never touches anything else on the system. |
 | `~/.config/rescue/revoked_signers.json` | `rescue trust revoke` |
 | `~/.local/share/rescue/content/` | `rescue update`, after signature verification |
+| `<user cache>/ReclaimCity/hackmyagent-<version>/` | `rescue scan`, once: the AI tools check's downloaded copy of HackMyAgent (see below) |
 
 Case files are written `0600` where the filesystem supports it, because even a
 redacted case describes a machine's security posture and lands in a home
@@ -304,8 +305,9 @@ address and once to confirm the name that comes back. Only addresses are
 sent, never private ones. Each service also sees your computer's public IP
 address, as any website does, and the app's name and version (in the
 User-Agent, and RIPEstat's `sourceapp`). The registry hosts are listed in
-[What each check runs](commands.md). That is the complete list of
-outbound network activity initiated by the tool itself. (Individual checks read
+[What each check runs](commands.md). The one exception to "only when you
+ask" is the AI tools check's one-time download, described below. That is the
+complete list of outbound network activity initiated by the tool itself. (Individual checks read
 local state; some, like a network speed test, use the network by their nature —
 read the module if you care.)
 
@@ -316,10 +318,42 @@ requires an AI provider" and stops. What is sent is one line per finding —
 `[category/module] (severity) title: description` — and nothing else. See
 [Privacy](privacy.md#what-the-ai-layer-sends) for the full payload.
 
+### The AI tools check downloads one tool
+
+`ai_agent_audit` lists the AI assistants on the computer, the add-ons (MCP
+servers) they can use, and AI settings files holding a secret key. It does
+this with HackMyAgent (OpenA2A, Apache-2.0,
+<https://github.com/opena2a-org/hackmyagent>), which is not bundled:
+
+- **What is fetched.** `npm ci --ignore-scripts --no-audit --no-fund
+  --registry=https://registry.npmjs.org/` against
+  `vendor/hackmyagent/package-lock.json`, which pins HackMyAgent 0.33.2 and
+  every package under it with an integrity hash. npm refuses anything that
+  doesn't match. `--ignore-scripts` means no package's install script runs.
+  The AI runtime HackMyAgent can optionally use (`onnxruntime-node`) is
+  replaced by a two-file local stub that throws if loaded; `detect` never
+  loads it.
+- **Where it goes.** A temp folder beside
+  `<user cache>/ReclaimCity/hackmyagent-0.33.2`, renamed into place only when
+  complete. A failed or partial download is deleted. npm's own cache is a
+  temp folder, deleted afterwards. Later scans reuse the copy after checking
+  its version.
+- **What runs.** Only `detect <home> --json --depth 0`, with
+  `OPENA2A_TELEMETRY=off` and `OPENA2A_HOME` set to a temp folder deleted
+  afterwards. Never `secure`, `--fix`, `attack` or any other command. It reads
+  AI settings files; it masks any key values it finds, and Reclaim City keeps
+  only the variable name, never the value.
+- **Off switch.** `rescue scan --no-downloads` or `RESCUE_NO_DOWNLOADS=1`.
+- **What it needs.** Node.js 18 or newer, already installed. Reclaim City
+  never installs Node.js; without it the check reports "couldn't check".
+
+Updating the pinned version is a reviewed change to the lockfile, never
+automatic.
+
 ## Read the source of any check
 
-There is no plugin marketplace and no runtime code download. Every check is one
-file:
+There is no plugin marketplace, and no runtime code download apart from the
+pinned HackMyAgent fetch above. Every check is one file:
 
 ```console
 $ ls modules/security/linux_firewall_check/

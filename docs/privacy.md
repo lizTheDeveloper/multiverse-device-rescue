@@ -3,7 +3,11 @@
 Short version: everything happens on your machine. There is no telemetry, no
 analytics, no crash reporting, and no account. Three things reach the network and
 all need you to ask: `rescue update`, the optional AI layer, and the "who runs
-this address" lookups after a connection watch you start.
+this address" lookups after a connection watch you start. One more happens
+during a normal scan, once: the AI tools check downloads a free tool
+(HackMyAgent) from the npm registry the first time it runs. That is an
+ordinary package download; nothing about your computer is sent.
+`rescue scan --no-downloads` turns it off.
 
 ## What the tool touches
 
@@ -44,16 +48,21 @@ Only these, and only when you run the command that writes them:
 | `~/.rescue/cases/case-<timestamp>.{json,md}` | `rescue export` | A redacted record of one scan. |
 | `~/.config/rescue/revoked_signers.json` | `rescue trust revoke` | Signer IDs you have stopped trusting, and why. |
 | `~/.local/share/rescue/content/` | `rescue update` | The verified content checkout. |
+| `<user cache>/ReclaimCity/hackmyagent-<version>/` | `rescue scan` (the AI tools check), once | The downloaded copy of HackMyAgent. No findings. Safe to delete. |
 
 Case files are written with owner-only permissions (`0600`) where the
 filesystem supports it, because even redacted they describe a machine's
 security posture and land somewhere other local accounts may be able to read.
 
-Nothing else is persisted. A `rescue scan` writes nothing at all.
+Nothing else is persisted. A `rescue scan` writes nothing else: the AI tools
+check points HackMyAgent's own settings folder and npm's download cache at
+temp folders and deletes them afterwards, so nothing lands in `~/.opena2a` or
+`~/.npm`. `<user cache>` is `~/Library/Caches` on macOS, `$XDG_CACHE_HOME` or
+`~/.cache` on Linux, and `%LOCALAPPDATA%` on Windows.
 
 ## What leaves the machine
 
-Four things, exhaustively:
+Five things, exhaustively:
 
 1. **`rescue update`** contacts the configured content git remote when you run
    it. It sends nothing about your machine — it is a `git fetch`. (On the
@@ -78,6 +87,16 @@ Four things, exhaustively:
    address, and the request names the app and its version (Reclaim City).
    `rescue watch --no-lookups` turns this off. See
    [the CLI reference](cli.md#rescue-watch-watch-connections-for-a-few-minutes).
+5. **The AI tools check's one-time download.** The first time a scan runs
+   the `ai_agent_audit` check, it downloads HackMyAgent and the packages it
+   needs (about 51 MB) from `registry.npmjs.org` with `npm ci`, pinned to
+   exact versions and integrity hashes in `vendor/hackmyagent/`. What is
+   sent is a normal package download: the package names and versions. Like
+   any website, the registry sees your computer's public IP address. Nothing
+   about your computer is sent. Later scans reuse the copy and don't use the
+   network. HackMyAgent's own usage reporting is turned off when it runs.
+   `rescue scan --no-downloads` (or `RESCUE_NO_DOWNLOADS=1`) turns the
+   download off.
 
 There is no "phone home" on launch, no version check, no usage counter, and no
 error reporting.
