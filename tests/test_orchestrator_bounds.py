@@ -98,3 +98,38 @@ def test_total_budget_skips_remaining_modules():
     # fast_mod should be reported as skipped due to exhausted budget.
     assert by_name["fast_mod"].error is not None
     assert "budget" in by_name["fast_mod"].error.lower()
+
+
+class SlowButAllowedModule(ModuleBase):
+    """Sleeps past the orchestrator's limit but declares a longer one of its own."""
+
+    name = "slow_allowed"
+    category = "test"
+    platforms = [Platform.DARWIN]
+    depends_on = []
+    check_timeout = 5.0
+
+    def check(self, profile):
+        time.sleep(0.8)
+        return CheckResult(
+            module_name=self.name,
+            findings=[Finding("ok", "d", Severity.INFO, self.category)],
+        )
+
+    def fix(self, findings, mode):
+        return None
+
+
+def test_a_module_can_declare_a_longer_check_timeout():
+    modules = [SlowButAllowedModule(), HangingModule()]
+    patches = _patched(modules)
+    for p in patches:
+        p.start()
+    try:
+        results = Orchestrator(modules_dir=Path("/fake"), module_timeout=0.3).run_checks()
+    finally:
+        for p in patches:
+            p.stop()
+    by_name = {mod.name: check for mod, check in results}
+    assert by_name["slow_allowed"].error is None and by_name["slow_allowed"].has_issues
+    assert by_name["hang_mod"].error is not None

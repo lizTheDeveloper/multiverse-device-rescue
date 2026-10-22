@@ -23,6 +23,10 @@ class ModuleBase(ABC):
     # Powers the coverage catalog and the validation gate. Default: none.
     emits_codes: list[str] = []
     estimated_duration: str = "unknown"
+    # Seconds the orchestrator lets check() run before abandoning it. None uses
+    # the orchestrator's default; set it only for a check that must wait on
+    # something slow but bounded (a one-time download, say).
+    check_timeout: float | None = None
     # Opt-in to unattended mutation in auto mode. Default False keeps auto mode
     # read-only: a module is only auto-applied once its fix() is known to be an
     # idempotent, low-impact, reversible SAFE mutation and it sets this True.

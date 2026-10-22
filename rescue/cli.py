@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -183,9 +184,17 @@ def version():
     is_flag=True,
     help='Skip the "Who made it?" lookups (code-signature checks) that add made_by to findings.',
 )
-def scan(as_json, profile_name, module_names, progress, trace, no_attribution):
+@click.option(
+    "--no-downloads",
+    is_flag=True,
+    help="Don't download tools a check needs (HackMyAgent, for the AI tools check). "
+    "Same as RESCUE_NO_DOWNLOADS=1. A copy already downloaded still runs.",
+)
+def scan(as_json, profile_name, module_names, progress, trace, no_attribution, no_downloads):
     """Run read-only checks. With --json, print structured results to stdout."""
     from rescue.serialize import checks_to_json
+    if no_downloads:
+        os.environ["RESCUE_NO_DOWNLOADS"] = "1"
     if profile_name and module_names:
         raise click.UsageError("Use --profile or --module, not both.")
     if module_names:

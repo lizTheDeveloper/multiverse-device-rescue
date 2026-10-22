@@ -142,7 +142,8 @@ class Orchestrator:
             report("start", index, total, mod, None)
             try:
                 check = _call_with_timeout(
-                    lambda m=mod: m.check(profile), self._module_timeout
+                    lambda m=mod: m.check(profile),
+                    getattr(mod, "check_timeout", None) or self._module_timeout,
                 )
             except _Timeout as exc:
                 logger.warning("Module check timed out: %s", mod.name)
