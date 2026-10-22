@@ -94,10 +94,16 @@ The finding says why:
 - **The download didn't finish.** Usually the connection dropped. Run the
   checkup again later. Nothing half-downloaded is left behind.
 - **The download didn't match.** The files that arrived weren't the ones
-  Reclaim City expects, so they weren't kept. Run the checkup again later.
-- **The saved copy had changed.** Before every run, Reclaim City checks each
-  file of its saved copy against the list it ships with. This copy didn't
-  match, so it was deleted instead of run. The next checkup that's allowed to
+  Reclaim City expects, so they weren't kept. Run the checkup again later;
+  if it keeps happening, update Reclaim City.
+- **A file Reclaim City needs is missing, or its working copy couldn't be
+  made.** Reinstalling or updating Reclaim City fixes a missing file. If the
+  working copy couldn't be made, the disk may be full: free some space and
+  run the checkup again. Neither is a sign that anything was changed.
+- **The saved copy had changed.** Before and after every run, Reclaim City
+  checks each file of its copy against the list it ships with. This copy
+  didn't match, so it wasn't run, or its results were thrown away, and the
+  saved copy was deleted. The next checkup that's allowed to
   download fetches a fresh one. If it happens again, mention it to whoever
   helps you with your computer.
 - **The checkup had administrator rights.** A downloaded tool is never run

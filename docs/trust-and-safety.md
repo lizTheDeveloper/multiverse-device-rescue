@@ -338,21 +338,34 @@ this with HackMyAgent (OpenA2A, Apache-2.0,
   complete. A failed or partial download is deleted. npm's own cache is a
   temp folder, deleted afterwards. Later scans reuse the copy after checking
   its version.
-- **Checked before every run.** `vendor/hackmyagent/tree.sha256` lists the
-  sha256 of every file a clean `npm ci` installs (made by
-  `scripts/generate_hackmyagent_manifest.py`). Right before each run, also
-  with `--no-downloads`, every file in the saved copy is compared with it.
+- **Checked before and after every run.** `vendor/hackmyagent/tree.sha256`
+  lists the sha256 of every file a clean `npm ci` installs (made by
+  `scripts/generate_hackmyagent_manifest.py`). For each run, also with
+  `--no-downloads`, the saved copy is copied into a new private temp folder,
+  and every file of that copy is compared with the list; HackMyAgent runs
+  from the copy, which is compared again when it finishes and then deleted.
   A changed, missing or extra file, or any link other than the AI-runtime
-  stub, means the copy is deleted and not run; it is downloaded once more
-  if downloads are allowed, and otherwise the check says the copy had
-  changed. So a program that rewrites the saved copy can't get its code run
-  by the next scan. `npm ci --no-bin-links` keeps npm from adding links.
+  stub, means nothing is run (before) or the results are thrown away
+  (after). A saved copy that doesn't match is deleted; it is downloaded once
+  more if downloads are allowed, and otherwise the check says the copy had
+  changed. So a copy changed between scans isn't run, and one changed during
+  a run is caught afterwards as long as it is left changed. A file that
+  can't be read counts as changed. `npm ci --no-bin-links` keeps npm from
+  adding links.
+- **A clean environment.** node and npm get only an allow-listed set of
+  environment variables (`PATH`, `HOME`/`USERPROFILE`, the temp-folder,
+  locale, Windows system and proxy variables, and the ones the check sets).
+  Variables such as `NODE_OPTIONS`, `NODE_PATH` or `npm_config_*` that could
+  make node or npm load other code never reach them.
 - **What runs.** Only `detect <home> --json --depth 0 --no-contribute`, with
   `OPENA2A_TELEMETRY=off`, and `OPENA2A_HOME`, `XDG_CONFIG_HOME` and the temp
   folder (`TMPDIR`, `TMP`, `TEMP`) all set to one temp folder deleted
   afterwards. Its start-up self-check appends to
-  `~/.nanomind/integrity-events.jsonl`, which can't be redirected; Reclaim
-  City removes what it added right after the run. Never `secure`, `--fix`,
+  `~/.nanomind/integrity-events.jsonl`, which can't be redirected. Right
+  after the run Reclaim City removes those lines, but only when it is the
+  same file, not a link, and every new line is one of HackMyAgent's
+  self-check events from this run; otherwise it leaves the file alone and
+  says so in the finding. Never `secure`, `--fix`,
   `attack` or any other command. It reads AI settings files and the list of
   running programs; it masks any key
   values it finds, and Reclaim City keeps only the variable name, never the
@@ -375,11 +388,14 @@ this with HackMyAgent (OpenA2A, Apache-2.0,
 !!! warning "What the check can't protect against"
     Your own `node` and `npm` run with the same permissions Reclaim City has,
     including Full Disk Access on a Mac if you gave the app that. If they are
-    in a folder any program running as you can change (Homebrew on an Intel
-    Mac, nvm, Volta, `~/.local/bin`), a program running as you could replace
-    them, and the next scan would run the replacement. The file check above
-    covers the saved HackMyAgent copy, not your Node.js. Turn the check off
-    with `--no-downloads` and delete the saved copy if that matters to you.
+    in a folder any program running as you can change (Homebrew, nvm, Volta,
+    `~/.local/bin`), a program running as you could replace them, and the
+    next scan would run the replacement. The file check above covers the
+    saved HackMyAgent copy, not your Node.js. In the same way, a program
+    already running as you could race a single run: swap a file in the
+    private copy after it is checked and put it back before the check that
+    follows the run. Turn the check off with `--no-downloads` and delete the
+    saved copy if that matters to you.
 
 Updating the pinned version is a reviewed change to the lockfile, never
 automatic.

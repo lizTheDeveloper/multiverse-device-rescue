@@ -62,9 +62,12 @@ check points HackMyAgent's own settings folder, its telemetry file
 download cache at temp folders and deletes them afterwards, so nothing lands
 in `~/.opena2a`, `~/.config/opena2a` or `~/.npm`. One write can't be
 redirected: HackMyAgent's start-up self-check appends a line to
-`~/.nanomind/integrity-events.jsonl`. Reclaim City undoes it right after the
-run: it deletes the file (and the folder, if it made it) or cuts the file
-back to its earlier length. `<user cache>` is `~/Library/Caches` on macOS, `$XDG_CACHE_HOME` or
+`~/.nanomind/integrity-events.jsonl`. Right after the run Reclaim City undoes
+it: it deletes the file (and the folder, if it made it) or cuts the file back
+to its earlier length, but only when it is still the same file, not a link,
+and every new line is one of HackMyAgent's self-check events from this run.
+Otherwise it leaves the file as it is and the finding says so
+(`left_in_home`). Run by hand, HackMyAgent adds that line every time. `<user cache>` is `~/Library/Caches` on macOS, `$XDG_CACHE_HOME` or
 `~/.cache` on Linux, and `%LOCALAPPDATA%` on Windows.
 
 ## What leaves the machine

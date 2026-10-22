@@ -42,7 +42,9 @@ Windows (on Linux it reads `/etc/machine-id`). That file, and the old
 `hma-check-*`/`arp-lab-*` temp folders it clears at start, are inside the
 throwaway folder Reclaim City gives it, which is deleted afterwards. Its
 start-up self-check also appends to `~/.nanomind/integrity-events.jsonl`;
-Reclaim City undoes that after the run.
+Reclaim City removes those lines after the run when they are surely its own.
+HackMyAgent runs from a private, checked copy of the saved download, with an
+allow-listed environment (no `NODE_OPTIONS` or `npm_config_*`).
 
 
 ## Bloatware
