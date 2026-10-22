@@ -154,6 +154,23 @@ def _run_startup_integrity_check() -> None:
         pass
 
 
+def _set_no_downloads(ctx, param, value):
+    if value:
+        os.environ["RESCUE_NO_DOWNLOADS"] = "1"
+    return value
+
+
+_no_downloads_option = click.option(
+    "--no-downloads",
+    is_flag=True,
+    expose_value=False,
+    is_eager=True,
+    callback=_set_no_downloads,
+    help="Don't download tools a check needs (HackMyAgent, for the AI tools check). "
+    "Same as RESCUE_NO_DOWNLOADS=1. A copy already downloaded still runs.",
+)
+
+
 @main.command()
 def version():
     """Show version information."""
@@ -184,17 +201,10 @@ def version():
     is_flag=True,
     help='Skip the "Who made it?" lookups (code-signature checks) that add made_by to findings.',
 )
-@click.option(
-    "--no-downloads",
-    is_flag=True,
-    help="Don't download tools a check needs (HackMyAgent, for the AI tools check). "
-    "Same as RESCUE_NO_DOWNLOADS=1. A copy already downloaded still runs.",
-)
-def scan(as_json, profile_name, module_names, progress, trace, no_attribution, no_downloads):
+@_no_downloads_option
+def scan(as_json, profile_name, module_names, progress, trace, no_attribution):
     """Run read-only checks. With --json, print structured results to stdout."""
     from rescue.serialize import checks_to_json
-    if no_downloads:
-        os.environ["RESCUE_NO_DOWNLOADS"] = "1"
     if profile_name and module_names:
         raise click.UsageError("Use --profile or --module, not both.")
     if module_names:
@@ -480,6 +490,7 @@ def _emit_progress(phase, index, total, mod, check):
     help="Directory to write the case into (default: ~/.rescue/cases).",
 )
 @click.option("--stdout", "to_stdout", is_flag=True, help="Print the JSON case instead of writing files.")
+@_no_downloads_option
 def export(profile_name, output_dir, to_stdout):
     """Run read-only checks and write a redacted rescue-case report.
 
@@ -559,6 +570,7 @@ def validate(strict):
     is_flag=True,
     help="Enable AI-powered plain-language explanations (requires an API key or local Ollama).",
 )
+@_no_downloads_option
 def run(module_names, yes, copilot):
     """Run specific modules by name."""
     modules_dir = _get_modules_dir()
