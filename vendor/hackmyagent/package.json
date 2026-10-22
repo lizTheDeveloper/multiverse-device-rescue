@@ -1,0 +1,11 @@
+{
+  "name": "rc-hackmyagent",
+  "private": true,
+  "dependencies": {
+    "hackmyagent": "0.33.2",
+    "onnxruntime-node": "file:./stub"
+  },
+  "overrides": {
+    "onnxruntime-node": "$onnxruntime-node"
+  }
+}
