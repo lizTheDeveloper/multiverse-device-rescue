@@ -68,7 +68,7 @@ export const BASE_COVERS = Object.freeze({
       'network_proxy_detect', 'remote_login_check', 'sharing_preferences_audit', 'sharing_services', 'router_security_audit',
       'wifi_security_audit', 'vpn_leak_check', 'airdrop_config', 'airdrop_security_check',
       'win_firewall_rules_audit', 'win_hosts_file', 'win_hosts_file_check', 'win_proxy_detect', 'win_rdp_check',
-      'win_remote_access_audit', 'win_network_shares_audit', 'win_dns_config'),
+      'win_remote_access_audit', 'win_network_shares_audit', 'win_dns_config', 'remote_access_tools'),
     { module: 'security_baseline_diff', codes: [`${SBD}new_listening_port`] },
     // A hosts-file line found by the mining check is a line in the address book.
     { module: 'browser_cryptojacking_check', checks: ['mining_hosts_entry'] },

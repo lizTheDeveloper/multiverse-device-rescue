@@ -62,6 +62,11 @@
  "process_scanner": {
   "(no code)": "junkyard"
  },
+ "remote_access_tools": {
+  "security.remote_access_tools.running_now": "switchboard",
+  "security.remote_access_tools.several_tools": "switchboard",
+  "security.remote_access_tools.unattended_recent": "switchboard"
+ },
  "resource_hog_identifier": {
   "(no code)": "junkyard"
  },

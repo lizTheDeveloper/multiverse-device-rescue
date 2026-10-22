@@ -33,7 +33,7 @@ const BACKGROUND_TASK = 'background_task';
 // Settings and installed items (rescue/known_items.py ITEM_KINDS).
 const ITEM_KINDS = new Set([
   'sharing_service', 'network_proxy', 'dns_profile', 'system_extension', 'browser_extension',
-  'app_permissions', 'ssh_authorized_keys', 'ai_tooling',
+  'app_permissions', 'ssh_authorized_keys', 'ai_tooling', 'remote_tool',
 ]);
 // Lists that can be marked entry by entry (rescue/known_items.py ENTRY_KIND_FOR).
 const ENTRY_LIST_KINDS = new Set(['app_permissions', 'ssh_authorized_keys']);

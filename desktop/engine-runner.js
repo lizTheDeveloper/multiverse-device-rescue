@@ -309,7 +309,7 @@ function clean(s, max = 1024) {
 // Settings and installed items: the engine runs the check again and matches the id.
 const ITEM_KINDS = new Set([
   'sharing_service', 'network_proxy', 'dns_profile', 'system_extension', 'browser_extension',
-  'app_permissions', 'ssh_authorized_keys', 'ai_tooling',
+  'app_permissions', 'ssh_authorized_keys', 'ai_tooling', 'remote_tool',
 ]);
 const NEVER_MARKABLE_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
 

@@ -736,6 +736,40 @@ def _ai_tooling_identity(finding) -> dict | None:
     return None
 
 
+def _remote_tool_identity(finding) -> dict | None:
+    """A remote-access tool: which tool and where (pinned), plus the evidence
+    that, when it changes (unattended access turned on, a newer or another
+    incoming connection), brings the warning back. Evidence the check couldn't
+    read is "unknown", which also differs from what was marked."""
+    data = finding.data
+    tool_id = _text(data.get("tool_id"), 64)
+    name = _text(data.get("tool"), 128)
+    path = _text(data.get("path"), 1024)
+    if not (tool_id and name and path):
+        return None
+    unattended = data.get("lets_in_unattended")
+    last = _text(data.get("last_incoming"), 32)
+    count = data.get("incoming_count")
+    if isinstance(count, bool) or not (count is None or isinstance(count, int)):
+        return None
+    return {
+        "tool_id": tool_id,
+        "tool": name,
+        "path": path,
+        "unattended": "yes" if unattended is True else "no" if unattended is False else "unknown",
+        "last_incoming": last or ("none" if count == 0 else "unknown"),
+        "incoming_count": "unknown" if count is None else str(count),
+    }
+
+
+def _show_remote_tool(ident, finding):
+    unattended = {"yes": "Yes", "no": "No"}.get(ident["unattended"], "Couldn't tell")
+    last = ident["last_incoming"]
+    last = {"none": "Never", "unknown": "Couldn't tell"}.get(last, last)
+    return [["Tool", ident["tool"]], ["Where", ident["path"]],
+            ["Lets someone in without a click", unattended], ["Last let someone in", last]]
+
+
 def _show_sharing(ident, finding):
     return [["Setting", _SERVICE_NAMES.get(ident["service"], ident["service"])], ["Now", "On"]]
 
@@ -877,6 +911,22 @@ ITEM_KINDS: dict[str, dict] = {
         "monitoring": True,
         "show": _show_ssh,
     },
+    "remote_tool": {
+        # A remote-access tool (TeamViewer, AnyDesk...): the mark pins the tool
+        # and where it is; a newer incoming connection, or unattended access
+        # turned on, makes the mark stale.
+        "keys": ("code", "tool_id", "tool", "path", "unattended", "last_incoming", "incoming_count"),
+        "evidence_keys": ("unattended", "last_incoming", "incoming_count"),
+        "modules": ("remote_access_tools",),
+        "identify": _remote_tool_identity,
+        "label_of": lambda i: i.get("tool", ""),
+        "title": "Remote-access tool you marked as yours: {label}",
+        "noun": "remote-access tool",
+        "what": "{label}",
+        "changed": "its connections or its unattended access",
+        "monitoring": True,
+        "show": _show_remote_tool,
+    },
     "ai_tooling": {
         "keys": ("code", "what", "value"),
         "evidence_keys": (),
@@ -920,6 +970,8 @@ ITEM_CODES: dict[str, str] = {
     "security.privacy_permissions_audit.screen_accessibility_combo": "app_permissions",
     "security.accessibility_permissions.suspicious_accessibility": "app_permissions",
     "security.session_revocation_scan.ssh_authorized_keys": "ssh_authorized_keys",
+    "security.remote_access_tools.tool_found": "remote_tool",
+    "security.remote_access_tools.running_now": "remote_tool",
     "security.ai_threat_indicators.ai_api_key_found": "ai_tooling",
     "security.ai_threat_indicators.cron_ai_call": "ai_tooling",
 }

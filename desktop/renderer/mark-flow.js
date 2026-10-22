@@ -63,7 +63,7 @@ const MarkFlow = (function () {
   ];
   const ITEM_KINDS = new Set([
     'sharing_service', 'network_proxy', 'system_extension', 'browser_extension',
-    'app_permissions', 'ssh_authorized_keys', 'ai_tooling', 'dns_profile',
+    'app_permissions', 'ssh_authorized_keys', 'ai_tooling', 'dns_profile', 'remote_tool',
   ]);
   // Checks for monitoring software: "It's mine" is never offered on them.
   const NEVER_MARKABLE_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
@@ -78,6 +78,7 @@ const MarkFlow = (function () {
     ssh_authorized_keys: 'I added these keys — they’re mine',
     ai_tooling: 'I set this up — it’s mine',
     dns_profile: 'I installed this — it’s mine',
+    remote_tool: 'I installed this — it’s mine',
   };
   // Lists that can be marked entry by entry (rescue/known_items.py ENTRY_KIND_FOR).
   const ENTRY_LIST_KINDS = new Set(['app_permissions', 'ssh_authorized_keys']);

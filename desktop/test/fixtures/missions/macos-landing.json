@@ -499,6 +499,11 @@
  "recovery_partition_check": {
   "(no code)": "simple"
  },
+ "remote_access_tools": {
+  "security.remote_access_tools.running_now": "switchboard",
+  "security.remote_access_tools.several_tools": "switchboard",
+  "security.remote_access_tools.unattended_recent": "switchboard"
+ },
  "remote_login_check": {
   "security.remote_login_check.remote_apple_events_enabled": "switchboard",
   "security.remote_login_check.remote_management_enabled": "switchboard",

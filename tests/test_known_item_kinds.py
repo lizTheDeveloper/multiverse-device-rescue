@@ -94,6 +94,17 @@ CASES = {
         {"check": "ssh_authorized_keys", "key_count": 2, "list_sha256": SHA2},
         None,
     ),
+    "remote_tool": (
+        "security.remote_access_tools.tool_found",
+        {"check": "tool_found", "tool": "AnyDesk", "tool_id": "anydesk", "path": "/Applications/AnyDesk.app",
+         "lets_in_unattended": False, "last_incoming": "2026-03-01", "incoming_count": 2},
+        # A newer incoming connection: the same tool, changed evidence.
+        {"check": "tool_found", "tool": "AnyDesk", "tool_id": "anydesk", "path": "/Applications/AnyDesk.app",
+         "lets_in_unattended": False, "last_incoming": "2026-03-09", "incoming_count": 3},
+        {"check": "tool_found", "tool": "TeamViewer", "tool_id": "teamviewer",
+         "path": "/Applications/TeamViewer.app", "lets_in_unattended": False, "last_incoming": "2026-03-01",
+         "incoming_count": 2},
+    ),
     "ai_tooling": (
         "security.ai_threat_indicators.ai_api_key_found",
         {"check": "ai_api_key_found", "key_name": "ANTHROPIC_API_KEY"},
