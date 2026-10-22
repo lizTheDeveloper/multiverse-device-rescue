@@ -1,6 +1,6 @@
 # Remote-access tools: one check, the Think Back walk-through, and placement fixes
 
-Status: approved by the owner (2026-10-22); plan: docs/superpowers/plans/2026-10-22-remote-access-think-back.md
+Status: implemented on `profile` (2026-10-22); plan: docs/superpowers/plans/2026-10-22-remote-access-think-back.md
 
 ## Why
 
