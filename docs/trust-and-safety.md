@@ -337,7 +337,12 @@ this with HackMyAgent (OpenA2A, Apache-2.0,
   `<user cache>/ReclaimCity/hackmyagent-0.33.2`, renamed into place only when
   complete. A failed or partial download is deleted. npm's own cache is a
   temp folder, deleted afterwards. Later scans reuse the copy after checking
-  its version.
+  its version. Every working folder (the download, npm's cache, the run
+  copy, HackMyAgent's settings and temp folder) is made inside
+  `<user cache>/ReclaimCity/`, never in the shared system temp folder: node
+  looks for `node_modules` in every parent folder of the code it runs, and
+  on a shared computer another account could plant one in `/tmp`. Leftovers
+  of a run that was killed are removed an hour later.
 - **Checked before and after every run.** `vendor/hackmyagent/tree.sha256`
   lists the sha256 of every file a clean `npm ci` installs (made by
   `scripts/generate_hackmyagent_manifest.py`). For each run, also with

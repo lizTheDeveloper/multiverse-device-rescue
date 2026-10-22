@@ -1097,3 +1097,37 @@ def test_live_fetch_and_detect_change_nothing_in_home(tmp_path, monkeypatch):
     f = _one(check(), "could_not_check")
     assert f.data["reason"] == "tampered"
     assert not marker.exists() and not install.exists()
+
+
+def test_every_working_folder_is_inside_the_users_cache_not_shared_tmp(env, monkeypatch):
+    """node looks for node_modules in every parent folder; a shared /tmp could plant one."""
+    seen = {}
+
+    def npm(args, cwd, e):
+        seen["work"] = Path(cwd).parent
+        seen["npm_cache"] = Path(args[args.index("--cache") + 1]).parent.parent
+        seen["userconfig"] = Path(args[args.index("--userconfig") + 1]).parent.parent
+        _write_install(Path(cwd))
+        return _result(args)
+
+    def detect(args, cwd, e):
+        seen["run"] = Path(args[1]).parents[5]
+        seen["settings"] = Path(cwd).parent
+        seen["tmpdir"] = Path(e["TMPDIR"]).parent
+        return _result(args, 1, FIXTURE.read_text())
+
+    _module(env, FakeRunner(npm=npm, detect=detect), monkeypatch).check(_profile())
+    parent = _install_dir(env).parent
+    assert seen == {k: parent for k in seen}, seen
+    assert sorted(p.name for p in parent.iterdir()) == ["hackmyagent-0.33.2"]
+
+
+def test_stale_leftovers_of_every_kind_are_cleaned(env, monkeypatch):
+    parent = _install_dir(env).parent
+    parent.mkdir(parents=True)
+    names = [".hackmyagent-a", ".run-b", ".npm-cache-c", ".settings-d"]
+    for name in names:
+        (parent / name).mkdir()
+        os.utime(parent / name, (0, 0))
+    _module(env, FakeRunner(), monkeypatch).check(_profile())
+    assert sorted(p.name for p in parent.iterdir()) == ["hackmyagent-0.33.2"]

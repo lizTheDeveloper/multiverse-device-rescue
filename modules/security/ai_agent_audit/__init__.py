@@ -288,6 +288,17 @@ def _lookup(name: str, dirs: list[str], platform: Platform) -> Path | None:
     return None
 
 
+# Every working folder is made beside the saved copy, in the person's own cache
+# folder, never in a shared temp folder: node looks for node_modules in each
+# parent folder of the code it runs, and another account could plant one in /tmp.
+_SCRATCH_PREFIXES = (".hackmyagent-", ".run-", ".npm-cache-", ".settings-")
+
+
+def _scratch(parent: Path, prefix: str) -> Path:
+    parent.mkdir(parents=True, exist_ok=True)
+    return Path(tempfile.mkdtemp(prefix=prefix, dir=parent))
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with open(path, "rb") as handle:
@@ -493,6 +504,8 @@ class Module(ModuleBase):
 
         install = self._install_dir(platform)
         expected = self._expected_tree()
+        if install.parent.is_dir():
+            self._clean_stale(install.parent)
         downloads_off = os.environ.get("RESCUE_NO_DOWNLOADS") == "1"
         usable = self._installed(install)
         if not usable and downloads_off:
@@ -545,7 +558,10 @@ class Module(ModuleBase):
         """
         if not self._installed(install) or _is_link(install):
             return None
-        holder = Path(tempfile.mkdtemp(prefix="rc-hackmyagent-run-"))
+        try:
+            holder = _scratch(install.parent, ".run-")
+        except OSError as exc:
+            raise _CouldNotCheck("copy_failed", detail=str(exc)[:200]) from exc
         copy = holder / "hackmyagent"
 
         def skip_stub_link(directory: str, names: list[str]) -> set[str]:
@@ -613,8 +629,7 @@ class Module(ModuleBase):
     def _clean_stale(parent: Path) -> None:
         """Leftovers of a fetch that was killed before it could clean up."""
         cutoff = time.time() - STALE_SECONDS
-        candidates = list(parent.glob(".hackmyagent-*"))
-        candidates += list(Path(tempfile.gettempdir()).glob("rc-npm-cache-*"))
+        candidates = [p for prefix in _SCRATCH_PREFIXES for p in parent.glob(prefix + "*")]
         for path in candidates:
             try:
                 if path.lstat().st_mtime < cutoff:
@@ -628,11 +643,14 @@ class Module(ModuleBase):
         parent = install.parent
         try:
             parent.mkdir(parents=True, exist_ok=True)
-            self._clean_stale(parent)
-            work = Path(tempfile.mkdtemp(prefix=".hackmyagent-", dir=parent))
+            work = _scratch(parent, ".hackmyagent-")
         except OSError as exc:
             raise _CouldNotCheck("fetch_failed", detail=str(exc)[:200]) from exc
-        npm_cache = Path(tempfile.mkdtemp(prefix="rc-npm-cache-"))
+        try:
+            npm_cache = _scratch(parent, ".npm-cache-")
+        except OSError as exc:
+            _remove_tree(work)
+            raise _CouldNotCheck("fetch_failed", detail=str(exc)[:200]) from exc
         npmrc = npm_cache / "empty-user-npmrc"
         global_rc = npm_cache / "empty-global-npmrc"
         try:
@@ -686,7 +704,10 @@ class Module(ModuleBase):
 
     def _run_detect(self, node: Path, run_dir: Path, install: Path) -> dict:
         cli = run_dir / "node_modules" / "hackmyagent" / "dist" / "cli.js"
-        settings = Path(tempfile.mkdtemp(prefix="rc-opena2a-"))
+        try:
+            settings = _scratch(install.parent, ".settings-")
+        except OSError as exc:
+            raise _CouldNotCheck("copy_failed", detail=str(exc)[:200]) from exc
         # Its start-up self-check appends to ~/.nanomind/integrity-events.jsonl
         # (a path taken from the home folder, which detect needs as it is);
         # that write is undone afterwards.
