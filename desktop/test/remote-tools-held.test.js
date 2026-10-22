@@ -91,22 +91,43 @@ test('running now: offline line comes first', async () => {
   const { renderSide } = await game('views/side-district.js');
   const { pickDistrict } = await game('district-names.js');
   const district = pickDistrict(7);
-  const held = splitHeld(scan(mod('remote_access_tools', [tool({}, { running_now: true })])), { mode: 'city' }).held;
-  const html = renderSide({ district, held, seen: new Date(2026, 9, 22) });
-  const offline = html.indexOf('Running now. To be safe, go offline first.');
-  assert.ok(offline > 0, 'the line is there');
+  // Two tools: only the running one is named, so the line never contradicts a card that says "No".
+  const held = splitHeld(scan(mod('remote_access_tools', [undated(), tool({}, { running_now: true })])), { mode: 'city' }).held;
+  const html = renderSide({ district, held, seen: new Date(2026, 9, 22) }).replace(/<wbr>/g, '');
+  const offline = html.indexOf('AnyDesk is running now. To be safe, go offline first.');
+  assert.ok(offline > 0, 'the line names the running tool');
+  assert.doesNotMatch(html, /TeamViewer is running/);
   assert.ok(offline < html.indexOf('class="held-items"'), 'before the held items');
   assert.ok(offline < html.indexOf('Don’t remove it yet'), 'before anything else in the panel');
   assert.match(html, /data-act="side-offline"/, 'with the network settings (the controller opens research.js’s network pane)');
-  assert.match(html, /Added on March 3/);
-  assert.match(html, /Last let someone in: March 12(, 2026)? \(4 times\)/);
+  // Each tool's facts are rows inside its own card, before the day it was found.
+  const cards = html.split('<li class="held-item">').slice(1);
+  assert.strictEqual(cards.length, 2);
+  const [tv, ad] = cards;
+  assert.match(tv, /TeamViewer/);
+  assert.match(tv, /<dt>Added<\/dt><dd><span>Couldn’t tell<\/span>/);
+  assert.match(tv, /<dt>Running now<\/dt><dd><span>Couldn’t tell<\/span>/);
+  assert.match(ad, /<dt>Added<\/dt><dd><span>March 3(, 2026)?<\/span>/);
+  assert.match(ad, /<dt>Last let someone in<\/dt><dd><span>March 12(, 2026)? \(4 times\)<\/span>/);
+  assert.match(ad, /<dt>Can let someone in without a click<\/dt><dd><span>Yes<\/span>/);
+  assert.match(ad, /<dt>Running now<\/dt><dd><span>Yes<\/span>/);
+  assert.ok(ad.indexOf('<dt>Added</dt>') < ad.indexOf('<dt>Found on</dt>'));
+  assert.match(ad, /<dt>Found on<\/dt><dd><span>22 Oct 2026<\/span>/);
+  assert.doesNotMatch(html, /held-facts/, 'no facts floating outside a card');
+  // Several running: all named, joined in words; city words stay safe.
+  const two = splitHeld(scan(mod('remote_access_tools', [tool({}, { running_now: true }), tool({}, { tool: 'RustDesk', path: '/Applications/RustDesk.app', running_now: true })])), { mode: 'city' }).held;
+  const both = renderSide({ district, held: two });
+  assert.match(both, /AnyDesk and RustDesk are running now\. To be safe, go offline first\./);
+  const C0 = await import(url('missions', 'contract.js'));
+  const line = both.match(/<p class="intel side-offline"[\s\S]*?<\/p>/)[0];
+  assert.deepStrictEqual(C0.checkCityWords(line), []);
   // Not running: no offline line.
   const quiet = renderSide({ district, held: splitHeld(scan(mod('remote_access_tools', [tool()])), { mode: 'city' }).held });
   assert.doesNotMatch(quiet, /go offline first/);
   // Hostile values stay inert.
   const C = await import(url('missions', 'contract.js'));
   for (const h of C.HOSTILE) {
-    const bad = splitHeld(scan(mod('remote_access_tools', [tool({ title: h }, { tool: h, path: h, added_on: h, last_incoming: h })])), { mode: 'city' }).held;
+    const bad = splitHeld(scan(mod('remote_access_tools', [tool({ title: h }, { tool: h, path: h, added_on: h, last_incoming: h, running_now: true })])), { mode: 'city' }).held;
     assert.deepStrictEqual(C.checkInert(renderSide({ district, held: bad })).filter((p) => !/control\/bidi/.test(p)), []);
   }
 });

@@ -157,11 +157,11 @@ test('stalkerware in Plain view: name, where found, found as, maker', () => {
 test('city, held: exactly what to write down; nothing else', () => {
   const seen = '2026-10-18T23:03:00+00:00';
   const rows = E.evidenceRows(F.mspy, { mode: 'city', seen, commands: [['codesign', '-dv', '/Applications/mSpy.app']] });
-  assert.deepStrictEqual(labels(rows), ['Name', 'Where found', 'How detected', 'Made by', 'Date']);
+  assert.deepStrictEqual(labels(rows), ['Name', 'Where found', 'How detected', 'Made by', 'Found on']);
   assert.deepStrictEqual(rows.map((r) => r.value), ['mSpy', '/Applications/mSpy.app', 'Found as app',
     'Unknown maker · not verified (unrecognised signature)', '18 Oct 2026']);
   const kb = E.evidenceRows({ ...F.keyboard, severity: 'warning', made_by: [] }, { mode: 'city', seen });
-  assert.deepStrictEqual(labels(kb), ['Where found', 'How detected', 'Made by', 'Date']);
+  assert.deepStrictEqual(labels(kb), ['Where found', 'How detected', 'Made by', 'Found on']);
   assert.strictEqual(get(kb, 'Made by').value, 'Not known');
   // Not held: the full rows, even in city.
   assert.ok(E.evidenceRows(F.keyboard, { mode: 'city', held: false }).some((r) => r.label === 'Keyboard access'));

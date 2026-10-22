@@ -459,9 +459,9 @@ test('city: a running remote-access tool waits in the help district, offline fir
   assert.doesNotMatch(t.html(), /AnyDesk/, 'never on the deck');
   t.click({ 'data-go': 'side' });
   const h = t.html();
-  assert.ok(h.indexOf('Running now. To be safe, go offline first.') > 0);
-  assert.ok(h.indexOf('Running now. To be safe, go offline first.') < h.indexOf('class="held-items"'));
-  assert.match(h, /Couldn’t tell when it last let someone in/);
+  assert.ok(h.indexOf('AnyDesk is running now. To be safe, go offline first.') > 0);
+  assert.ok(h.indexOf('AnyDesk is running now. To be safe, go offline first.') < h.indexOf('class="held-items"'));
+  assert.match(h, /<dt>Last let someone in<\/dt><dd><span>Couldn’t tell<\/span>/);
   t.click({ 'data-act': 'side-offline' });
   await tick();
   assert.strictEqual(opened.length, 1);

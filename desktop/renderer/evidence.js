@@ -564,7 +564,8 @@ const Evidence = (function () {
     const entries = (Array.isArray(f.made_by) ? f.made_by : []).filter(isObj);
     if (entries.length) rows.push(...makerRows(entries));
     else rows.push(row('Made by', 'Not known'));
-    rows.push(row('Date', plainDay(opts.seen instanceof Date || typeof opts.seen === 'string' ? opts.seen : new Date())));
+    // The day the checkup found it (not the day it arrived, which a remote-access tool's card shows as "Added").
+    rows.push(row('Found on', plainDay(opts.seen instanceof Date || typeof opts.seen === 'string' ? opts.seen : new Date())));
     return rows;
   }
 

@@ -2,6 +2,7 @@ import { esc } from '../escape.js';
 import { FIRST_STEPS, HELP, OPEN_NOTE, SIX_ROSES, LEAVING, HELD } from '../side-district.js';
 // The list's evidence block (a plain script, not an ES module).
 import * as evidenceModule from '../../evidence.js';
+import { remoteFacts } from '../../missions/remote-facts.js';
 
 // In the page the script sets window.Evidence; in Node (tests) it is CommonJS.
 const EV = globalThis.Evidence || evidenceModule.default;
@@ -26,37 +27,48 @@ export function heldNoticeHtml(district) {
 
 // One held item as what to write down: the shared evidence block, held. That
 // gives Name, Where found, How detected, Made by (verified or not) and the
-// Date, drawn large with "Write this on paper or on another device." No copy
-// button and nothing on the clipboard: monitoring software can read it.
+// day it was found, drawn large with "Write this on paper or on another
+// device." A remote-access tool's own facts (Added, Last let someone in, Can
+// let someone in without a click, Running now) are rows in the same card,
+// before "Found on", so each card says its own. No copy button and nothing on
+// the clipboard: monitoring software can read it.
 // `seen`: today (a Date); the block writes it as a plain day.
 export function heldBlockHtml(h, seen = new Date()) {
   const x = h || {};
   const f = x.finding || { module: x.module, title: x.title,
     data: { stalkerware_name: x.name || x.title, location: x.where, detected_as: x.how } };
   const rows = EV.evidenceRows(f, { mode: 'city', held: true, seen });
-  return remoteFactsHtml(x) + EV.renderEvidence(rows, { held: true, title: (h && h.title) || 'Write this down' });
-}
-
-// A remote-access tool's dates and state (held.js heldEvidence), written down with the rest. "Couldn't tell"
-// when the checkup couldn't, never "no".
-const REMOTE_FACTS = ['running', 'added', 'last_in', 'unattended'];
-function remoteFactsHtml(h) {
-  if (!h || h.module !== 'remote_access_tools') return '';
-  const lines = REMOTE_FACTS.map((k) => h[k]).filter((v) => typeof v === 'string' && v);
-  return lines.length ? `<ul class="notes held-facts">${lines.map((v) => `<li>${esc(v)}</li>`).join('')}</ul>` : '';
+  if (x.module === 'remote_access_tools' && Array.isArray(rows) && rows.length) {
+    const facts = remoteFacts(f.data, { today: seen }).rows.map((r) => ({ label: r.label, value: r.value, mono: false }));
+    rows.splice(rows.length - 1, 0, ...facts);
+  }
+  return EV.renderEvidence(rows, { held: true, title: (h && h.title) || 'Write this down' });
 }
 
 // A remote-access tool that is running now may be showing this screen to someone: the first thing the district
-// says is to go offline, with the network settings (the controller's side-offline act: research.js's network
-// pane for this platform, through main's allowlist), before anything else.
-export const OFFLINE_LINE = 'Running now. To be safe, go offline first.';
+// says is to go offline, naming the tools that are running (never one whose card says it isn't), with the network
+// settings (the controller's side-offline act: research.js's network pane for this platform, through main's
+// allowlist), before anything else.
+export const OFFLINE_TAIL = 'To be safe, go offline first.';
+const UNNAMED = 'A remote-access tool';
+function namesInWords(names) {
+  if (names.length <= 1) return names[0] || UNNAMED;
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+export function offlineLine(held) {
+  const running = (Array.isArray(held) ? held : []).filter((h) => h && h.module === 'remote_access_tools' && h.running_now === true);
+  if (!running.length) return '';
+  const names = [...new Set(running.map((h) => String(h.name || '').trim().slice(0, 80) || UNNAMED))];
+  return `${namesInWords(names)} ${names.length > 1 ? 'are' : 'is'} running now. ${OFFLINE_TAIL}`;
+}
 function offlineHtml(held) {
-  if (!held.some((h) => h && h.module === 'remote_access_tools' && h.running_now === true)) return '';
-  return `<p class="intel side-offline" role="alert"><b>${esc(OFFLINE_LINE)}</b> Turn off Wi-Fi or unplug the network cable.
+  const line = offlineLine(held);
+  if (!line) return '';
+  return `<p class="intel side-offline" role="alert"><b>${esc(line)}</b> Turn off Wi-Fi or unplug the network cable.
       <button type="button" class="btn-s" data-act="side-offline">NETWORK SETTINGS</button></p>`;
 }
 
-// `seen`: today, for the Date row.
+// `seen`: today, for the Found on row.
 export function renderSide({ district, held = [], notice = false, scout = () => '', seen = new Date() }) {
   const v = district.voice;
   const item = (h) => `<li class="held-item">${heldBlockHtml(h, seen)}</li>`;
