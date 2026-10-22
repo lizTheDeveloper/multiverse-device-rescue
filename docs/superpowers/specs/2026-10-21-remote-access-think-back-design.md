@@ -1,6 +1,6 @@
 # Remote-access tools: one check, the Think Back walk-through, and placement fixes
 
-Status: draft for owner review (2026-10-21)
+Status: approved by the owner (2026-10-22); plan: docs/superpowers/plans/2026-10-22-remote-access-think-back.md
 
 ## Why
 
@@ -28,8 +28,8 @@ true stalkerware, employee monitoring and parental-control products) so one tool
 bundle ids/paths, Windows service/uninstall names, log locations): TeamViewer (incl. QuickSupport), AnyDesk,
 ConnectWise ScreenConnect, RustDesk, UltraViewer, Splashtop, LogMeIn / GoTo (incl. Rescue), Zoho Assist,
 Supremo, AeroAdmin, Ammyy Admin, Remote Utilities, SimpleHelp, HopToDesk, BeyondTrust (Bomgar), Atera,
-NinjaOne, Action1, Chrome Remote Desktop, RealVNC, TightVNC, UltraVNC, Parsec. Windows Quick Assist is built
-in, so it's reported only from use (its recent-session evidence), never from presence.
+NinjaOne, Action1, Chrome Remote Desktop, RealVNC, TightVNC, UltraVNC, Parsec, and the three `stalkerware_scan` listed that this list missed: NetSupport Manager, DWAgent, Radmin. Windows Quick Assist is built
+in, so it's reported only while it's running, never from presence (Windows keeps no readable session log for it).
 
 **Evidence per tool** (all read-only, each step time-budgeted, missing evidence says "couldn't tell", never
 "no"):
