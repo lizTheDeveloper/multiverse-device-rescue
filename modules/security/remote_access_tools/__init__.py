@@ -161,19 +161,15 @@ def _exe_from_command(command: str) -> str | None:
     return command[: at + 4] if at >= 0 else command.split(" ", 1)[0]
 
 
-# macOS's own programs: a system daemon that shares a tool's name (Apple's
-# CoreParsec "parsecd") is never that tool.
-_MAC_SYSTEM_PREFIXES = ("/System/", "/usr/libexec/", "/usr/sbin/", "/usr/bin/", "/sbin/", "/bin/")
-
-
-def _proc_names(profile: SystemProfile, skip_system: bool = False) -> set[str] | None:
+def _proc_names(profile: SystemProfile) -> set[str] | None:
+    """Lowercased process names. Matched exactly against each tool's own names
+    (Apple's CoreParsec "parsecd" is not Parsec's "Parsec"); never decided from
+    the command line, which any process can set."""
     procs = getattr(profile, "processes", None) or []
     if not procs:
         return None
     names = set()
     for p in procs:
-        if skip_system and str(getattr(p, "command", "") or "").startswith(_MAC_SYSTEM_PREFIXES):
-            continue
         name = str(getattr(p, "name", "") or "").strip().lower()
         if name:
             names.add(name)
@@ -417,7 +413,7 @@ class Module(ModuleBase):
             launchd, launchd_readable = self._mac_launchd()
         else:
             launchd, launchd_readable = {}, False
-        names = _proc_names(profile, skip_system=True)
+        names = _proc_names(profile)
         downloads = self._downloads_dir()
         out = []
         for tool in self._tool_entries():
