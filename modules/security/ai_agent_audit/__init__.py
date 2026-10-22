@@ -118,8 +118,8 @@ _COULD_NOT_CHECK = {
     "integrity_failed": (
         "HackMyAgent stopped because its own self-check failed: its files don't "
         "match what was published. We didn't use its results. Run the checkup "
-        "again; Reclaim City will download a fresh copy if this keeps happening "
-        "after you delete the folder named in this finding's details."
+        "again. If this keeps happening, delete the folder named below; the next "
+        "checkup downloads a fresh copy."
     ),
     "tool_failed": (
         "HackMyAgent stopped with an error before it finished, so we couldn't "
