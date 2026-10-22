@@ -538,6 +538,26 @@ def _create_no_follow(parts: list[str], out_chain: list[tuple[str, int]], root_f
                    0o600, dir_fd=parent_fd)
 
 
+def _checked_dirs_windows(dest: Path, parts: list[str]) -> Path:
+    """Make (or reuse) each folder of ``parts`` under ``dest``, refusing any link or junction.
+
+    Without O_NOFOLLOW or dir_fd this is a check-then-use, weaker than POSIX;
+    files are then created with O_EXCL, which refuses an existing link.
+    """
+    current = dest
+    for part in [None, *parts]:
+        if part is not None:
+            current = current / part
+        try:
+            st = os.lstat(current)
+        except FileNotFoundError:
+            os.mkdir(current, 0o700)
+            st = os.lstat(current)
+        if _is_link(current) or not stat.S_ISDIR(st.st_mode):
+            raise OSError(f"not a plain folder: {current}")
+    return current
+
+
 def copy_from_manifest(install: Path, dest: Path, expected: dict[str, str], platform: Platform) -> bool:
     """Copy exactly the files the manifest names from ``install`` into ``dest``, hashing as it goes.
 
@@ -591,9 +611,7 @@ def copy_from_manifest(install: Path, dest: Path, expected: dict[str, str], plat
             try:
                 try:
                     if windows:
-                        target = dest.joinpath(*parts)
-                        target.parent.mkdir(parents=True, exist_ok=True)
-                        out = open(target, "xb")
+                        out = open(_checked_dirs_windows(dest, parts[:-1]) / parts[-1], "xb")
                     else:
                         out = os.fdopen(_create_no_follow(parts, out_chain, out_root_fd), "wb")
                 except OSError as exc:
@@ -844,8 +862,10 @@ class Module(ModuleBase):
         try:
             (copy / "node_modules").mkdir(exist_ok=True)
             self._make_stub_link(copy, platform)
+            # O_BINARY: on Windows a text-mode fd would write \r\n and fail the after-run check.
             fd = os.open(copy / BOOTSTRAP_NAME,
-                         os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+                         os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+                         | getattr(os, "O_BINARY", 0), 0o600)
             with os.fdopen(fd, "wb") as out:
                 out.write(BOOTSTRAP_JS.encode("utf-8"))
         except (OSError, _CouldNotCheck) as exc:
@@ -1115,14 +1135,19 @@ class Module(ModuleBase):
                 return left
             if not self._our_events(os.read(fd, opened.st_size), state["start"], end):
                 return left
-            now = os.lstat(log)
-            if (now.st_dev, now.st_ino) != (opened.st_dev, opened.st_ino):
-                return left
-            os.unlink(log)
         except OSError:
             return left
         finally:
             os.close(fd)
+        # Closed first: Windows can't delete a file that is still open.
+        # Unlinking never follows a link, and the inode must still be the one read.
+        try:
+            now = os.lstat(log)
+            if (now.st_dev, now.st_ino) != (opened.st_dev, opened.st_ino) or _is_link(log):
+                return left
+            os.unlink(log)
+        except OSError:
+            return left
         self._remove_our_folder(folder, state)
         return None
 

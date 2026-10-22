@@ -265,8 +265,10 @@ def test_governance_findings_and_opena2a_advice_are_dropped(env, monkeypatch):
     _write_install(_install_dir(env))
     mod = _module(env, FakeRunner(), monkeypatch)
     result = mod.check(_profile())
+    # pytest names the temp dir after the test; take it out of each string
+    # before JSON escapes it (Windows paths gain doubled backslashes).
     text = json.dumps([[f.title, f.description, f.data] for f in result.findings])
-    text = text.replace(str(env["tmp"]), "<tmp>")  # pytest names the temp dir after the test
+    text = text.replace(json.dumps(str(env["tmp"]))[1:-1], "<tmp>")
     for word in ("SOUL", "governance", "Governance", "opena2a", "harden-soul",
                  "hackmyagent secure", "/Users/sam", "36 chars"):
         assert word not in text, word
@@ -402,10 +404,10 @@ def test_node_found_where_a_desktop_app_path_misses_it(env, monkeypatch):
 def test_usual_places_are_listed_for_each_platform(env, monkeypatch):
     mod = _module(env, FakeRunner(), monkeypatch)
     mod.system_node_dirs = None  # the real defaults
-    mac = [str(p) for p in mod._node_search_dirs(Platform.DARWIN)]
-    assert "/opt/homebrew/bin" in mac and "/usr/local/bin" in mac
-    assert str(env["home"] / ".local" / "bin") in mac
-    assert str(env["home"] / ".volta" / "bin") in mac
+    mac = mod._node_search_dirs(Platform.DARWIN)
+    assert Path("/opt/homebrew/bin") in mac and Path("/usr/local/bin") in mac
+    assert env["home"] / ".local" / "bin" in mac
+    assert env["home"] / ".volta" / "bin" in mac
     monkeypatch.setenv("ProgramFiles", r"C:\Program Files")
     win = [str(p) for p in mod._node_search_dirs(Platform.WIN32)]
     assert any(p.endswith("nodejs") and "Program Files" in p for p in win)
@@ -604,7 +606,13 @@ def test_a_planted_cli_js_with_downloads_off_is_deleted_not_run(env, monkeypatch
     assert not _install_dir(env).exists()
 
 
-@pytest.mark.parametrize("plant", ["changed_file", "missing_file", "unreadable", "fifo"])
+_POSIX_ONLY = pytest.mark.skipif(sys.platform == "win32", reason="POSIX only: chmod 0 doesn't stop "
+                                 "reading on Windows, and Windows has no FIFOs (mkfifo)")
+
+
+@pytest.mark.parametrize("plant", ["changed_file", "missing_file",
+                                   pytest.param("unreadable", marks=_POSIX_ONLY),
+                                   pytest.param("fifo", marks=_POSIX_ONLY)])
 def test_any_change_to_the_saved_copy_counts(env, monkeypatch, plant, tmp_path):
     monkeypatch.setenv("RESCUE_NO_DOWNLOADS", "1")
     install = _install_dir(env)
@@ -928,10 +936,14 @@ def test_the_run_copy_is_private_and_verified(env, monkeypatch):
         seen["mode"] = stat.S_IMODE(root.parent.stat().st_mode)
         link = root / "node_modules" / "onnxruntime-node"
         seen["link"] = link.is_symlink() and link.resolve() == (root / "stub").resolve()
+        # Byte for byte (a text-mode write on Windows would add \r).
+        seen["bootstrap"] = Path(args[1]).read_bytes() == _code_module().BOOTSTRAP_JS.encode("utf-8")
         return _result(args, 1, FIXTURE.read_text())
 
     _module(env, FakeRunner(detect=detect), monkeypatch).check(_profile())
-    assert seen == {"mode": 0o700, "link": True}
+    assert seen["link"] is True and seen["bootstrap"] is True
+    if sys.platform != "win32":  # POSIX modes don't apply on Windows
+        assert seen["mode"] == 0o700
 
 
 # --- the child environment (N2) ------------------------------------------------------------
@@ -1258,17 +1270,19 @@ def test_a_link_planted_in_the_run_folder_is_never_written_through(tmp_path):
             os.symlink(outside, dest / "a")       # a folder step swapped for a link
         else:
             os.symlink(victim, dest / "top.js")   # a file swapped for a link
-        with pytest.raises(Exception) as err:
-            code.copy_from_manifest(src, dest, expected, Platform.DARWIN)
-        assert type(err.value).__name__ == "_DestinationError"
-        assert list(outside.iterdir()) == []
-        assert victim.read_text() == "keep me"
+        for platform in (Platform.DARWIN, Platform.WIN32):  # WIN32: the lstat-checked path
+            with pytest.raises(Exception) as err:
+                code.copy_from_manifest(src, dest, expected, platform)
+            assert type(err.value).__name__ == "_DestinationError", platform
+            assert list(outside.iterdir()) == []
+            assert victim.read_text() == "keep me"
     # A clean run folder: folders 0700, files 0600, nothing else.
     dest = tmp_path / "dest-clean"
     dest.mkdir()
     assert code.copy_from_manifest(src, dest, expected, Platform.DARWIN) is True
-    assert stat.S_IMODE((dest / "a").stat().st_mode) == 0o700
-    assert stat.S_IMODE((dest / "a" / "f.js").stat().st_mode) == 0o600
+    if sys.platform != "win32":  # POSIX modes don't apply on Windows
+        assert stat.S_IMODE((dest / "a").stat().st_mode) == 0o700
+        assert stat.S_IMODE((dest / "a" / "f.js").stat().st_mode) == 0o600
     assert (dest / "a" / "f.js").read_bytes() == b"GOOD"
 
 
@@ -1371,7 +1385,11 @@ try { require('canary-home'); } catch (e) {}
   console.log(JSON.stringify(out));
 })();
 """)
-    env = {"PATH": os.environ.get("PATH", ""), "HOME": str(tmp_path / "home"), "MARK": str(marks)}
+    env = {"PATH": os.environ.get("PATH", ""), "HOME": str(tmp_path / "home"),
+           "USERPROFILE": str(tmp_path / "home"), "MARK": str(marks)}
+    for name in ("SystemRoot", "SYSTEMROOT", "windir", "TEMP", "TMP"):  # node needs these on Windows
+        if name in os.environ:
+            env[name] = os.environ[name]
     # Control: run cli.js directly, and the planted packages do load.
     subprocess.run([node, str(nm / "hackmyagent" / "dist" / "cli.js")], capture_output=True,
                    text=True, env=env, timeout=60)
@@ -1383,3 +1401,45 @@ try { require('canary-home'); } catch (e) {}
     assert result["argv"] == ["detect", "/h", "--json"]
     assert result["localEsm"] is True and result["localCjs"] is True  # inside the copy still works
     assert "canary" not in marks.read_text(), (version, marks.read_text())
+
+
+def test_elevated_is_reported_before_downloads_off(env, monkeypatch):
+    """Administrator rights are the safety reason, so they win over --no-downloads."""
+    monkeypatch.setenv("RESCUE_NO_DOWNLOADS", "1")
+    runner = FakeRunner()
+    mod = _module(env, runner, monkeypatch)
+    mod.elevated = True
+    f = _one(mod.check(_profile()), "could_not_check")
+    assert f.data["reason"] == "elevated"
+    assert runner.calls == []
+
+
+def test_the_log_is_closed_before_it_is_deleted(env, monkeypatch):
+    """Windows can't delete a file that is still open; the undo must close it first."""
+    _write_install(_install_dir(env))
+    mod = _module(env, FakeRunner(detect=_detect_appending_to_nanomind(env["home"])), monkeypatch)
+    code = sys.modules[type(mod).__module__]
+    open_fds = set()
+    real_open, real_close, real_unlink = os.open, os.close, os.unlink
+
+    def tracking_open(path, *a, **k):
+        fd = real_open(path, *a, **k)
+        if str(path).endswith("integrity-events.jsonl"):
+            open_fds.add(fd)
+        return fd
+
+    def tracking_close(fd):
+        open_fds.discard(fd)
+        return real_close(fd)
+
+    def windows_like_unlink(path, *a, **k):
+        if str(path).endswith("integrity-events.jsonl") and open_fds:
+            raise PermissionError("the file is still open")
+        return real_unlink(path, *a, **k)
+
+    monkeypatch.setattr(code.os, "open", tracking_open)
+    monkeypatch.setattr(code.os, "close", tracking_close)
+    monkeypatch.setattr(code.os, "unlink", windows_like_unlink)
+    result = mod.check(_profile())
+    assert list(env["home"].iterdir()) == []
+    assert "left_in_home" not in _one(result, "ai_inventory").data
