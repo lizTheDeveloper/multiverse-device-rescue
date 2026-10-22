@@ -163,7 +163,7 @@ def _p(name, org=None, by_mdm=None):
 
 
 def test_trust_needs_enrollment():
-    ps = [_p("A", "Jamf")]
+    ps = [_p("A", "Jamf", by_mdm=True)]
     assert untrusted_profiles(ps, enrolled=True, known=KNOWN) == []
     assert untrusted_profiles(ps, enrolled=False, known=KNOWN) == ps
     assert untrusted_profiles(ps, enrolled=None, known=KNOWN) == ps
@@ -177,7 +177,14 @@ def test_trust_needs_mdm_source_when_the_output_gives_sources():
     assert [p["name"] for p in untrusted_profiles(mixed, enrolled=True, known=KNOWN)] == ["B"]
 
 
+def test_trust_needs_evidence_this_profile_came_from_mdm():
+    # Enrolled, a known organization, and no profile says where it came from:
+    # the organization is written by whoever made the profile, so it's unknown.
+    ps = [_p("A", "Jamf"), _p("B", "Jamf Software")]
+    assert untrusted_profiles(ps, enrolled=True, known=KNOWN) == ps
+
+
 def test_ambiguous_profile_is_never_trusted():
-    p = _p("A", "Jamf")
+    p = _p("A", "Jamf", by_mdm=True)
     p["ambiguous"] = True
     assert untrusted_profiles([p], enrolled=True, known=KNOWN) == [p]

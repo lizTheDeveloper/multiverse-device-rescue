@@ -78,8 +78,8 @@ def _finding(result, check):
 
 
 JAMF_LISTING = (
-    _lines(1, name="Company Mobile Device Management", organization="Jamf")
-    + _lines(2, name="Company Security Settings", organization="Jamf Pro")
+    _lines(1, name="Company Mobile Device Management", organization="Jamf", source="MDM")
+    + _lines(2, name="Company Security Settings", organization="Jamf Pro", source="MDM")
 )
 
 
@@ -170,7 +170,7 @@ def test_jamf_profile_from_a_manual_source_on_an_enrolled_mac_is_a_warning():
 
 def test_an_organization_never_moves_to_another_profile():
     """Only the second profile names an organization: the first stays unknown."""
-    listing = _lines(1, name="Wi-Fi") + _lines(2, organization="Jamf", name="Example Corp MDM")
+    listing = _lines(1, name="Wi-Fi") + _lines(2, organization="Jamf", name="Example Corp MDM", source="MDM")
     f = _finding(_run(_get_module(), enrollment=_enrolled("https://x.example"), listing=listing), "all_profiles")
     assert f.severity == Severity.WARNING
     assert f.data["unknown_profiles"] == ["Wi-Fi"]
@@ -180,12 +180,23 @@ def test_an_organization_never_moves_to_another_profile():
 def test_known_mdm_installed_profile_on_an_enrolled_mac_is_info():
     xml = plistlib.dumps({"_computerlevel": [
         {"ProfileDisplayName": "Example Corp MDM", "ProfileIdentifier": "com.example.mdm",
-         "ProfileOrganization": "Microsoft Intune"},
+         "ProfileOrganization": "Microsoft Intune", "ProfileInstallSource": "MDM"},
     ]}).decode()
     f = _finding(_run(_get_module(), enrollment=_enrolled("https://x.example"), xml=xml, listing=FAIL),
                  "all_profiles")
     assert f.severity == Severity.INFO
     assert f.data["unknown_profiles"] == []
+
+
+def test_a_known_organization_alone_is_not_enough_on_an_enrolled_mac():
+    xml = plistlib.dumps({"_computerlevel": [
+        {"ProfileDisplayName": "Example Corp MDM", "ProfileIdentifier": "com.example.mdm",
+         "ProfileOrganization": "Microsoft Intune"},
+    ]}).decode()
+    f = _finding(_run(_get_module(), enrollment=_enrolled("https://x.example"), xml=xml, listing=FAIL),
+                 "all_profiles")
+    assert f.severity == Severity.WARNING
+    assert f.data["unknown_profiles"] == ["Example Corp MDM"]
 
 
 def test_fleet_street_is_not_fleet_device_management():

@@ -29,7 +29,7 @@
     "known_items.py": "fdd6276d9f18f0cbe9ce6a4c56619130b92de377548bc780b5b354d739f2b37b",
     "macos_firewall.py": "05a323d35ca48a838e598c46e374ef5163d7f9fcafe3814629e829e63eb5308d",
     "macos_launchd.py": "20e60131fcc64c6617502763e90a4f1be6a110687944082485bfced437cdc8c9",
-    "macos_profiles.py": "eb2d6c02dbd20e1ac301a704483bf8b313bd8756c1074ec28b8e405185568919",
+    "macos_profiles.py": "12bf35f72ab3ad24b2533a26fcff4e5ccea9960d0b32e41be5637bcd350452e5",
     "models.py": "067ec281b89af48d0a8f46585b905348eb9c2d361ba928534a1bd967644152a1",
     "module_base.py": "bc57a2b3a9c7a58d66980652e549c159464cca0d781b590c792f9aa0ad649439",
     "orchestrator.py": "8fb67be5add9d74b4a5be0fe570870b64cfd77ea2dd723f5559be4d9c4eb6482",

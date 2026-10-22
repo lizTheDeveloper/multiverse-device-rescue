@@ -11,7 +11,8 @@ known only when all of these hold:
 - this Mac says it is enrolled in device management
   (``profiles status -type enrollment`` prints ``MDM enrollment: Yes``,
   optionally ``(User Approved)``);
-- if the listing says where profiles came from, this one says MDM;
+- the listing says this profile was installed by MDM (a profile the listing
+  gives no source for is not known, even on an enrolled Mac);
 - its organization names a known device-management service.
 
 Anything missing, unreadable or contradictory is "not known". Parsers return
@@ -227,13 +228,16 @@ def is_known_mdm(organization, known: list[str]) -> bool:
 
 
 def untrusted_profiles(profiles: list[dict], enrolled: bool | None, known: list[str]) -> list[dict]:
-    """The profiles that are not known to come from a device-management service."""
-    sources_given = any(p.get("installed_by_mdm") is not None for p in profiles)
+    """The profiles that are not known to come from a device-management service.
+
+    A profile with no source of its own (the listing doesn't say it was
+    installed by MDM) is never known: its organization is self-declared, and
+    another profile's source says nothing about this one."""
 
     def trusted(p: dict) -> bool:
         if enrolled is not True or p.get("ambiguous"):
             return False
-        if sources_given and p.get("installed_by_mdm") is not True:
+        if p.get("installed_by_mdm") is not True:
             return False
         return is_known_mdm(p.get("organization"), known)
 

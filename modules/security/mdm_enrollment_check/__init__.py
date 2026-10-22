@@ -24,7 +24,7 @@ from rescue.runtime import content_file
 
 # Device-management services an employer or school uses (the same list as
 # mdm_enrollment's). A profile is information only when this Mac is enrolled
-# in device management, the profile came from it (when the listing says), and
+# in device management, the listing says this profile was installed by MDM, and
 # its organization names one of these; anything else, or anything that
 # couldn't be read, is a warning. (A profile's organization is written by
 # whoever made the profile.)

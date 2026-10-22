@@ -24,7 +24,7 @@ from rescue.runtime import content_file
 
 # Device-management services an employer or school uses. A profile is listed
 # as information only when this Mac is enrolled in device management, the
-# profile came from it (when the listing says), and its organization names one
+# listing says this profile was installed by MDM, and its organization names one
 # of these; anything else, or anything that couldn't be read, is a warning.
 # (A profile's organization is written by whoever made the profile.)
 KNOWN_MDM_FILE = content_file("modules/security/mdm_enrollment/data/known_mdm.json")

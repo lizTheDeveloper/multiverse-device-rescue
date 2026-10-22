@@ -166,7 +166,7 @@ def test_jamf_profile_from_a_manual_source_on_an_enrolled_mac_is_a_warning():
 
 
 def test_only_the_second_profile_has_an_organization():
-    listing = _lines(1, name="Wi-Fi") + _lines(2, name="Example Corp MDM", organization="Jamf")
+    listing = _lines(1, name="Wi-Fi") + _lines(2, name="Example Corp MDM", organization="Jamf", source="MDM")
     f = _finding(_run(_get_module(), enrollment=ENROLLED, listing=listing), "profiles_installed")
     assert f.severity == Severity.WARNING
     assert f.data["unknown_profiles"] == ["Wi-Fi"]
@@ -175,19 +175,24 @@ def test_only_the_second_profile_has_an_organization():
 
 
 def test_known_mdm_installed_profile_on_an_enrolled_mac_is_info():
-    listing = _lines(1, name="Example Corp MDM", organization="Kandji", profileIdentifier="com.example.mdm")
-    f = _finding(_run(_get_module(), enrollment=ENROLLED, listing=listing), "profiles_installed")
-    assert f.severity == Severity.INFO
-    assert f.data["unknown_profiles"] == []
     with_source = _lines(1, name="Example Corp MDM", organization="Kandji", source="MDM")
     f = _finding(_run(_get_module(), enrollment=ENROLLED, listing=with_source), "profiles_installed")
     assert f.severity == Severity.INFO
+    assert f.data["unknown_profiles"] == []
+
+
+def test_a_known_organization_alone_is_not_enough_on_an_enrolled_mac():
+    # No source for the profile: its organization is whatever its maker wrote.
+    listing = _lines(1, name="Example Corp MDM", organization="Kandji", profileIdentifier="com.example.mdm")
+    f = _finding(_run(_get_module(), enrollment=ENROLLED, listing=listing), "profiles_installed")
+    assert f.severity == Severity.WARNING
+    assert f.data["unknown_profiles"] == ["Example Corp MDM"]
 
 
 def test_structured_output_is_preferred():
     xml = plistlib.dumps({"_computerlevel": [
         {"ProfileDisplayName": "Example Corp MDM", "ProfileIdentifier": "com.example.mdm",
-         "ProfileOrganization": "Mosyle"},
+         "ProfileOrganization": "Mosyle", "ProfileInstallSource": "MDM"},
     ]}).decode()
     # The text listing disagrees; the XML wins.
     f = _finding(_run(_get_module(), enrollment=ENROLLED, xml=xml, listing=FAIL), "profiles_installed")
