@@ -83,8 +83,12 @@ def _fake_run_mdm_enrolled_jamf():
             return _make_subprocess_result(
                 "attribute: name\n"
                 "value: Company Mobile Device Management\n"
+                "attribute: organization\n"
+                "value: Jamf\n"
                 "attribute: name\n"
                 "value: Company Security Settings\n"
+                "attribute: organization\n"
+                "value: Jamf Pro\n"
             )
         return _make_subprocess_result()
     return fake_run
@@ -262,3 +266,44 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.mdm_enrollment_check.") for c in declared)
+
+
+def _fake_run_listing(listing):
+    def fake_run(cmd, **kwargs):
+        cmd_str = " ".join(cmd) if isinstance(cmd, list) else cmd
+        if "profiles" in cmd_str and "enrollment" in cmd_str:
+            return _make_subprocess_result("MDM enrollment: No\n")
+        if "profiles" in cmd_str and "bootstraptoken" in cmd_str:
+            return _make_subprocess_result("Bootstrap Token: No\n")
+        if "profiles" in cmd_str and "list" in cmd_str:
+            return _make_subprocess_result(listing)
+        return _make_subprocess_result()
+    return fake_run
+
+
+def _all_profiles(listing):
+    mod = _get_module()
+    with patch.object(_mdm_sys_module.subprocess, "run", side_effect=_fake_run_listing(listing)):
+        result = mod.check(_make_profile())
+    return next(f for f in result.findings if f.data.get("check") == "all_profiles")
+
+
+def test_unknown_mdm_org_is_a_warning_jamf_is_info():
+    known = _all_profiles(
+        "attribute: name\nvalue: Example Corp MDM\n"
+        "attribute: organization\nvalue: Jamf\n"
+    )
+    assert known.severity == Severity.INFO
+    assert known.data["unknown_profiles"] == []
+    odd = _all_profiles(
+        "attribute: name\nvalue: Example Corp MDM\n"
+        "attribute: organization\nvalue: Jamf\n"
+        "attribute: name\nvalue: Helper Settings\n"
+        "attribute: organization\nvalue: Example Helper Ltd\n"
+    )
+    assert odd.severity == Severity.WARNING
+    assert odd.data["unknown_profiles"] == ["Helper Settings"]
+    # No organization: not known (missing evidence never reads as safe).
+    bare = _all_profiles("attribute: name\nvalue: Wi-Fi\n")
+    assert bare.severity == Severity.WARNING
+    assert bare.data["unknown_profiles"] == ["Wi-Fi"]

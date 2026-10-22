@@ -1,3 +1,5 @@
+import json
+import re
 import subprocess
 
 from rescue.models import (
@@ -12,6 +14,26 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.runtime import content_file
+
+# Device-management services an employer or school uses. A profile whose
+# organization names one of these is listed as information; any other profile,
+# or one whose organization couldn't be read, is a warning.
+KNOWN_MDM_FILE = content_file("modules/security/mdm_enrollment/data/known_mdm.json")
+# `profiles list -verbose` starts each line with the level and "attribute:".
+_LINE_PREFIX = re.compile(r"^\S+\[\d+\]\s+attribute:\s*", re.IGNORECASE)
+
+
+def _known_mdm() -> list[str]:
+    with open(KNOWN_MDM_FILE) as f:
+        return [n for n in json.load(f) if isinstance(n, str) and n.strip()]
+
+
+def is_known_mdm(organization, known: list[str]) -> bool:
+    """Whether a profile's organization names a known device-management service (whole words)."""
+    if not isinstance(organization, str) or not organization.strip():
+        return False
+    return any(re.search(rf"\b{re.escape(n)}\b", organization, re.IGNORECASE) for n in known)
 
 
 class Module(ModuleBase):
@@ -111,29 +133,46 @@ class Module(ModuleBase):
 
         # List installed profiles if any exist
         if profiles_info["profiles"]:
+            known = _known_mdm()
+            unknown = [
+                p["name"] for p in profiles_info["profiles"]
+                if not is_known_mdm(p.get("organization"), known)
+            ]
             profile_list = "\n".join(
                 [
-                    f"  - {p['name']} (Source: {p['source']})"
+                    f"  - {p['name']} (Source: {p.get('source', 'not known')}; "
+                    f"Organization: {p.get('organization') or 'not known'})"
                     for p in profiles_info["profiles"]
                 ]
             )
+            description = (
+                f"The following configuration profiles are installed:\n{profile_list}\n\n"
+                "These profiles may control device settings, security policies, "
+                "VPN configurations, email settings, or other system behavior."
+            )
+            if unknown:
+                description += (
+                    "\n\nNot from a device-management service this checkup knows: "
+                    + ", ".join(unknown)
+                    + ". A profile you didn't add, or one from an employer or school "
+                    "you've left, can read or change what you do.\n\n"
+                    "What to do: Open System Settings, search for Profiles, and look "
+                    "at who each one is from."
+                )
             findings.append(
                 Finding(
                     title=(
                         f"Found {len(profiles_info['profiles'])} installed settings profile(s)"
                     ),
-                    description=(
-                        f"The following configuration profiles are installed:\n{profile_list}\n\n"
-                        "These profiles may control device settings, security policies, "
-                        "VPN configurations, email settings, or other system behavior."
-                    ),
-                    severity=Severity.INFO,
+                    description=description,
+                    severity=Severity.WARNING if unknown else Severity.INFO,
                     category=self.category,
                     code="security.mdm_enrollment.profiles_installed",
                     data={
                         "check": "profiles_installed",
                         "count": len(profiles_info["profiles"]),
                         "profiles": profiles_info["profiles"],
+                        "unknown_profiles": unknown,
                     },
                 )
             )
@@ -286,7 +325,7 @@ class Module(ModuleBase):
             current_profile = {}
 
             for line in lines:
-                line = line.strip()
+                line = _LINE_PREFIX.sub("", line.strip())
                 if not line:
                     if current_profile and "name" in current_profile:
                         profiles.append(current_profile)
@@ -299,10 +338,16 @@ class Module(ModuleBase):
                     key = key.strip().lower()
                     value = value.strip()
 
-                    if key in ("name", "profileidentifier"):
+                    if key == "name":
                         current_profile["name"] = value
+                    elif key == "profileidentifier":
+                        # The display name wins; the identifier names it only when there's no name.
+                        current_profile["identifier"] = value
+                        current_profile.setdefault("name", value)
                     elif key == "source":
                         current_profile["source"] = value
+                    elif key in ("organization", "profileorganization"):
+                        current_profile["organization"] = value
 
             # Don't forget the last profile if file doesn't end with blank line
             if current_profile and "name" in current_profile:

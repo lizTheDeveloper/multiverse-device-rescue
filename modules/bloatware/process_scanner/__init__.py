@@ -70,25 +70,55 @@ class Module(ModuleBase):
     def _make_finding(
         self, proc: ProcessInfo, entry: dict, severity: Severity
     ) -> Finding:
+        category = entry["category"]
         return Finding(
             title=f"{entry['name']} is running in the background",
-            description=(
-                f"We found {entry['name']} running on your device. This is a known program "
-                "that often uses system resources for no good reason.\n\n"
-                f"Here is what we know about it: {entry['description']}\n\n"
-                "What to do: You can usually ignore this. If you want to stop it, search "
-                "for 'Task Manager' (Windows) or 'Activity Monitor' (Mac), find the name "
-                "above, and choose 'End Task' or 'Quit'. Do not delete any files."
-            ),
+            description=_describe(entry),
             severity=severity,
             category=self.category,
             data={
+                "check": category,
                 "pid": proc.pid,
                 "process_name": proc.name,
                 "bloatware_name": entry["name"],
-                "bloatware_category": entry["category"],
+                "bloatware_category": category,
             },
         )
+
+
+# Adware, scareware and miners are harmful on purpose, so they never say "you
+# can usually ignore this": each says what it does first. A bundled extra
+# ("pup") keeps the clutter wording.
+_HARMFUL_FIRST_LINE = {
+    "adware": "This program shows unwanted ads or changes your browser",
+    "scareware": "This program shows fake warnings to get you to pay",
+    "cryptominer": "This program uses your computer to make money for someone else",
+}
+
+_STOP_IT = (
+    "search for 'Task Manager' (Windows) or 'Activity Monitor' (Mac), find the "
+    "name above, and choose 'End Task' or 'Quit'."
+)
+
+
+def _describe(entry: dict) -> str:
+    name = entry["name"]
+    first = _HARMFUL_FIRST_LINE.get(entry["category"])
+    if first is None:
+        return (
+            f"We found {name} running on your device. This is a known program "
+            "that often uses system resources for no good reason.\n\n"
+            f"Here is what we know about it: {entry['description']}\n\n"
+            "What to do: You can usually ignore this. If you want to stop it, "
+            + _STOP_IT
+            + " Do not delete any files."
+        )
+    return (
+        f"{first}: we found {name} running on your device.\n\n"
+        f"Here is what we know about it: {entry['description']}\n\n"
+        "What to do: Stop it: " + _STOP_IT + " Then remove the app it came with. "
+        "Don't pay for anything it asks you to buy, and don't call a number it shows."
+    )
 
 
 def _load_known_bloatware() -> list[dict]:

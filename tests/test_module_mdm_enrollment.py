@@ -224,7 +224,9 @@ def test_mdm_enrollment_multiple_profiles():
     )
     assert profiles_finding is not None
     assert profiles_finding.data.get("count") == 3
-    assert profiles_finding.severity == Severity.INFO
+    # Added by hand, with no organization from a known device-management service: a warning (plan 2026-10-22 Task 8).
+    assert profiles_finding.severity == Severity.WARNING
+    assert profiles_finding.data["unknown_profiles"] == ["VPN Configuration", "Email Configuration", "Security Settings"]
 
 
 def test_mdm_enrollment_profiles_list_fails():
@@ -267,3 +269,80 @@ def test_emitted_codes_are_declared():
     declared = set(mod.emits_codes)
     assert declared, "emits_codes must be populated"
     assert all(c.startswith("security.mdm_enrollment.") for c in declared)
+
+
+def _fake_run_profiles(listing):
+    """Not enrolled, not supervised; `profiles list -verbose` prints `listing` (synthetic)."""
+    def fake_run(cmd, **kwargs):
+        cmd_str = " ".join(cmd) if isinstance(cmd, list) else cmd
+        if "profiles status -type enrollment" in cmd_str:
+            return _make_subprocess_result("Enrolled: No\nDEP Capable: No\n")
+        if "profiles status" in cmd_str:
+            return _make_subprocess_result("Supervised: No\nDEP Capable: No\n")
+        if "profiles list -verbose" in cmd_str:
+            return _make_subprocess_result(listing)
+        return _make_subprocess_result()
+    return fake_run
+
+
+def _profiles_finding(listing):
+    mod = _get_module()
+    with patch("subprocess.run", side_effect=_fake_run_profiles(listing)):
+        result = mod.check(_make_profile())
+    return next(f for f in result.findings if f.data.get("check") == "profiles_installed")
+
+
+def test_unknown_mdm_org_is_a_warning_jamf_is_info():
+    jamf = _profiles_finding(
+        "Configuration Profile:\n"
+        "Name: Example Corp MDM\n"
+        "ProfileIdentifier: com.example.mdm\n"
+        "Organization: Jamf\n"
+        "Source: MDM\n"
+    )
+    assert jamf.severity == Severity.INFO
+    assert jamf.data["unknown_profiles"] == []
+    odd = _profiles_finding(
+        "Configuration Profile:\n"
+        "Name: Example Corp MDM\n"
+        "Organization: Jamf\n"
+        "Source: MDM\n"
+        "\n"
+        "Configuration Profile:\n"
+        "Name: Helper Settings\n"
+        "Organization: Example Helper Ltd\n"
+        "Source: Manual\n"
+    )
+    assert odd.severity == Severity.WARNING
+    assert odd.data["unknown_profiles"] == ["Helper Settings"]
+    assert "Helper Settings" in odd.description
+
+
+def test_a_profile_with_no_organization_is_not_known():
+    """Missing evidence never reads as safe: no organization line means it isn't a known one."""
+    f = _profiles_finding("Configuration Profile:\nName: Wi-Fi\nSource: Manual\n")
+    assert f.severity == Severity.WARNING
+    assert f.data["unknown_profiles"] == ["Wi-Fi"]
+
+
+def test_real_profiles_prefix_is_read():
+    """`profiles list -verbose` prefixes each line with the level and `attribute:`."""
+    f = _profiles_finding(
+        "_computerlevel[1] attribute: name: Example Corp MDM\n"
+        "_computerlevel[1] attribute: organization: Kandji\n"
+    )
+    assert f.data["profiles"][0]["name"] == "Example Corp MDM"
+    assert f.data["profiles"][0]["organization"] == "Kandji"
+    assert f.severity == Severity.INFO
+
+
+def test_known_mdm_list_matches_the_check_modules_copy():
+    root = Path(__file__).parent.parent / "modules" / "security"
+    a = (root / "mdm_enrollment" / "data" / "known_mdm.json").read_text()
+    b = (root / "mdm_enrollment_check" / "data" / "known_mdm.json").read_text()
+    assert a == b
+    import json
+    names = json.loads(a)
+    for want in ["Jamf", "Kandji", "Mosyle", "Microsoft Intune", "Addigy", "JumpCloud", "Workspace ONE",
+                 "Hexnode", "SimpleMDM", "Fleet", "Apple Business Manager", "Apple School Manager"]:
+        assert want in names

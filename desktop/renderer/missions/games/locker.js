@@ -36,6 +36,12 @@ const CODES_BY_MODULE = {
   win_suspicious_processes: ['known_malware', 'encoded_powershell', 'mining_software'].map((c) => `security.win_suspicious_processes.${c}`),
 };
 
+// Shared modules, narrowed by data.check (a module with no codes): process_scanner's harmful programs are this
+// game's; its bundled extras ("pup") stay in the Junkyard.
+const CHECKS_BY_MODULE = {
+  process_scanner: ['adware', 'scareware', 'cryptominer'],
+};
+
 const KIND_BY_CHECK = {
   // files
   obfuscated_script: 'file', known_payload_path: 'file', known_hash_match: 'file', npmrc_git_override: 'file',
@@ -49,6 +55,7 @@ const KIND_BY_CHECK = {
   known_miner: 'process', high_cpu_process: 'process', mining_pool_connection: 'process',
   known_malware: 'process', suspicious_paths: 'process', suspicious_names: 'process', high_cpu: 'process',
   mining_software: 'process', encoded_powershell: 'process',
+  adware: 'process', scareware: 'process', cryptominer: 'process',
   // browser add-ons
   browser_extension: 'extension',
   // settings and tools
@@ -63,7 +70,7 @@ const KIND_BY_CHECK = {
   secure_boot_disabled: 'system', hidden_services: 'system', boot_tampering: 'system',
 };
 
-const MINER_CHECKS = new Set(['known_miner', 'high_cpu_process', 'mining_pool_connection', 'mining_software']);
+const MINER_CHECKS = new Set(['known_miner', 'high_cpu_process', 'mining_pool_connection', 'mining_software', 'cryptominer']);
 
 // What matched, in a few words, by check. [standard, city]
 const WHY = {
@@ -97,6 +104,9 @@ const WHY = {
   browser_extension: ['An add-on known as unwanted software', 'A gadget known as a pest'],
   mining_software: ['Matches crypto mining software', 'Matches a known miner'],
   encoded_powershell: ['PowerShell running a hidden, scrambled command', 'A scrambled order running in the shell'],
+  adware: ['A known program that shows unwanted ads or changes your browser', 'A known pest that plasters ads'],
+  scareware: ['A known program that shows fake warnings to get you to pay', 'A known pest that cries wolf for cash'],
+  cryptominer: ['Matches a known crypto miner', 'Matches a known miner'],
 };
 const WHY_DEFAULT = ['Matched a warning sign the checkup looks for', 'Matched a known sign'];
 
@@ -252,8 +262,8 @@ export function tagOf(item, ctx) {
     title: v(clip(str(f.title))),
     path: v(clip(shortHome(str(where)), 400)),
     rawPath: str(path),
-    name: v(clip(str(path ? baseOf(path) : (d.process || d.extension_name || d.display_name || d.entry_name || d.key_name || '')), 120)),
-    process: v(clip(str(d.process || ''), 120)),
+    name: v(clip(str(path ? baseOf(path) : (d.process || d.process_name || d.extension_name || d.display_name || d.entry_name || d.key_name || '')), 120)),
+    process: v(clip(str(d.process || d.process_name || ''), 120)),
     pid: Number.isInteger(d.pid) && d.pid > 0 ? d.pid : null,
     browser: v(str(d.browser || '')),
     flags: placeFlags(path),
@@ -672,7 +682,10 @@ export default {
   type: 'locker',
   title: { standard: 'Suspicious files', city: 'The Evidence Locker' },
   concepts: ['where-it-lives', 'who-made-it', 'poisoned-packages', 'wifi-and-mining'],
-  covers: MODULES.map((module) => (CODES_BY_MODULE[module] ? { module, codes: CODES_BY_MODULE[module] } : { module })),
+  covers: [
+    ...MODULES.map((module) => (CODES_BY_MODULE[module] ? { module, codes: CODES_BY_MODULE[module] } : { module })),
+    ...Object.entries(CHECKS_BY_MODULE).map(([module, checks]) => ({ module, checks: checks.slice() })),
+  ],
   decisions,
   research,
   practice: { items: PRACTICE_ITEMS, script: PRACTICE_SCRIPT },

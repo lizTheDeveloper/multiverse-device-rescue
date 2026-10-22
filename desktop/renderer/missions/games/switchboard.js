@@ -60,6 +60,11 @@ const MODULE_KIND = {
   arp_spoof_check: 'router',
   lan_device_inventory: 'router',
   vpn_leak_check: 'vpn',
+  // Who this computer trusts: root certificates and device-management profiles.
+  certificate_audit: 'trust',
+  certificate_trust_audit: 'trust',
+  mdm_enrollment: 'trust',
+  mdm_enrollment_check: 'trust',
 };
 
 const CODE_KIND = {
@@ -227,6 +232,16 @@ const KINDS = {
       ['Is this your exchange’s address?', 'Do you know the sign-in for the exchange?', 'Did you set up anything that needs this door?']),
     steps: W(['Open your router’s settings page: type the router address shown here into a web browser.', 'Sign in (the details are often on a sticker on the router).', 'Turn off UPnP and remote administration, save, and run the checkup again.'],
       ['Open the exchange’s settings page at the address shown here.', 'Sign in (the details are often on a sticker on the box).', 'Close the open door, save and sweep again.']),
+  },
+  trust: {
+    chip: W('Trusted by {me}', 'Seal of trust'),
+    via: W('Certificate or profile', 'Seal'), to: W('From', 'From'),
+    head: W('', 'A seal of trust at your post'),
+    what: W('Certificates and device-management profiles decide who this computer trusts. One you didn’t add, or one from an employer or school you’ve left, can read or change what you do.',
+      'Seals decide who {me} trusts. One you didn’t add, or one from a workplace or school you’ve left, can read or change what you do.'),
+    pane: PANE('profiles', 'windows-security'), concept: 'who-made-it',
+    checklist: W(['Did you add this, or did an employer or school you’re with now set it up?', 'Is it from a company you know? Search its name.', 'If you don’t know it, ask someone you trust before you remove it.'],
+      ['Did you add this seal, or did a workplace or school you’re with now?', 'Is it from a name you know? Search it.', 'If you don’t know it, ask someone you trust before you take it down.']),
   },
   vpn: {
     chip: W('VPN', 'Tunnel'),
@@ -460,7 +475,30 @@ function vpnLines(d, ctx) {
   return [];
 }
 
-const READERS = { port: portLines, conn: connLines, firewall: firewallLines, dns: dnsLines, profile: profileLines,
+// Certificates (names, or { name, expiry }) and profiles ({ name, organization }, or names with an
+// organizations map). A profile not from a known device-management service (engine: data.unknown_profiles) is odd.
+function trustLines(d, ctx, finding) {
+  const city = ctx.mode === 'city';
+  const unknown = new Set(list(d.unknown_profiles).map((x) => String(x)));
+  const expired = /expired_certificates$/.test(String(finding.code || ''));
+  const certTo = expired ? (city ? 'Run out' : 'Expired') : (city ? `Added at ${me(ctx)}` : `Added to ${me(ctx)}`);
+  const out = [];
+  for (const c of [...list(d.certs), ...list(d.certificates)]) {
+    const name = entryText(c);
+    if (name) out.push({ via: name, to: certTo, odd: !expired });
+  }
+  const orgs = isObj(d.organizations) ? d.organizations : {};
+  for (const p of list(d.profiles)) {
+    const name = isObj(p) ? clip(p.name || p.identifier || '') : clip(p);
+    if (!name) continue;
+    const org = isObj(p) ? p.organization : orgs[String(p)];
+    out.push({ via: name, to: org ? clip(org) : (city ? 'Unknown' : 'Not known'), odd: unknown.has(isObj(p) ? String(p.name || '') : String(p)) });
+  }
+  if (!out.length && d.mdm_server) out.push({ via: city ? 'Management' : 'Device management', to: clip(d.mdm_server) });
+  return out;
+}
+
+const READERS = { trust: trustLines, port: portLines, conn: connLines, firewall: firewallLines, dns: dnsLines, profile: profileLines,
   hosts: hostsLines, proxy: proxyLines, sharing: sharingLines, wifi: wifiLines, router: routerLines, vpn: vpnLines };
 
 // { kind, lines: [{ via, to, odd }] (at most MAX_LINES), more } for one finding.
@@ -594,6 +632,8 @@ function lookupOf(kind, f, t, ctx) {
     case 'wifi': return { kind: 'lookup', source: win ? 'microsoft-support' : 'apple-support', query: 'Wi-Fi security' };
     case 'router': return { kind: 'lookup', source: 'web', query: 'turn off UPnP router' };
     case 'vpn': return { kind: 'lookup', source: 'web', query: clip(`"${d.vpn_name || 'VPN'}" send all traffic`) };
+    case 'trust': return first.via ? { kind: 'lookup', source: 'web',
+      query: clip(`"${first.via}" ${/^mdm_/.test(moduleOf(f)) ? 'configuration profile' : 'root certificate'}`) } : null;
     default: return null;
   }
 }
@@ -737,7 +777,7 @@ export const practice = {
 export default {
   type: 'switchboard',
   title: W('Network lines', 'The Switchboard'),
-  concepts: ['wifi-and-mining', 'remote-access-scams'],
+  concepts: ['wifi-and-mining', 'remote-access-scams', 'who-made-it'],
   covers,
   decisions,
   research,

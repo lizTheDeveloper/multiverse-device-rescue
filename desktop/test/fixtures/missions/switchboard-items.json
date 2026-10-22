@@ -215,6 +215,53 @@
       "description": "This PC looks up website names with servers we don't recognise.",
       "data": { "check_type": "dns_servers", "dns_servers": ["198.51.100.77"] },
       "expect": { "kind": "dns", "expected": "keep", "odd": "settings", "pane": "dns" }
+    },
+    {
+      "module": "certificate_audit", "platform": "darwin", "severity": "warning",
+      "code": "security.certificate_audit.user_root_cas",
+      "title": "Found 1 custom security certificates in your account",
+      "description": "We found 1 custom certificate in your personal account.",
+      "removal_alert": true,
+      "data": { "check": "user_root_cas", "count": 1, "certificates": [{ "name": "Example Root CA" }] },
+      "expect": { "kind": "trust", "expected": "keep", "odd": "settings", "pane": "profiles" }
+    },
+    {
+      "module": "certificate_trust_audit", "platform": "darwin", "severity": "info",
+      "code": "security.certificate_trust_audit.user_added_certs",
+      "title": "Certificates added to this Mac: 1",
+      "description": "A certificate that didn't come with macOS is trusted.",
+      "removal_alert": true,
+      "data": { "check": "user_added_certs", "certs": ["Example Inspect CA"] },
+      "expect": { "kind": "trust", "expected": "keep", "odd": "settings", "pane": "profiles" }
+    },
+    {
+      "module": "mdm_enrollment", "platform": "darwin", "severity": "warning",
+      "code": "security.mdm_enrollment.profiles_installed",
+      "title": "Found 2 installed settings profile(s)",
+      "description": "The following configuration profiles are installed.",
+      "removal_alert": true,
+      "data": { "check": "profiles_installed", "count": 2, "unknown_profiles": ["Helper Settings"],
+        "profiles": [{ "name": "Example Corp MDM", "organization": "Jamf", "source": "MDM" },
+          { "name": "Helper Settings", "organization": "Example Helper Ltd", "source": "Manual" }] },
+      "expect": { "kind": "trust", "expected": "keep", "odd": "settings", "pane": "profiles" }
+    },
+    {
+      "module": "mdm_enrollment_check", "platform": "darwin", "severity": "warning",
+      "code": "security.mdm_enrollment_check.all_profiles",
+      "title": "Configuration profiles: 1 installed",
+      "description": "Installed configuration profiles.",
+      "removal_alert": true,
+      "data": { "check": "all_profiles", "profiles": ["Helper Settings"], "organizations": { "Helper Settings": null }, "unknown_profiles": ["Helper Settings"] },
+      "expect": { "kind": "trust", "expected": "keep", "odd": "settings", "pane": "profiles" }
+    },
+    {
+      "module": "certificate_trust_audit", "platform": "win32", "severity": "warning",
+      "code": "security.certificate_trust_audit.self_signed_root_certs",
+      "title": "Self-signed root certificates: 1",
+      "description": "A self-signed root certificate is trusted.",
+      "removal_alert": true,
+      "data": { "check": "self_signed_root_certs", "certs": ["Example Self-Signed Root"] },
+      "expect": { "kind": "trust", "expected": "keep", "odd": "settings", "pane": "windows-security" }
     }
   ]
 }

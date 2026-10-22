@@ -60,7 +60,7 @@ export const BASE_COVERS = Object.freeze({
     { module: 'security_baseline_diff', codes: [`${SBD}new_browser_extension`] },
   ],
   seal: [
-    ...whole('code_signature_audit', 'gatekeeper_quarantine_check', 'suspicious_processes', 'certificate_audit', 'certificate_trust_audit'),
+    ...whole('code_signature_audit', 'gatekeeper_quarantine_check', 'suspicious_processes'),
     { module: 'win_suspicious_processes', codes: ['security.win_suspicious_processes.suspicious_path', 'security.win_suspicious_processes.no_file_path'] },
   ],
   // Remote-access tools: the Think Back walk-through (spec 2026-10-21). Held in the help district in city mode.
@@ -72,13 +72,16 @@ export const BASE_COVERS = Object.freeze({
       'wifi_security_audit', 'vpn_leak_check', 'airdrop_config', 'airdrop_security_check',
       'win_firewall_rules_audit', 'win_hosts_file', 'win_hosts_file_check', 'win_proxy_detect', 'win_rdp_check',
       'win_remote_access_audit', 'win_network_shares_audit', 'win_dns_config'),
+    // Who this computer trusts: root certificates and device-management profiles (the "trust" line).
+    ...whole('certificate_audit', 'certificate_trust_audit', 'mdm_enrollment', 'mdm_enrollment_check'),
     { module: 'security_baseline_diff', codes: [`${SBD}new_listening_port`] },
     // A hosts-file line found by the mining check is a line in the address book.
     { module: 'browser_cryptojacking_check', checks: ['mining_hosts_entry'] },
   ],
-  locker: whole('ai_worm_filesystem', 'ai_worm_iocs', 'ai_worm_git_ssh', 'ai_worm_lateral', 'ai_worm_network', 'ai_threat_indicators',
+  locker: [...whole('ai_worm_filesystem', 'ai_worm_iocs', 'ai_worm_git_ssh', 'ai_worm_lateral', 'ai_worm_network', 'ai_threat_indicators',
     'malware_scan_indicators', 'cryptojacking_iocs', 'crypto_miner_detect', 'rootkit_check',
     'win_malware_indicators', 'win_crypto_miner_detect', 'win_rootkit_check'),
+  { module: 'process_scanner', checks: ['adware', 'scareware', 'cryptominer'] }],
   // (win_suspicious_processes' harmful programs: the Locker game claims them by code.)
   locks: [
     ...whole('automatic_updates', 'update_checker', 'encryption_check', 'filevault_recovery', 'screen_lock_check', 'lock_screen_check',
@@ -126,7 +129,7 @@ export const ODD_JOBS = Object.freeze([
   'notification_center_check', 'screen_resolution_scaling', 'spotlight_rebuild', 'spotlight_repair',
   'spotlight_status', 'swap_memory_check', 'swap_usage', 'thermal_throttle_check', 'thermal_throttle', 'user_profile_size',
   'bluetooth_audit', 'disk_encryption_recovery', 'evidence_bundle', 'login_window_settings',
-  'mdm_enrollment_check', 'mdm_enrollment', 'sip_gatekeeper', 'siri_privacy', 'ssh_key_audit', 'sudo_config_audit', 'sudo_touchid',
+  'sip_gatekeeper', 'siri_privacy', 'ssh_key_audit', 'sudo_config_audit', 'sudo_touchid',
   'usb_device_audit', 'user_account_audit', 'vpn_config', 'xprotect_status', 'screen_time_parental',
   // Split by code above; its other warnings (none today) would be Odd Jobs.
   'security_baseline_diff',

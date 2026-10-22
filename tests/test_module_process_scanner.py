@@ -101,3 +101,42 @@ def test_process_scanner_fix_informational():
     assert "MacKeeper" in action.title or "MacKeeper" in action.description
     assert action.success is True
     assert action.error is None
+
+
+def _finding_for(name, command):
+    mod = _get_module()
+    profile = _make_profile([
+        ProcessInfo(pid=77, name=name, cpu_percent=1.0, memory_bytes=10 * 1024**2, command=command),
+    ])
+    result = mod.check(profile)
+    assert len(result.findings) == 1
+    return result.findings[0]
+
+
+def test_adware_finding_has_check_adware_and_no_usually_ignore():
+    f = _finding_for("Genieo", "/Applications/Genieo.app/Contents/MacOS/Genieo")
+    assert f.data["check"] == "adware"
+    assert f.data["bloatware_category"] == "adware"
+    assert "usually ignore" not in f.description
+    assert f.description.startswith("This program shows unwanted ads or changes your browser")
+    assert f.severity == Severity.WARNING
+
+
+def test_scareware_and_cryptominer_get_their_own_first_line():
+    s = _finding_for("MacKeeper", "/Applications/MacKeeper.app/Contents/MacOS/MacKeeper")
+    assert s.data["check"] == "scareware"
+    assert "usually ignore" not in s.description
+    assert s.description.startswith("This program shows fake warnings")
+    m = _finding_for("xmrig", "/tmp/.x/xmrig --donate-level 1")
+    assert m.data["check"] == "cryptominer"
+    assert "usually ignore" not in m.description
+    assert m.description.startswith("This program uses your computer to make money for someone else")
+    for f in (s, m):
+        assert f.severity == Severity.CRITICAL
+
+
+def test_pup_keeps_todays_wording():
+    f = _finding_for("InstallMac", "/Applications/InstallMac.app/Contents/MacOS/InstallMac")
+    assert f.data["check"] == "pup"
+    assert "You can usually ignore this" in f.description
+    assert f.description.startswith("We found InstallMac Installer running on your device.")

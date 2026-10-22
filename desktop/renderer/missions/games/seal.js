@@ -619,8 +619,8 @@ export default {
     { module: 'code_signature_audit' },
     { module: 'gatekeeper_quarantine_check' },
     { module: 'suspicious_processes', codes: ['security.suspicious_processes.unsigned_apps'] },
-    { module: 'certificate_audit' },
-    { module: 'certificate_trust_audit' },
+    // Root certificates are the Switchboard's trust lines (who this computer trusts); the cert words here stay for
+    // an item the person moves here by hand.
     { module: 'win_rootkit_check', codes: ['security.win_rootkit_check.unsigned_drivers'] },
     // win_driver_check emits no codes: its unsigned-driver finding by data.check (R9).
     { module: 'win_driver_check', checks: ['unsigned_drivers'] },

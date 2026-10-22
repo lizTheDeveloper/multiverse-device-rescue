@@ -6,6 +6,7 @@
  },
  "ai_worm_git_ssh": {
   "security.ai_worm_git_ssh.git_hookspath_hijack": "locker",
+  "security.ai_worm_git_ssh.git_templatedir_hijack": "locker",
   "security.ai_worm_git_ssh.npmrc_git_override": "locker",
   "security.ai_worm_git_ssh.repo_hook_file": "locker",
   "security.ai_worm_git_ssh.rogue_mcp_server": "locker",
@@ -24,6 +25,7 @@
  "ai_worm_persistence": {
   "(no code)": "door",
   "security.ai_worm_persistence.scheduled_task_persistence": "door",
+  "security.ai_worm_persistence.sessionstart_hook": "door",
   "security.ai_worm_persistence.shell_profile_injection": "door"
  },
  "arp_spoof_check": {
@@ -65,6 +67,7 @@
  "remote_access_tools": {
   "security.remote_access_tools.running_now": "guestbook",
   "security.remote_access_tools.several_tools": "guestbook",
+  "security.remote_access_tools.tool_found": "guestbook",
   "security.remote_access_tools.unattended_recent": "guestbook"
  },
  "resource_hog_identifier": {

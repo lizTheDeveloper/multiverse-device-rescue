@@ -354,3 +354,27 @@ test('maker name and description are scan data: bidi, newlines and length are ne
   const q = r.links.find((l) => l.source === 'maker-site').query;
   assert.match(q, /\[U\+202E\]\[U\+000A\]/);
 });
+
+test('process_scanner adware, scareware and miners: the Locker claims them by check; a running program to stop', async () => {
+  const { C, G, game } = await setup();
+  assert.ok(game.covers.some((c) => c.module === 'process_scanner' && JSON.stringify(c.checks) === JSON.stringify(['adware', 'scareware', 'cryptominer'])));
+  // Synthetic: the engine's process_scanner shape (made-up pid and program).
+  const ps = (check, severity, name) => C.makeItem({ module: 'process_scanner', category: 'bloatware', severity, code: null,
+    title: `${name} is running in the background`, description: 'Practice: a made-up example.',
+    data: { check, pid: 4242, process_name: name, bloatware_name: name, bloatware_category: check } });
+  for (const [check, sev, name, why] of [['adware', 'warning', 'ExampleAds', /unwanted ads/], ['scareware', 'critical', 'ExampleCleaner', /fake warnings/],
+    ['cryptominer', 'critical', 'exampleminer', /crypto min/]]) {
+    const item = ps(check, sev, name);
+    assert.deepStrictEqual(C.runContractChecks(game, [item]), [], check);
+    const t = G.tagOf(item, C.testContext());
+    assert.strictEqual(t.kind, 'process', check);
+    assert.match(t.why, why, check);
+    assert.strictEqual(t.miner, check === 'cryptominer');
+    const d = game.decisions(item, C.testContext());
+    assert.deepStrictEqual(ids(d), ['closer', 'stop', 'mine'], `${check}: Look closer leads`);
+    assert.ok(d.find((x) => x.id === 'stop').effect.steps.some((s) => s.includes(`${name} (ID 4242)`)), `${check}: the stop steps name it`);
+    const city = C.testContext({ mode: 'city' });
+    const html = game.render({ item, research: game.research(item, city), decisions: game.decisions(item, city), index: 0, total: 1 }, city);
+    assert.deepStrictEqual(C.checkCityWords(html), [], check);
+  }
+});

@@ -17,6 +17,7 @@
  },
  "ai_worm_git_ssh": {
   "security.ai_worm_git_ssh.git_hookspath_hijack": "locker",
+  "security.ai_worm_git_ssh.git_templatedir_hijack": "locker",
   "security.ai_worm_git_ssh.npmrc_git_override": "locker",
   "security.ai_worm_git_ssh.repo_hook_file": "locker",
   "security.ai_worm_git_ssh.rogue_mcp_server": "locker",
@@ -35,6 +36,7 @@
  "ai_worm_persistence": {
   "(no code)": "door",
   "security.ai_worm_persistence.scheduled_task_persistence": "door",
+  "security.ai_worm_persistence.sessionstart_hook": "door",
   "security.ai_worm_persistence.shell_profile_injection": "door"
  },
  "airdrop_config": {
@@ -54,7 +56,7 @@
   "(no code)": "junkyard"
  },
  "app_permissions": {
-  "(no code)": "keyring"
+  "security.app_permissions.accessibility_access": "keyring"
  },
  "appleid_security_check": {
   "security.appleid_security_check.appleid_signin": "locks",
@@ -126,13 +128,13 @@
   "security.browser_privacy_check.fraud_warning_disabled": "locks"
  },
  "certificate_audit": {
-  "security.certificate_audit.expired_certificates": "seal",
-  "security.certificate_audit.user_root_cas": "seal"
+  "security.certificate_audit.expired_certificates": "switchboard",
+  "security.certificate_audit.user_root_cas": "switchboard"
  },
  "certificate_trust_audit": {
-  "security.certificate_trust_audit.expired_certificates": "seal",
-  "security.certificate_trust_audit.self_signed_root_certs": "seal",
-  "security.certificate_trust_audit.suspicious_certificates": "seal"
+  "security.certificate_trust_audit.expired_certificates": "switchboard",
+  "security.certificate_trust_audit.self_signed_root_certs": "switchboard",
+  "security.certificate_trust_audit.suspicious_certificates": "switchboard"
  },
  "chrome_extensions": {
   "security.chrome_extensions.broad_permissions": "loadout",
@@ -414,11 +416,13 @@
   "security.malware_scan_indicators.suspicious_bundle_id": "locker"
  },
  "mdm_enrollment": {
-  "security.mdm_enrollment.mdm_enrolled": "simple",
-  "security.mdm_enrollment.supervised": "simple"
+  "security.mdm_enrollment.mdm_enrolled": "switchboard",
+  "security.mdm_enrollment.profiles_installed": "switchboard",
+  "security.mdm_enrollment.supervised": "switchboard"
  },
  "mdm_enrollment_check": {
-  "security.mdm_enrollment_check.restrictions_profiles": "simple"
+  "security.mdm_enrollment_check.all_profiles": "switchboard",
+  "security.mdm_enrollment_check.restrictions_profiles": "switchboard"
  },
  "memory_pressure": {
   "(no code)": "simple"
@@ -502,6 +506,7 @@
  "remote_access_tools": {
   "security.remote_access_tools.running_now": "guestbook",
   "security.remote_access_tools.several_tools": "guestbook",
+  "security.remote_access_tools.tool_found": "guestbook",
   "security.remote_access_tools.unattended_recent": "guestbook"
  },
  "remote_login_check": {

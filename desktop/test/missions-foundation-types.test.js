@@ -232,3 +232,42 @@ test('R9: a cover can narrow by data.check for a module with no codes', async ()
   assert.strictEqual(T.typeOf({ module: 'win_driver_check', severity: 'warning', data: { check: 'old_driver' } }, table), 'simple');
   assert.ok(T.doubleClaims(T.buildTable([{ type: 'seal', covers: [{ module: 'm', checks: ['a'] }] }, { type: 'door', covers: [{ module: 'm', checks: ['a'] }] }])).length);
 });
+
+// Placement (plan 2026-10-22 Task 8), with the registered games' own covers, as the app builds its table.
+async function realTable() {
+  const T = await load();
+  const I = await import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'missions', 'games', 'index.js')).href);
+  const reg = await I.loadGames();
+  return { T, table: T.buildTable(I.ownGames(reg)), reg };
+}
+
+test('placement: process_scanner adware, scareware and miners go to the Evidence Locker; bundled extras stay in the Junkyard', async () => {
+  const { T, table } = await realTable();
+  const ps = (check, severity = 'warning') => ({ module: 'process_scanner', severity, data: { check, bloatware_category: check } });
+  assert.strictEqual(T.typeOf(ps('adware'), table), 'locker');
+  assert.strictEqual(T.typeOf(ps('scareware', 'critical'), table), 'locker');
+  assert.strictEqual(T.typeOf(ps('cryptominer', 'critical'), table), 'locker');
+  assert.strictEqual(T.typeOf(ps('pup'), table), 'junkyard');
+  assert.strictEqual(T.typeOf({ module: 'process_scanner', severity: 'warning', data: {} }, table), 'junkyard', 'no check: as before');
+});
+
+test('placement: certificates and device-management profiles are Switchboard trust lines', async () => {
+  const { T, table } = await realTable();
+  const SB = await import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'missions', 'games', 'switchboard.js')).href);
+  const cert = { module: 'certificate_trust_audit', code: 'security.certificate_trust_audit.user_added_certs', severity: 'warning',
+    data: { check: 'user_added_certs', certs: ['Example Root CA'] } };
+  assert.strictEqual(T.typeOf(cert, table), 'switchboard');
+  assert.strictEqual(T.claimedType({ ...cert, severity: 'info' }, table), 'switchboard', 'its info finding is a Switchboard note');
+  assert.strictEqual(SB.lineKind(cert), 'trust');
+  for (const module of ['certificate_audit', 'mdm_enrollment', 'mdm_enrollment_check']) {
+    assert.strictEqual(T.typeOf({ module, severity: 'warning' }, table), 'switchboard', module);
+  }
+  const mdm = { module: 'mdm_enrollment', code: 'security.mdm_enrollment.profiles_installed', severity: 'warning',
+    data: { check: 'profiles_installed', count: 1, profiles: [{ name: 'Helper Settings', organization: 'Example Helper Ltd' }] } };
+  assert.strictEqual(T.typeOf(mdm, table), 'switchboard');
+  assert.strictEqual(SB.lineKind(mdm), 'trust');
+  // The base table agrees, and nothing is claimed twice.
+  for (const m of ['certificate_audit', 'certificate_trust_audit']) assert.ok(!T.BASE_COVERS.seal.some((c) => c.module === m), m);
+  for (const m of ['mdm_enrollment', 'mdm_enrollment_check']) assert.ok(!T.ODD_JOBS.includes(m), m);
+  assert.deepStrictEqual(T.doubleClaims(table), []);
+});

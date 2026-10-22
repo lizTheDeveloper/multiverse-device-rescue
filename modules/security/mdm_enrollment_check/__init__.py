@@ -1,3 +1,5 @@
+import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -13,6 +15,24 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.runtime import content_file
+
+# Device-management services an employer or school uses (the same list as
+# mdm_enrollment's). A profile whose organization names one is information;
+# any other profile, or one whose organization couldn't be read, is a warning.
+KNOWN_MDM_FILE = content_file("modules/security/mdm_enrollment_check/data/known_mdm.json")
+
+
+def _known_mdm() -> list[str]:
+    with open(KNOWN_MDM_FILE) as f:
+        return [n for n in json.load(f) if isinstance(n, str) and n.strip()]
+
+
+def is_known_mdm(organization, known: list[str]) -> bool:
+    """Whether a profile's organization names a known device-management service (whole words)."""
+    if not isinstance(organization, str) or not organization.strip():
+        return False
+    return any(re.search(rf"\b{re.escape(n)}\b", organization, re.IGNORECASE) for n in known)
 
 
 class Module(ModuleBase):
@@ -107,19 +127,34 @@ class Module(ModuleBase):
         # List all installed profiles if any exist
         all_profiles = profiles_info.get("all_profiles", [])
         if all_profiles:
+            organizations = profiles_info.get("organizations", {})
+            known = _known_mdm()
+            unknown = [p for p in all_profiles if not is_known_mdm(organizations.get(p), known)]
+            description = (
+                "Installed configuration profiles:\n"
+                + "\n".join(f"  - {p}" for p in sorted(all_profiles))
+            )
+            if unknown:
+                description += (
+                    "\n\nNot from a device-management service this checkup knows: "
+                    + ", ".join(unknown)
+                    + ". A profile you didn't add, or one from an employer or school "
+                    "you've left, can read or change what you do.\n\n"
+                    "What to do: Open System Settings, search for Profiles, and look "
+                    "at who each one is from."
+                )
             findings.append(
                 Finding(
                     title=f"Configuration profiles: {len(all_profiles)} installed",
-                    description=(
-                        f"Installed configuration profiles:\n"
-                        + "\n".join(f"  - {p}" for p in sorted(all_profiles))
-                    ),
-                    severity=Severity.INFO,
+                    description=description,
+                    severity=Severity.WARNING if unknown else Severity.INFO,
                     category=self.category,
                     code="security.mdm_enrollment_check.all_profiles",
                     data={
                         "check": "all_profiles",
                         "profiles": all_profiles,
+                        "organizations": {p: organizations.get(p) for p in all_profiles},
+                        "unknown_profiles": unknown,
                     },
                 )
             )
@@ -304,41 +339,56 @@ class Module(ModuleBase):
 
             all_profiles = []
             restrictions_profiles = []
+            # The organization each profile names (None when it names none).
+            organizations = {}
+            pending_org = None
 
             # Parse profile list output
-            # Format: attribute: name / value: <name>
+            # Format: attribute: name / value: <name>, and attribute: organization / value: <org>
             lines = result.stdout.split("\n")
-            prev_is_name_attr = False
+            prev_attr = None
             for line in lines:
                 line = line.strip()
                 if not line:
-                    prev_is_name_attr = False
+                    prev_attr = None
                     continue
 
-                if line.lower().startswith("attribute: name"):
-                    prev_is_name_attr = True
+                low = line.lower()
+                if low.startswith("attribute: name"):
+                    prev_attr = "name"
+                    continue
+                if low.startswith("attribute: organization"):
+                    prev_attr = "organization"
                     continue
 
-                if prev_is_name_attr and line.lower().startswith("value:"):
-                    # Extract profile name from value line
+                if prev_attr and low.startswith("value:"):
                     parts = line.split(":", 1)
-                    if len(parts) > 1:
-                        profile_name = parts[1].strip()
-                        if profile_name and profile_name not in all_profiles:
-                            all_profiles.append(profile_name)
+                    value = parts[1].strip() if len(parts) > 1 else ""
+                    if prev_attr == "name" and value and value not in all_profiles:
+                        all_profiles.append(value)
+                        organizations[value] = pending_org
+                        pending_org = None
 
-                            # Check if this is a restrictions profile
-                            if any(
-                                term in profile_name.lower()
-                                for term in ["restrict", "parental", "managed", "content filter"]
-                            ):
-                                restrictions_profiles.append(profile_name)
+                        # Check if this is a restrictions profile
+                        if any(
+                            term in value.lower()
+                            for term in ["restrict", "parental", "managed", "content filter"]
+                        ):
+                            restrictions_profiles.append(value)
+                    elif prev_attr == "organization" and value:
+                        # It belongs to the profile just named, unless that one already has one
+                        # (then to the next profile named).
+                        if all_profiles and organizations.get(all_profiles[-1]) is None and pending_org is None:
+                            organizations[all_profiles[-1]] = value
+                        else:
+                            pending_org = value
 
-                prev_is_name_attr = False
+                prev_attr = None
 
             return {
                 "profile_count": len(all_profiles),
                 "all_profiles": all_profiles,
+                "organizations": organizations,
                 "restrictions_profiles": restrictions_profiles,
             }
         except Exception:

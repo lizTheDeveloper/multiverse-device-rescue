@@ -287,7 +287,15 @@ function settingSteps(item, ctx) {
   return { steps: ['Look for the setting named on the card.'] };
 }
 
-const isBloat = (item) => ['process_scanner', 'win_bloatware'].includes(findingOf(item).module);
+// Pre-installed or bundled extras. process_scanner's adware, scareware and miners are the Evidence Locker's (it
+// claims them by data.check); only its bundled extras ("pup", or a finding with no check) are clutter here.
+const isBloat = (item) => {
+  const f = findingOf(item);
+  if (f.module === 'win_bloatware') return true;
+  if (f.module !== 'process_scanner') return false;
+  const check = dataOf(f).check;
+  return check == null || check === '' || check === 'pup';
+};
 
 function hogName(item) {
   const d = dataOf(findingOf(item));

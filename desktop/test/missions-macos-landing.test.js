@@ -20,6 +20,15 @@ const imp = (rel) => import(pathToFileURL(path.join(__dirname, '..', 'renderer',
 // Every macOS engine module and the codes of its critical/warning findings,
 // read from its source: each Finding( … ) block with Severity.CRITICAL or
 // Severity.WARNING gives its literal code, or NO_CODE when it has none.
+// A computed severity: the block passes `severity=<name>`, and an assignment to that name (`name = …`, a
+// statement, not a keyword argument) between the Finding( before and this one can be CRITICAL or WARNING
+// (remote_access_tools' tool_found: INFO when marked quiet, else WARNING; an if/else of INFO and CRITICAL).
+function computedTodo(block, before) {
+  const v = /\bseverity=([a-z_][a-z0-9_]*)\b/.exec(block.split(/\bFinding\(|\bCheckResult\(/)[0]);
+  if (!v) return false;
+  return [...before.matchAll(new RegExp(`^\\s*${v[1]}\\s+=\\s+(.+)$`, 'gm'))].some((a) => /Severity\.(?:CRITICAL|WARNING)/.test(a[1]));
+}
+
 function macosTodoChecks() {
   const out = {};
   for (const cat of fs.readdirSync(MODULES)) {
@@ -35,12 +44,14 @@ function macosTodoChecks() {
       if (!name || !/Platform\.DARWIN/.test(platforms)) continue;
       const src = fs.readdirSync(mdir).filter((f) => f.endsWith('.py')).map((f) => fs.readFileSync(path.join(mdir, f), 'utf8')).join('\n');
       const codes = new Set();
-      const blocks = src.split(/\bFinding\(/).slice(1);
-      for (const b of blocks) {
-        if (!/Severity\.(?:CRITICAL|WARNING)/.test(b.split(/\bFinding\(|\bCheckResult\(/)[0])) continue;
+      const parts = src.split(/\bFinding\(/);
+      const blocks = parts.slice(1);
+      blocks.forEach((b, i) => {
+        if (!/Severity\.(?:CRITICAL|WARNING)/.test(b.split(/\bFinding\(|\bCheckResult\(/)[0])
+          && !computedTodo(b, parts[i])) return;
         const m = /\bcode="([a-z0-9_.]+)"/.exec(b);
         codes.add(m ? m[1] : NO_CODE);
-      }
+      });
       if (!codes.size && /Severity\.(?:CRITICAL|WARNING)/.test(src)) codes.add(NO_CODE);
       if (codes.size) out[name] = [...codes].sort();
     }

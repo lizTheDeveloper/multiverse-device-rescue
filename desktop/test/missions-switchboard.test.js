@@ -354,3 +354,46 @@ test('a mining hosts-file line (browser_cryptojacking_check) is traced as a host
     }
   }
 });
+
+test('trust lines: certificates and device-management profiles, traced as who this computer trusts', async () => {
+  const { C, mod, game, fixtures, items } = await load();
+  const at = (code) => items[fixtures.findIndex((f) => f.code === code)];
+  const mdm = at('security.mdm_enrollment.profiles_installed');
+  const std = C.testContext();
+  const t = mod.linesOf(mdm.finding, std);
+  assert.strictEqual(t.kind, 'trust');
+  assert.deepStrictEqual(t.lines.map((l) => [l.via, l.to, !!l.odd]), [['Example Corp MDM', 'Jamf', false], ['Helper Settings', 'Example Helper Ltd', true]]);
+  const cert = at('security.certificate_audit.user_root_cas');
+  assert.strictEqual(mod.linesOf(cert.finding, std).lines[0].via, 'Example Root CA');
+  for (const mode of ['standard', 'city']) {
+    for (const platform of ['darwin', 'win32']) {
+      const ctx = C.testContext({ mode, platform });
+      const html = game.render({ item: mdm, research: game.research(mdm, ctx), decisions: game.decisions(mdm, ctx), index: 0, total: 1 }, ctx);
+      if (mode === 'standard') {
+        assert.match(html, platform === 'win32' ? /Trusted by this PC/ : /Trusted by this Mac/);
+        assert.match(html, /Certificates and device-management profiles decide who this computer trusts\. One you didn’t add, or one from an employer or school you’ve left, can read or change what you do\./);
+      } else {
+        assert.match(html, /Seal of trust/);
+        assert.deepStrictEqual(C.checkCityWords(html), []);
+        assert.doesNotMatch(html, /advocate|hotline|monitor|spy/i);
+      }
+      const d = game.decisions(mdm, ctx);
+      assert.deepStrictEqual(C.checkDecisions(d, mdm), []);
+      assert.deepStrictEqual(ids(d), ['closer', 'odd', 'expected'], 'never a removing decision first');
+      assert.strictEqual(byId(d, 'odd').effect.pane, platform === 'win32' ? 'windows-security' : 'profiles');
+      assert.strictEqual(byId(d, 'odd').effect.warning, true, 'the removal warning on the change');
+      const r = game.research(mdm, ctx);
+      assert.ok(r.links.some((l) => l.kind === 'settings' && l.pane === (platform === 'win32' ? 'windows-security' : 'profiles')));
+      assert.ok(game.concepts.includes(r.links.find((l) => l.kind === 'lesson').concept));
+    }
+  }
+  assert.ok(['certificate_audit', 'certificate_trust_audit', 'mdm_enrollment', 'mdm_enrollment_check'].every((m) => game.covers.some((c) => c.module === m && !c.codes && !c.checks)));
+});
+
+test('trust lines look up the certificate or profile by its name', async () => {
+  const { C, game, fixtures, items } = await load();
+  const at = (code) => items[fixtures.findIndex((f) => f.code === code)];
+  const look = (item) => game.research(item, C.testContext()).links.find((l) => l.kind === 'lookup');
+  assert.deepStrictEqual(look(at('security.mdm_enrollment.profiles_installed')), { kind: 'lookup', source: 'web', query: '"Example Corp MDM" configuration profile' });
+  assert.deepStrictEqual(look(at('security.certificate_audit.user_root_cas')), { kind: 'lookup', source: 'web', query: '"Example Root CA" root certificate' });
+});
