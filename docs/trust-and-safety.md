@@ -346,16 +346,23 @@ this with HackMyAgent (OpenA2A, Apache-2.0,
 - **Checked before and after every run.** `vendor/hackmyagent/tree.sha256`
   lists the sha256 of every file a clean `npm ci` installs (made by
   `scripts/generate_hackmyagent_manifest.py`). For each run, also with
-  `--no-downloads`, the saved copy is copied into a new private temp folder,
-  and every file of that copy is compared with the list; HackMyAgent runs
-  from the copy, which is compared again when it finishes and then deleted.
-  A changed, missing or extra file, or any link other than the AI-runtime
-  stub, means nothing is run (before) or the results are thrown away
-  (after). A saved copy that doesn't match is deleted; it is downloaded once
-  more if downloads are allowed, and otherwise the check says the copy had
-  changed. So a copy changed between scans isn't run, and one changed during
-  a run is caught afterwards as long as it is left changed. A file that
-  can't be read counts as changed. `npm ci --no-bin-links` keeps npm from
+  `--no-downloads`, exactly the files on the list are copied from the saved
+  copy into a new private folder, each hashed as it is copied. On macOS and
+  Linux every step of every path is opened without following links,
+  relative to the folder before it, so a link swapped into the saved copy
+  can't make Reclaim City read anything outside it. On Windows each step is
+  checked with `lstat` for links and junctions and compared after opening,
+  a weaker check. A file that is missing, isn't a plain file, can't be read
+  or doesn't match means nothing is run, and the saved copy is deleted; it is
+  downloaded once more if downloads are allowed, and otherwise the check
+  says the copy had changed. HackMyAgent runs from the private copy, which is
+  compared with the list again when it finishes and then deleted.
+- **Changed during a run.** If the private copy changed while HackMyAgent
+  was running, another program may have run in its place with Reclaim City's
+  permissions. The results are thrown away, the saved copy is deleted, and
+  the check reports a warning (`changed_during_run`) that says so and what to
+  do next. So a copy changed between scans isn't run, and one changed during
+  a run is caught afterwards as long as it is left changed. `npm ci --no-bin-links` keeps npm from
   adding links.
 - **A clean environment.** node and npm get only an allow-listed set of
   environment variables (`PATH`, `HOME`/`USERPROFILE`, the temp-folder,

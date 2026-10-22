@@ -59,8 +59,9 @@ security posture and land somewhere other local accounts may be able to read.
 Nothing else is persisted. A `rescue scan` writes nothing else: the AI tools
 check points HackMyAgent's own settings folder, its telemetry file
 (normally `~/.config/opena2a/telemetry.json`), its temp folder and npm's
-download cache at temp folders and deletes them afterwards, so nothing lands
-in `~/.opena2a`, `~/.config/opena2a` or `~/.npm`. One write can't be
+download cache at short-lived folders inside `<user cache>/ReclaimCity/` and
+deletes them afterwards, so nothing lands in `~/.opena2a`,
+`~/.config/opena2a` or `~/.npm`. One write can't be
 redirected: HackMyAgent's start-up self-check appends a line to
 `~/.nanomind/integrity-events.jsonl`. Right after the run Reclaim City undoes
 it: it deletes the file (and the folder, if it made it) or cuts the file back

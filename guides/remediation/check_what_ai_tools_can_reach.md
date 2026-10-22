@@ -6,13 +6,15 @@ remediates:
   - security.ai_agent_audit.risky_mcp_server
   - security.ai_agent_audit.ai_inventory
   - security.ai_agent_audit.could_not_check
+  - security.ai_agent_audit.changed_during_run
 steps_for:
   security.ai_agent_audit.credentials_in_ai_config: [1]
   security.ai_agent_audit.risky_mcp_server: [2]
   security.ai_agent_audit.ai_inventory: [3]
   security.ai_agent_audit.could_not_check: [4]
+  security.ai_agent_audit.changed_during_run: [5]
 automatable_steps: []
-human_only_steps: [1, 2, 3, 4]
+human_only_steps: [1, 2, 3, 4, 5]
 ---
 
 AI assistants such as Claude Code, Cursor, GitHub Copilot and Claude Desktop
@@ -100,10 +102,9 @@ The finding says why:
   made.** Reinstalling or updating Reclaim City fixes a missing file. If the
   working copy couldn't be made, the disk may be full: free some space and
   run the checkup again. Neither is a sign that anything was changed.
-- **The saved copy had changed.** Before and after every run, Reclaim City
-  checks each file of its copy against the list it ships with. This copy
-  didn't match, so it wasn't run, or its results were thrown away, and the
-  saved copy was deleted. The next checkup that's allowed to
+- **The saved copy had changed.** Before every run, Reclaim City checks each
+  file of its saved copy against the list it ships with. This copy didn't
+  match, so it wasn't run, and it was deleted. The next checkup that's allowed to
   download fetches a fresh one. If it happens again, mention it to whoever
   helps you with your computer.
 - **The checkup had administrator rights.** A downloaded tool is never run
@@ -120,3 +121,23 @@ The finding says why:
 
 A check that couldn't run tells you nothing either way: it doesn't mean your
 AI tools are fine, or that something is wrong.
+
+## Step 5: If the checker's files changed while it was running
+
+Reclaim City checks HackMyAgent's files again right after it runs. This time
+they had changed while it was running. That shouldn't happen, and it can mean
+another program on this computer swapped in its own code, which would then
+have run with Reclaim City's permissions (on a Mac, that can include Full
+Disk Access). Reclaim City threw the results away and deleted its saved copy,
+so the next checkup downloads a fresh one.
+
+1. Don't panic, and don't start deleting things. Write down the date and time.
+2. Run a full checkup (without `--no-downloads`). Look closely at what it says
+   about things set to start automatically (background tasks, login items,
+   launch agents) and at programs you don't recognise.
+3. If the full checkup flags something, follow its own walkthrough.
+4. If you're not sure what you're looking at, ask someone you trust who helps
+   you with computers, and show them this finding.
+5. If it happens again on the next checkup, treat this computer as possibly
+   compromised: change important passwords from a different device, and get
+   help.
