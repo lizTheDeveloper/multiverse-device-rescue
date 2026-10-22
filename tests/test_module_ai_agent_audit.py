@@ -161,7 +161,7 @@ def test_module_is_discovered_read_only_on_every_platform(env, monkeypatch):
     assert set(mod.platforms) == {Platform.DARWIN, Platform.LINUX, Platform.WIN32}
     assert set(mod.emits_codes) == {
         CODE + "credentials_in_ai_config", CODE + "risky_mcp_server",
-        CODE + "ai_inventory", CODE + "could_not_check",
+        CODE + "ai_inventory", CODE + "could_not_check", CODE + "changed_during_run",
     }
     # Fetch (180 s) plus detect (60 s) must fit inside the orchestrator's limit.
     assert mod.check_timeout >= 180 + 60
@@ -602,35 +602,89 @@ def test_a_planted_cli_js_with_downloads_off_is_deleted_not_run(env, monkeypatch
     assert not _install_dir(env).exists()
 
 
-@pytest.mark.parametrize("plant", ["extra_file", "extra_link", "missing_file", "unreadable"])
+@pytest.mark.parametrize("plant", ["changed_file", "missing_file", "unreadable", "fifo"])
 def test_any_change_to_the_saved_copy_counts(env, monkeypatch, plant, tmp_path):
     monkeypatch.setenv("RESCUE_NO_DOWNLOADS", "1")
     install = _install_dir(env)
     _write_install(install)
     nm = install / "node_modules"
-    if plant == "extra_file":
-        (nm / "commander").mkdir()
-        (nm / "commander" / "index.js").write_text("evil()")
-    elif plant == "extra_link":
-        (nm / "evil").symlink_to(tmp_path)
+    if plant == "changed_file":
+        (nm / "hackmyagent" / "package.json").write_text('{"version": "0.33.2", "x": 1}')
+    elif plant == "fifo":
+        target = install / "stub" / "index.js"
+        target.unlink()
+        os.mkfifo(target)
     elif plant == "missing_file":
         (install / "stub" / "index.js").unlink()
     runner = FakeRunner()
     mod = _module(env, runner, monkeypatch)
     if plant == "unreadable":
-        code = sys.modules[type(mod).__module__]
-        real = code._sha256
-
-        def unreadable(path):
-            if path.name == "cli.js":
-                raise PermissionError(path)
-            return real(path)
-
-        monkeypatch.setattr(code, "_sha256", unreadable)
+        (nm / "hackmyagent" / "dist" / "cli.js").chmod(0)
     f = _one(mod.check(_profile()), "could_not_check")
     assert f.data["reason"] == "tampered"
     assert runner.named("detect") == []
-    assert tmp_path.exists()  # links are removed, never followed
+    assert not install.exists(), "a saved copy that doesn't match is deleted"
+
+
+def test_extra_files_in_the_saved_copy_are_never_copied_or_run(env, monkeypatch, tmp_path):
+    install = _install_dir(env)
+    _write_install(install)
+    (install / "node_modules" / "commander").mkdir()
+    (install / "node_modules" / "commander" / "index.js").write_text("evil()")
+    (install / "node_modules" / "evil").symlink_to(tmp_path)
+    seen = {}
+
+    def detect(args, cwd, e):
+        root = Path(args[1]).parents[3]
+        seen["files"] = sorted(p.relative_to(root).as_posix() for p in root.rglob("*")
+                               if p.is_file() or p.is_symlink())
+        return _result(args, 1, FIXTURE.read_text())
+
+    result = _module(env, FakeRunner(detect=detect), monkeypatch).check(_profile())
+    assert CODE + "ai_inventory" in _codes(result)
+    assert "node_modules/commander/index.js" not in seen["files"]
+    assert "node_modules/evil" not in seen["files"]
+    assert "node_modules/onnxruntime-node" in seen["files"]
+
+
+def test_a_folder_swapped_for_a_link_copies_nothing_from_outside(env, monkeypatch, tmp_path):
+    install = _install_dir(env)
+    _write_install(install)
+    outside = tmp_path / "Messages"
+    outside.mkdir()
+    (outside / "chat.db").write_text("private messages")
+    dist = install / "node_modules" / "hackmyagent" / "dist"
+    (outside / "cli.js").write_text("// fake\n")  # even the same bytes are refused
+    shutil.rmtree(dist)
+    dist.symlink_to(outside)
+    code = _code_module()
+    expected = code.read_manifest(env["vendor"] / "tree.sha256")
+    dest = tmp_path / "copy"
+    dest.mkdir()
+    for platform in (Platform.DARWIN, Platform.WIN32):  # WIN32: the lstat-based path
+        shutil.rmtree(dest)
+        dest.mkdir()
+        assert code.copy_from_manifest(install, dest, expected, platform) is False
+        assert not any(p.name == "chat.db" for p in dest.rglob("*"))
+        assert not (dest / "node_modules" / "hackmyagent" / "dist" / "cli.js").exists()
+
+
+def test_a_saved_copy_that_is_itself_a_link_is_not_read(env, monkeypatch, tmp_path):
+    real = tmp_path / "real"
+    _write_install(real)
+    code = _code_module()
+    expected = code.read_manifest(env["vendor"] / "tree.sha256")
+    link = tmp_path / "linked"
+    link.symlink_to(real)
+    dest = tmp_path / "copy"
+    dest.mkdir()
+    assert code.copy_from_manifest(link, dest, expected, Platform.DARWIN) is False
+    assert list(dest.iterdir()) == []
+    assert code.copy_from_manifest(link, dest, expected, Platform.WIN32) is False
+    assert code.copy_from_manifest(real, dest, expected, Platform.DARWIN) is True
+    other = tmp_path / "copy-win"
+    other.mkdir()
+    assert code.copy_from_manifest(real, other, expected, Platform.WIN32) is True
 
 
 def test_a_fetch_that_does_not_match_the_manifest_is_not_kept(env, monkeypatch):
@@ -810,7 +864,13 @@ def test_junctions_are_links_even_without_isjunction(monkeypatch, tmp_path):
 # --- the run copy (N1) ---------------------------------------------------------------------
 
 
-def test_a_copy_changed_while_it_runs_throws_the_results_away(env, monkeypatch):
+def _changed(result):
+    [finding] = result.findings
+    assert finding.code == CODE + "changed_during_run"
+    return finding
+
+
+def test_a_copy_changed_while_it_runs_is_a_warning_and_the_saved_copy_goes(env, monkeypatch):
     _write_install(_install_dir(env))
 
     def detect(args, cwd, e):
@@ -818,21 +878,38 @@ def test_a_copy_changed_while_it_runs_throws_the_results_away(env, monkeypatch):
         return _result(args, 1, FIXTURE.read_text())
 
     runner = FakeRunner(detect=detect)
-    result = _module(env, runner, monkeypatch).check(_profile())
-    assert _codes(result) == [CODE + "could_not_check"]
-    assert result.findings[0].data["reason"] == "tampered"
+    f = _changed(_module(env, runner, monkeypatch).check(_profile()))
+    assert f.severity == Severity.WARNING
+    assert "What to do:" in f.description
+    assert "may mean another program" in f.description
+    assert "threw its results away" in f.description
     assert not Path(runner.named("detect")[0]["args"][1]).exists()
+    assert not _install_dir(env).exists(), "the saved copy is deleted too"
 
 
-def test_a_run_that_fails_after_the_copy_changed_still_says_tampered(env, monkeypatch):
+def test_a_run_that_fails_after_the_copy_changed_still_says_so(env, monkeypatch):
     _write_install(_install_dir(env))
 
     def detect(args, cwd, e):
-        Path(args[1]).write_text("// swapped\n")
+        (Path(args[1]).parents[2] / "extra.js").write_text("x")
         return _result(args, 5)
 
-    f = _one(_module(env, FakeRunner(detect=detect), monkeypatch).check(_profile()), "could_not_check")
-    assert f.data["reason"] == "tampered"
+    _changed(_module(env, FakeRunner(detect=detect), monkeypatch).check(_profile()))
+    assert not _install_dir(env).exists()
+
+
+def test_a_link_loop_planted_during_the_run_is_a_change_not_a_crash(env, monkeypatch):
+    _write_install(_install_dir(env))
+
+    def detect(args, cwd, e):
+        link = Path(args[1]).parents[3] / "node_modules" / "onnxruntime-node"
+        link.unlink()
+        link.symlink_to(link.name)  # points at itself
+        return _result(args, 1, FIXTURE.read_text())
+
+    result = _module(env, FakeRunner(detect=detect), monkeypatch).check(_profile())
+    assert result.error is None
+    _changed(result)
 
 
 def test_the_run_copy_is_private_and_verified(env, monkeypatch):

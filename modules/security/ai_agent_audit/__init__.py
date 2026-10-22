@@ -70,7 +70,10 @@ _ENV_ALLOWED = frozenset({
     "PATH", "HOME", "USERPROFILE", "SystemRoot", "SYSTEMROOT", "windir", "TEMP", "TMP",
     "TMPDIR", "LANG", "APPDATA", "LOCALAPPDATA", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY",
     "https_proxy", "http_proxy", "no_proxy",
+    # Windows: how programs are found and where Program Files is; none loads code.
+    "PATHEXT", "COMSPEC", "ProgramFiles", "ProgramFiles(x86)", "ProgramData", "SystemDrive",
 })
+_ENV_ALLOWED_UPPER = frozenset(name.upper() for name in _ENV_ALLOWED)
 # The one link allowed in the install folder: the AI-runtime stub.
 STUB_LINK = "node_modules/onnxruntime-node"
 # Written by npm itself (its record of what it installed); nothing runs it.
@@ -176,7 +179,9 @@ _COULD_NOT_CHECK = {
         "This check uses a free tool called HackMyAgent, which Reclaim City "
         "downloads from the npm registry the first time it's needed. The download "
         "didn't finish, so the check didn't run. This usually means the internet "
-        "connection dropped or the registry was busy. Run the checkup again later."
+        "connection dropped or the registry was busy. Run the checkup again later. "
+        "On a work or school network that inspects secure connections, the "
+        "download may never work; that network's IT team can help."
     ),
     "timed_out": (
         "HackMyAgent took too long to look at your AI tools, so we stopped it. "
@@ -363,7 +368,7 @@ def tree_problems(install: Path, expected: dict[str, str]) -> list[str]:
     if STUB_LINK in links:
         try:
             same = (install / STUB_LINK).resolve() == (install / "stub").resolve()
-        except OSError:
+        except (OSError, RuntimeError):  # RuntimeError: a link loop, before Python 3.13
             same = False
         if not same:
             problems.append(f"{STUB_LINK} points somewhere else")
@@ -375,6 +380,110 @@ def tree_problems(install: Path, expected: dict[str, str]) -> list[str]:
             problems.append(f"changed: {rel}")
     problems += [f"missing: {rel}" for rel in expected if rel not in files]
     return problems
+
+
+class _DestinationError(Exception):
+    """Writing the run copy failed (disk full and the like), as opposed to a bad source."""
+
+
+def _open_no_follow_posix(name: str, dir_fd: int, directory: bool) -> int:
+    flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+    # O_NONBLOCK: opening a planted FIFO must not hang; fstat then rejects it.
+    flags |= os.O_DIRECTORY if directory else os.O_NONBLOCK
+    fd = os.open(name, flags, dir_fd=dir_fd)
+    mode = os.fstat(fd).st_mode
+    if not (stat.S_ISDIR(mode) if directory else stat.S_ISREG(mode)):
+        os.close(fd)
+        raise OSError(f"not a {'folder' if directory else 'file'}: {name}")
+    return fd
+
+
+def _open_checked_windows(path: Path, directory: bool) -> int | None:
+    """Windows has neither O_NOFOLLOW nor dir_fd: lstat each step and compare after opening."""
+    before = os.lstat(path)
+    if _is_link(path) or not (stat.S_ISDIR(before.st_mode) if directory else stat.S_ISREG(before.st_mode)):
+        raise OSError(f"not a plain {'folder' if directory else 'file'}: {path}")
+    if directory:
+        return None
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_BINARY", 0))
+    after = os.fstat(fd)
+    if (after.st_dev, after.st_ino) != (before.st_dev, before.st_ino) or not stat.S_ISREG(after.st_mode):
+        os.close(fd)
+        raise OSError(f"changed while opening: {path}")
+    return fd
+
+
+def copy_from_manifest(install: Path, dest: Path, expected: dict[str, str], platform: Platform) -> bool:
+    """Copy exactly the files the manifest names from ``install`` into ``dest``, hashing as it goes.
+
+    No path component of the saved copy is ever followed if it is a link: on
+    POSIX each step is opened with O_NOFOLLOW relative to the folder before it,
+    so nothing outside the saved copy can be read. Returns False when a file is
+    missing, isn't a plain file, or doesn't match its hash. Raises
+    _DestinationError when writing the copy fails.
+    """
+    windows = platform == Platform.WIN32 or not hasattr(os, "O_NOFOLLOW")
+    chain: list[tuple[str, int]] = []  # open folders along the current path (POSIX)
+    root_fd = None
+    try:
+        if not windows:
+            root_fd = os.open(install, os.O_RDONLY | os.O_NOFOLLOW | os.O_DIRECTORY
+                              | getattr(os, "O_CLOEXEC", 0))
+        else:
+            _open_checked_windows(install, directory=True)
+        for rel in sorted(expected):
+            parts = rel.split("/")
+            if any(part in ("", ".", "..") for part in parts):
+                return False
+            if windows:
+                current = install
+                for part in parts[:-1]:
+                    current = current / part
+                    _open_checked_windows(current, directory=True)
+                fd = _open_checked_windows(current / parts[-1], directory=False)
+            else:
+                keep = 0
+                while keep < len(chain) and keep < len(parts) - 1 and chain[keep][0] == parts[keep]:
+                    keep += 1
+                for _, open_fd in chain[keep:]:
+                    os.close(open_fd)
+                del chain[keep:]
+                for part in parts[len(chain):-1]:
+                    parent_fd = chain[-1][1] if chain else root_fd
+                    chain.append((part, _open_no_follow_posix(part, parent_fd, directory=True)))
+                fd = _open_no_follow_posix(parts[-1], chain[-1][1] if chain else root_fd,
+                                           directory=False)
+            assert fd is not None
+            digest = hashlib.sha256()
+            target = dest.joinpath(*parts)
+            try:
+                try:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    out = open(target, "xb")
+                except OSError as exc:
+                    raise _DestinationError(str(exc)) from exc
+                with out:
+                    while True:
+                        chunk = os.read(fd, 1 << 20)
+                        if not chunk:
+                            break
+                        digest.update(chunk)
+                        try:
+                            out.write(chunk)
+                        except OSError as exc:
+                            raise _DestinationError(str(exc)) from exc
+            finally:
+                os.close(fd)
+            if digest.hexdigest() != expected[rel]:
+                return False
+        return True
+    except OSError:
+        return False
+    finally:
+        for _, open_fd in chain:
+            os.close(open_fd)
+        if root_fd is not None:
+            os.close(root_fd)
 
 
 def _matches(root: Path, expected: dict[str, str]) -> bool:
@@ -405,6 +514,10 @@ def user_cache_dir(platform: Platform | None = None) -> Path:
     return Path(xdg) if xdg else home / ".cache"
 
 
+class _ChangedDuringRun(Exception):
+    """HackMyAgent's files changed while it ran: something else may have run in its place."""
+
+
 class _CouldNotCheck(Exception):
     def __init__(self, reason: str, **data: Any):
         super().__init__(reason)
@@ -428,6 +541,7 @@ class Module(ModuleBase):
         "security.ai_agent_audit.risky_mcp_server",
         "security.ai_agent_audit.ai_inventory",
         "security.ai_agent_audit.could_not_check",
+        "security.ai_agent_audit.changed_during_run",
     ]
 
     # Seams for tests: the home folder to look at, the fixed places Node.js is
@@ -446,6 +560,8 @@ class Module(ModuleBase):
             doc = self._detect(profile.platform)
         except _CouldNotCheck as exc:
             findings = [self._could_not_check(exc)]
+        except _ChangedDuringRun:
+            findings = [self._changed_during_run_finding(profile.platform)]
         else:
             findings = self._findings(doc, self._install_dir(profile.platform), profile.platform)
         if self._left_in_home and findings:
@@ -536,25 +652,35 @@ class Module(ModuleBase):
             if run_dir is None:
                 _remove_tree(install)
                 raise _CouldNotCheck("tampered")
+        doc: dict | None = None
+        failure: _CouldNotCheck | None = None
+        changed_during_run = False
         try:
             try:
                 doc = self._run_detect(node, run_dir, install)
+            except _CouldNotCheck as exc:
+                failure = exc
             finally:
                 changed_during_run = not _matches(run_dir, expected)
-            if changed_during_run:
-                raise _CouldNotCheck("tampered")
-            return doc
-        except _CouldNotCheck as exc:
-            if changed_during_run and exc.reason != "tampered":
-                raise _CouldNotCheck("tampered") from exc
-            raise
         finally:
             _remove_tree(run_dir.parent)
+            if changed_during_run:
+                # Foreign code may have run: the results are not used, and the
+                # saved copy goes too, so the next checkup downloads a fresh one.
+                _remove_tree(install)
+        if changed_during_run:
+            raise _ChangedDuringRun()
+        if failure is not None:
+            raise failure
+        assert doc is not None
+        return doc
 
     def _verified_copy(self, install: Path, expected: dict[str, str], platform: Platform) -> Path | None:
-        """Copy the saved copy into a new private temp folder and check the copy.
+        """Copy exactly the manifest's files from the saved copy into a new private folder.
 
-        Returns the copy's folder, or None when it doesn't match the manifest.
+        Every file is read without following links and hashed while it is
+        copied. Returns the copy's folder, or None when the saved copy doesn't
+        match the manifest.
         """
         if not self._installed(install) or _is_link(install):
             return None
@@ -563,24 +689,23 @@ class Module(ModuleBase):
         except OSError as exc:
             raise _CouldNotCheck("copy_failed", detail=str(exc)[:200]) from exc
         copy = holder / "hackmyagent"
-
-        def skip_stub_link(directory: str, names: list[str]) -> set[str]:
-            here = Path(directory)
-            return {n for n in names if here / n == install / STUB_LINK}
-
         try:
-            shutil.copytree(install, copy, symlinks=True, ignore=skip_stub_link)
-        except (OSError, shutil.Error) as exc:
+            copy.mkdir()
+            ok = copy_from_manifest(install, copy, expected, platform)
+        except (OSError, _DestinationError) as exc:
             _remove_tree(holder)
             raise _CouldNotCheck("copy_failed", detail=str(exc)[:200]) from exc
-        try:
-            self._make_stub_link(copy, platform)
-        except _CouldNotCheck:
-            _remove_tree(holder)
-            raise
-        if not _matches(copy, expected):
+        if not ok:
             _remove_tree(holder)
             return None
+        try:
+            (copy / "node_modules").mkdir(exist_ok=True)
+            self._make_stub_link(copy, platform)
+        except (OSError, _CouldNotCheck) as exc:
+            _remove_tree(holder)
+            if isinstance(exc, _CouldNotCheck):
+                raise
+            raise _CouldNotCheck("stub_link_failed", detail=str(exc)[:200]) from exc
         return copy
 
     @staticmethod
@@ -597,8 +722,10 @@ class Module(ModuleBase):
     def _env(self, node: Path, **extra: str) -> dict[str, str]:
         """The child's environment, from an allow-list: nothing like NODE_OPTIONS or npm_config_*
         can reach node or npm and change what code runs."""
+        # Windows keeps environment names upper-case (WINDIR, not windir).
         env = {key: value for key, value in os.environ.items()
-               if key in _ENV_ALLOWED or key.startswith("LC_")}
+               if key in _ENV_ALLOWED or key.startswith("LC_")
+               or (os.name == "nt" and key.upper() in _ENV_ALLOWED_UPPER)}
         env["PATH"] = os.pathsep.join([str(node.parent), env.get("PATH", "")]).rstrip(os.pathsep)
         env.update(extra)
         return env
@@ -1075,6 +1202,28 @@ class Module(ModuleBase):
             code="security.ai_agent_audit.ai_inventory",
             data={"tools": tools, "mcp_servers_by_tool": by_tool,
                   "mcp_server_count": len(servers), "project_command": command},
+        )
+
+    def _changed_during_run_finding(self, platform: Platform) -> Finding:
+        return Finding(
+            title="The AI-tools checker's files changed while it was running",
+            description=(
+                "While HackMyAgent (the free tool this check uses) was running, some "
+                "of its files changed. That shouldn't happen. It may mean another "
+                "program on this computer swapped in its own code, which would then "
+                "have run with Reclaim City's permissions. We threw its results away "
+                "and deleted the saved copy, so a fresh one is downloaded next time.\n\n"
+                "What to do: Run a full checkup and look at what is set to start "
+                "automatically on this computer (background tasks and login items), "
+                "and at anything you don't recognise. If you're not sure what you're "
+                "looking at, ask someone you trust who helps you with computers, and "
+                "show them this message."
+            ),
+            severity=Severity.WARNING,
+            category=self.category,
+            code="security.ai_agent_audit.changed_during_run",
+            data={"reason": "changed_during_run",
+                  "install_dir": self._tilde(str(self._install_dir(platform)))},
         )
 
     def _could_not_check(self, exc: _CouldNotCheck) -> Finding:
