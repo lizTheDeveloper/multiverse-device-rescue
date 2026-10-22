@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "last_updated": "2026-08-03",
-  "note": "Categories matter more than the raw list. 'stalkerware' is software sold for covert monitoring of another adult; 'employee_monitoring' and 'parental_control' are legitimate products that are routinely repurposed for abuse; 'remote_access' tools are ordinary IT software that gives someone else full control of the machine. Only the first category is inherently a finding — the rest are reported with the context needed to judge them.",
+  "note": "Categories matter more than the raw list. 'stalkerware' is software sold for covert monitoring of another adult; 'employee_monitoring' and 'parental_control' are legitimate products that are routinely repurposed for abuse; 'remote_access' tools are ordinary IT software that gives someone else full control of the machine; they are listed for Linux only, because on macOS and Windows the remote_access_tools check reports them (one tool, one report). Only the first category is inherently a finding — the rest are reported with the context needed to judge them.",
   "entries": [
     {
       "pattern": "flexispy",
@@ -280,7 +280,7 @@
       "name": "TeamViewer",
       "category": "remote_access",
       "severity": "info",
-      "platforms": ["darwin", "win32", "linux"],
+      "platforms": ["linux"],
       "description": "Remote control software. Useful and common — and it gives whoever holds the credentials complete control of the machine, including watching the screen. Check whether unattended access is enabled and who is on its trusted-devices list."
     },
     {
@@ -288,7 +288,7 @@
       "name": "AnyDesk",
       "category": "remote_access",
       "severity": "info",
-      "platforms": ["darwin", "win32", "linux"],
+      "platforms": ["linux"],
       "description": "Remote control software frequently installed by tech-support scammers and left behind afterwards."
     },
     {
@@ -296,55 +296,23 @@
       "name": "ScreenConnect / ConnectWise Control",
       "category": "remote_access",
       "severity": "warning",
-      "platforms": ["darwin", "win32", "linux"],
+      "platforms": ["linux"],
       "description": "Remote support agent very commonly abused for persistent unauthorised access, because it installs as a service and reconnects on its own."
-    },
-    {
-      "pattern": "netsupport",
-      "name": "NetSupport Manager",
-      "category": "remote_access",
-      "severity": "warning",
-      "platforms": ["darwin", "win32"],
-      "description": "Remote control product routinely repackaged as malware ('NetSupport RAT') and installed silently."
-    },
-    {
-      "pattern": "remoteutilities",
-      "name": "Remote Utilities",
-      "category": "remote_access",
-      "severity": "warning",
-      "platforms": ["win32"],
-      "description": "Remote access product commonly used for persistent covert access."
-    },
-    {
-      "pattern": "ammyy",
-      "name": "Ammyy Admin",
-      "category": "remote_access",
-      "severity": "warning",
-      "platforms": ["win32"],
-      "description": "Remote access tool strongly associated with support scams and unauthorised access."
     },
     {
       "pattern": "dwagent",
       "name": "DWAgent",
       "category": "remote_access",
       "severity": "warning",
-      "platforms": ["darwin", "win32", "linux"],
+      "platforms": ["linux"],
       "description": "Unattended remote access agent that runs as a service."
-    },
-    {
-      "pattern": "logmein",
-      "name": "LogMeIn",
-      "category": "remote_access",
-      "severity": "info",
-      "platforms": ["darwin", "win32"],
-      "description": "Unattended remote access service."
     },
     {
       "pattern": "splashtop",
       "name": "Splashtop",
       "category": "remote_access",
       "severity": "info",
-      "platforms": ["darwin", "win32", "linux"],
+      "platforms": ["linux"],
       "description": "Remote desktop service with unattended access."
     },
     {
@@ -352,7 +320,7 @@
       "name": "RealVNC",
       "category": "remote_access",
       "severity": "info",
-      "platforms": ["darwin", "win32", "linux"],
+      "platforms": ["linux"],
       "description": "Remote screen access server."
     },
     {
@@ -360,32 +328,8 @@
       "name": "TightVNC",
       "category": "remote_access",
       "severity": "warning",
-      "platforms": ["win32", "linux"],
+      "platforms": ["linux"],
       "description": "VNC server, often installed silently to provide hidden screen access."
-    },
-    {
-      "pattern": "ultravnc",
-      "name": "UltraVNC",
-      "category": "remote_access",
-      "severity": "warning",
-      "platforms": ["win32"],
-      "description": "VNC server, often installed silently to provide hidden screen access."
-    },
-    {
-      "pattern": "radmin",
-      "name": "Radmin",
-      "category": "remote_access",
-      "severity": "warning",
-      "platforms": ["win32"],
-      "description": "Remote administration server providing full control of the machine."
-    },
-    {
-      "pattern": "atera",
-      "name": "Atera agent",
-      "category": "remote_access",
-      "severity": "warning",
-      "platforms": ["darwin", "win32"],
-      "description": "Remote management agent; abused by intruders because it is signed, silent, and grants full remote control."
     }
   ]
 }

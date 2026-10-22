@@ -1,26 +1,85 @@
 {
- "name": "win_remote_access_audit",
+ "name": "remote_access_tools",
  "category": "security",
  "finding": {
-  "title": "TeamViewer is installed on your computer",
-  "description": "We found TeamViewer, a program that lets someone else control your screen from another computer. If you installed this for work or to help a friend, that is fine. However, if you do not remember installing it, it may have been added by someone else to watch your activity.\n\nIf you think a partner, ex, or family member installed this to monitor you, removing it can alert them. Talk to an advocate first (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: If you did not install TeamViewer, open Windows Settings > Apps > Installed apps, find TeamViewer, and select Uninstall.",
+  "title": "AnyDesk can let someone control this computer",
+  "description": "AnyDesk lets someone else see and control this computer. Added on 20 January 2026. We didn't find a part of it that starts by itself, so it most likely works only while it's open. It isn't running right now. It last let someone in on 2 February 2026 (3 times in its log).\n\nScammers who call or show a pop-up often ask people to install tools like this, then use it to get into bank accounts or take payments. If you installed it yourself and still use it, that's fine. If you don't remember how it got here, think back to around when it was added.\n\nWhat to do: decide whether it's yours. If it is, you can mark it as yours. If it isn't, or someone who contacted you asked you to install it, follow the steps for this card.",
   "severity": "warning",
   "category": "security",
   "data": {
-   "check": "teamviewer_installed",
-   "tool": "TeamViewer"
+   "check": "tool_found",
+   "tool": "AnyDesk",
+   "tool_id": "anydesk",
+   "path": "C:\\Program Files (x86)\\AnyDesk",
+   "added_on": "2026-01-20",
+   "lets_in_unattended": false,
+   "unattended_via": null,
+   "running_now": false,
+   "last_incoming": "2026-02-02",
+   "incoming_count": 3,
+   "one_off": false,
+   "known_item_kind": "remote_tool"
   },
   "confidence": null,
   "collected_at": null,
-  "code": "security.win_remote_access_audit.teamviewer_installed",
+  "code": "security.remote_access_tools.tool_found",
+  "markable": {
+   "kind": "remote_tool",
+   "id": "bd76da08deb4",
+   "code": "security.remote_access_tools.tool_found",
+   "label": "AnyDesk",
+   "group": "bebc45e98440",
+   "monitoring": true,
+   "shows": [
+    [
+     "Tool",
+     "AnyDesk"
+    ],
+    [
+     "Where",
+     "C:\\Program Files (x86)\\AnyDesk"
+    ],
+    [
+     "Lets someone in without a click",
+     "No"
+    ],
+    [
+     "Last let someone in",
+     "2026-02-02"
+    ]
+   ],
+   "will_change": "The checkup will stop warning you about AnyDesk. It will still be listed, as \"marked as yours\", on every checkup and in anything you export, so anyone helping you can see it. If its connections or its unattended access changes, the warning comes back.",
+   "how_to_undo": [
+    "Choose \"Stop treating this as mine\" on the item in this app"
+   ],
+   "tech_undo": "rescue known remove <id> (rescue known list shows the id)",
+   "ids": [
+    "bd76da08deb4"
+   ]
+  },
   "remediation": {
-   "title": "Review installed remote-access tools (TeamViewer, AnyDesk, VNC, LogMeIn, RDP)",
+   "title": "Check a remote-access tool (TeamViewer, AnyDesk, ScreenConnect and others)",
    "estimated_time": "20 minutes",
    "steps": [
     {
      "number": 2,
-     "title": "Check if you use TeamViewer",
-     "body": "1. Confirm: does anyone with legitimate reason to remotely support this\n   machine (family IT help, a business you work with) use TeamViewer? If\n   yes, no action needed.\n2. If unrecognized or no longer needed, uninstall via Settings → Apps →\n   Apps and features → search \"TeamViewer\" → Uninstall, then restart."
+     "title": "Decide whether it's yours",
+     "body": "Think back to around the date the finding gives for when it was added.\n\n1. Did you install it yourself, or did a shop or IT person you contacted\n   install it for you? If you still use it, it's yours: you can mark it as\n   yours, and the checkup will stop warning about it until something changes,\n   such as a new connection.\n2. Did someone who contacted you (a call, a pop-up, an email or a text that\n   said something was wrong with your computer, an account, a refund or a\n   payment) ask you to install it? Treat it as a scam and follow Step 6.\n3. If you don't remember, look at when it last let someone in, if the finding\n   says. A connection you don't remember is a reason to remove it."
+    },
+    {
+     "number": 3,
+     "title": "Turn off unattended access",
+     "body": "If the finding says it can let someone in without you clicking yes, it has a\npart that starts by itself and waits for connections.\n\n1. If you keep the tool, open its own settings and turn off unattended\n   access (TeamViewer: \"Grant easy access\" and \"Start TeamViewer with\n   system\"; AnyDesk: \"Unattended access\" under Security). Set a new\n   password for it if it has one.\n2. Check its list of trusted devices or contacts and remove any you don't\n   recognise."
+    },
+    {
+     "number": 4,
+     "title": "Remove it if you don't need it",
+     "body": "1. On a Mac: quit the tool, then drag it from Applications to the Trash.\n   Some tools (AnyDesk, TeamViewer) also have an uninstall option in their\n   own menu, which removes the part that starts by itself.\n2. On Windows: open Settings, then Apps, then Installed apps, find the tool,\n   and choose Uninstall.\n3. Restart the computer and run the checkup again to make sure it's gone."
+    },
+    {
+     "number": 5,
+     "title": "Check for a second tool",
+     "body": "Scammers often install a second remote-access tool, so that removing one\ndoesn't lock them out.\n\n1. Run the checkup again after removing a tool.\n2. If it finds another remote-access tool you didn't install, go back to\n   Step 2 for that one too."
     }
    ],
    "all_steps": false,

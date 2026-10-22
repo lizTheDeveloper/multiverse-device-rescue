@@ -222,3 +222,69 @@ def test_mark_kind_known():
 def test_mark_kind_known_to_the_desktop():
     for rel in ("desktop/mark-policy.js", "desktop/engine-runner.js", "desktop/renderer/mark-flow.js"):
         assert "'remote_tool'" in (ROOT / rel).read_text(), rel
+
+
+# ---------------- Task 4: wiring ----------------
+
+def _serialized(finding):
+    from rescue.remediation import load_remediation_walkthroughs
+    from rescue.serialize import module_entry
+
+    walkthroughs = load_remediation_walkthroughs(ROOT / "guides" / "remediation")
+    m = _module()
+    out = module_entry(m, CheckResult(module_name=m.name, findings=[finding]), walkthroughs)
+    return out["findings"][0]
+
+
+def test_new_codes_carry_removal_alert():
+    from rescue import safety_scope
+    from rescue.serialize import SAFETY_NOTE
+
+    for code in MOD.Module.emits_codes:
+        assert code in safety_scope.ALERT_CODES, code
+    f = _one(_module(), _s(added_on=date(2026, 3, 3), lets_in_unattended=True))
+    out = _serialized(f)
+    assert out["code"] == "security.remote_access_tools.unattended_recent"
+    assert out["removal_alert"] is True
+    assert out["remediation"]["safety_note"] == SAFETY_NOTE
+    for kw in (dict(running_now=True), dict()):
+        assert _serialized(_one(_module(), _s(**kw)))["removal_alert"] is True
+    several = [f for f in _module()._findings([_s(), _s("rustdesk")], "darwin")
+               if f.code == "security.remote_access_tools.several_tools"][0]
+    assert _serialized(several)["removal_alert"] is True
+
+
+def test_info_tool_found_has_no_alert():
+    f = _one(_module(verified=True), _s(**QUIET))
+    assert f.severity == Severity.INFO
+    out = _serialized(f)
+    assert "removal_alert" not in out
+    assert "safety_note" not in (out.get("remediation") or {})
+
+
+def test_walkthrough_covers_every_code():
+    from rescue.remediation import load_remediation_walkthroughs
+
+    walkthroughs = load_remediation_walkthroughs(ROOT / "guides" / "remediation")
+    for code in MOD.Module.emits_codes:
+        guide = walkthroughs.get(code)
+        assert guide is not None, code
+        assert guide.monitoring_risk is True
+        assert guide.steps_for_code(code)
+    text = (ROOT / "guides/remediation/review_remote_access_tools.md").read_text()
+    assert not RELATIONSHIP_WORDS.search(text)
+
+
+@pytest.mark.parametrize("profile", ["home_network_intrusion", "identity_theft_recovery", "digital_security_reset"])
+def test_profiles_include_remote_access_tools(profile):
+    import yaml
+
+    doc = yaml.safe_load((ROOT / "profiles" / f"{profile}.yaml").read_text())
+    assert "remote_access_tools" in doc["modules"]["include"]
+
+
+def test_old_per_tool_codes_are_gone_from_safety_scope():
+    from rescue import safety_scope
+
+    stale = {c for c in safety_scope.ALL_ALERT_CODES if c.startswith("security.win_remote_access_audit.")}
+    assert stale == {"security.win_remote_access_audit.rdp_enabled"}

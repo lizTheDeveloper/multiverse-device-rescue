@@ -2128,12 +2128,7 @@ reg query 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStation
 ### `win_remote_access_audit`
 
 ```text
-reg query 'HKLM\\SOFTWARE\\AnyDesk'
-reg query 'HKLM\\SOFTWARE\\LogMeIn'
-reg query 'HKLM\\SOFTWARE\\WOW6432Node\\LogMeIn'
-reg query 'HKLM\\SOFTWARE\\WOW6432Node\\TeamViewer'
-reg query 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server' /v fDenyTSConnections
-tasklist
+reg query … /v fDenyTSConnections
 ```
 
 ### `win_rootkit_check`

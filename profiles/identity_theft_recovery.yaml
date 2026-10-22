@@ -29,6 +29,7 @@ modules:
     # Somebody else still being logged in is the simplest explanation of all.
     - remote_login_check
     - win_remote_access_audit
+    - remote_access_tools
   exclude: []
 module_config: {}
 guides:

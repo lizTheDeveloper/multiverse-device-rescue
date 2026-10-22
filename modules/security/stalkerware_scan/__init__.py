@@ -9,8 +9,10 @@ lumped together:
   were designed for, routinely repurposed to control a partner or an adult
   family member. Reported with the context needed to judge it.
 - Remote access tools: ordinary IT software that happens to give someone else
-  full control of the machine. Reported so it can be accounted for, not
-  because it is malicious.
+  full control of the machine. On macOS and Windows these are
+  ``remote_access_tools``' job (with when each arrived and when it last let
+  someone in), so each tool is reported once; this check lists them on Linux
+  only, where that check doesn't run.
 
 The safety guidance in ``fix()`` matters as much as the detection. For someone
 being monitored by a person they live with, removing the software is not

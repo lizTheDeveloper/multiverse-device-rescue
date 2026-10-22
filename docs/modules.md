@@ -369,7 +369,7 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `win_network_shares_audit` | Windows | safe | 10s | — |
 | `win_proxy_detect` | Windows | safe | 5s | — |
 | `win_rdp_check` | Windows | safe | 5s | — |
-| `win_remote_access_audit` | Windows | safe | 10s | — |
+| `win_remote_access_audit` | Windows | safe | 2s | Windows' built-in Remote Desktop (RDP): is it on? |
 | `win_rootkit_check` | Windows | safe | 30s | — |
 | `win_scheduled_tasks` | Windows | safe | 5s | — |
 | `win_scheduled_tasks_security` | Windows | safe | 10s | — |

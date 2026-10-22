@@ -41,7 +41,7 @@
     "registry.py": "df8f118c46f109754a2579a4fbda91ba7b28d0b189dc3db5f66620f8e2c3cebd",
     "remediation.py": "2082a3955ce172845ac64d71d79f7eba869ddedea0e1d61885eed4f2a7428b8e",
     "runtime.py": "f025274c2e5374944dd80c4ae37d3e52c5ae6b3b253a8afa2e24bdab0b782121",
-    "safety_scope.py": "e510d0f9954e7f28c09e66fef1c0781d22f8c4f228bdbaa1540c4dfd684218b3",
+    "safety_scope.py": "d727dea9cc47b02913aabb8daa25eb798e45c135242be5daf1e04eca26ec58c6",
     "same_finding.py": "08b751624f81cbb1877f1d78526b263f56e28661de07daeb5079a62c49eb65b7",
     "security/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "security/integrity.py": "e0d9cdc38fe6abf4c6c3ec046adb0e0e2c69f56f418ab94581c2b3f5e2edb7ad",

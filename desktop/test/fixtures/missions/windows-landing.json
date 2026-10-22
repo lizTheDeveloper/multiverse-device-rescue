@@ -280,13 +280,7 @@
   "(no code)": "simple"
  },
  "win_remote_access_audit": {
-  "security.win_remote_access_audit.anydesk_installed": "switchboard",
-  "security.win_remote_access_audit.chrome_remote_desktop": "switchboard",
-  "security.win_remote_access_audit.logmein_installed": "switchboard",
-  "security.win_remote_access_audit.multiple_tools": "switchboard",
-  "security.win_remote_access_audit.rdp_enabled": "switchboard",
-  "security.win_remote_access_audit.teamviewer_installed": "switchboard",
-  "security.win_remote_access_audit.vnc_installed": "switchboard"
+  "security.win_remote_access_audit.rdp_enabled": "switchboard"
  },
  "win_restore_points": {
   "(no code)": "locks"

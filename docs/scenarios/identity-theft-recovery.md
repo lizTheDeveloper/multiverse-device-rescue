@@ -62,7 +62,8 @@ straight back.
 | Module | What it answers | Platforms |
 | --- | --- | --- |
 | `remote_login_check` | Remote access enabled, who is logged in | macOS |
-| `win_remote_access_audit` | Remote Desktop and remote-access tooling | Windows |
+| `win_remote_access_audit` | Remote Desktop | Windows |
+| `remote_access_tools` | Remote-access tools (TeamViewer, AnyDesk...): when added, unattended access, last connection | macOS, Windows |
 
 That is the entire technical contribution. If any of it finds something, the
 guide's Phase 1 Step 4 tells you to do the rest of the recovery from a

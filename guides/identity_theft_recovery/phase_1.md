@@ -29,7 +29,7 @@ both are commonly how account access outlives a password change.
 
 ## Step 3: Check whether someone else is still logged in
 
-Run `remote_login_check` or `win_remote_access_audit`.
+Run `remote_login_check` or `win_remote_access_audit`, and `remote_access_tools`.
 
 Remote access left switched on is the most boring explanation for ongoing
 fraud, and the most common one after a "tech support" phone call.

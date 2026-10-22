@@ -106,13 +106,32 @@ def test_stalkerware_process_is_critical():
     assert findings[0].data["confidence"] == "high"
 
 
-def test_remote_access_tool_is_reported_without_calling_it_malware():
+def test_remote_access_tool_is_reported_on_linux_without_calling_it_malware():
+    # remote_access_tools covers macOS and Windows; on Linux this check still
+    # lists the remote tools, so nothing goes unreported there.
     mod = _get_module()
-    result = _check(mod, _make_profile(installed=["TeamViewer Host"]))
+    result = _check(mod, _make_profile(installed=["TeamViewer Host"], platform=Platform.LINUX))
 
     assert len(result.findings) == 1
     assert result.findings[0].severity == Severity.INFO
     assert result.findings[0].data["stalkerware_category"] == "remote_access"
+
+
+def test_stalkerware_scan_no_longer_reports_teamviewer():
+    # On macOS and Windows remote tools are remote_access_tools' job: one tool, one report.
+    mod = _get_module()
+    for platform in (Platform.DARWIN, Platform.WIN32):
+        result = _check(mod, _make_profile(processes=[_process("TeamViewer"), _process("AnyDesk.exe")],
+                                           installed=["TeamViewer Host", "AnyDesk"], platform=platform))
+        assert not result.findings, platform
+
+
+def test_remote_access_entries_are_linux_only():
+    with open(DATA_FILE) as f:
+        entries = json.load(f)["entries"]
+    remote = [e for e in entries if e["category"] == "remote_access"]
+    assert remote
+    assert all(e["platforms"] == ["linux"] for e in remote)
 
 
 def test_short_product_names_do_not_match_inside_longer_words():
@@ -168,7 +187,8 @@ def test_fix_leads_with_safety_guidance_before_removal():
 
 def test_remote_access_only_findings_skip_the_stalkerware_safety_preamble():
     mod = _get_module()
-    result = _check(mod, _make_profile(installed=["AnyDesk"]))
+    # Linux: on macOS and Windows remote tools are remote_access_tools' job.
+    result = _check(mod, _make_profile(installed=["AnyDesk"], platform=Platform.LINUX))
 
     fix = mod.fix(result, Mode.CLI)
     titles = [action.title for action in fix.actions]

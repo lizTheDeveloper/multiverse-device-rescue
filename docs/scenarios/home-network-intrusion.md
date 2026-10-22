@@ -73,7 +73,8 @@ Fourteen read-only checks in three groups.
 | --- | --- | --- |
 | `stalkerware_scan` | Is monitoring software installed | macOS, Windows, Linux |
 | `remote_login_check` | Is remote access enabled, who is logged in | macOS |
-| `win_remote_access_audit` | Remote Desktop and remote-access tooling | Windows |
+| `win_remote_access_audit` | Remote Desktop | Windows |
+| `remote_access_tools` | Remote-access tools (TeamViewer, AnyDesk...): when added, unattended access, last connection | macOS, Windows |
 | `suspicious_connections` | Unexpected outbound connections | macOS |
 | `open_ports_scan` | What this machine is listening on | macOS |
 

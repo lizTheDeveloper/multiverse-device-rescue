@@ -2,7 +2,7 @@
 // carries it, outside the three monitoring checks too, in both display modes:
 // on the city's LIST (read-only), on the game's mission screen, and in the fix
 // panel (the missions' own; the LIST has none).
-// Run against the engine's real TeamViewer finding (scripts/remote_access_fixture.py).
+// Run against the engine's real AnyDesk finding (remote_access_tools; scripts/remote_access_fixture.py).
 const test = require('node:test');
 const assert = require('node:assert');
 const Q = require('../renderer/quiet-notes.js');
@@ -33,10 +33,11 @@ function doc({ fixable = false } = {}) {
   return { schema_version: 1, platform: 'win32', modules: [{ name: REAL.name, category: REAL.category, status: 'ok', supported: true, findings: [finding] }] };
 }
 
-test('the fixture is the engine’s real TeamViewer finding, with its warning and its safety note', () => {
-  assert.strictEqual(REAL.finding.code, 'security.win_remote_access_audit.teamviewer_installed');
-  assert.match(REAL.finding.description, ALERT);
-  assert.match(REAL.finding.description, /select Uninstall/);
+test('the fixture is the engine’s real AnyDesk finding, with its warning and its safety note', () => {
+  assert.strictEqual(REAL.finding.code, 'security.remote_access_tools.tool_found');
+  assert.strictEqual(REAL.finding.removal_alert, true, 'the warning is decided by code (rescue/safety_scope.py)');
+  assert.doesNotMatch(REAL.finding.description, DV, 'the check’s own words never name a relationship or a hotline');
+  assert.match(REAL.finding.description, /What to do:/);
   assert.match(REAL.finding.remediation.safety_note, ALERT);
   assert.ok(!Q.MONITORING_MODULES.has(REAL.name), 'not one of the monitoring checks');
 });
@@ -61,13 +62,13 @@ test('the LIST, standard mode: the one line on the card, the note once above the
   const note = /<details data-safety-details>[\s\S]*?<\/details>/.exec(html)[0];
   assert.match(note, ALERT, 'the full note behind "Read this first" in the banner');
   assert.doesNotMatch(html.replace(note, ''), DV);
-  assert.match(html, /select Uninstall/);
+  assert.match(html, /AnyDesk lets someone else see and control this computer/);
   assert.ok(!html.includes(FixFlow.WATCHED_WARNING), 'the extra warning is city mode’s');
 });
 
 test('the LIST, city mode: nothing quieted, the safety note in full; no fix panel (the mission\'s carries the extra warning)', async () => {
   const html = await listHtml('city');
-  assert.match(html, /If you think a partner, ex, or family member installed this to monitor you, removing it can alert them\./);
+  assert.match(html, /AnyDesk lets someone else see and control this computer/);
   assert.match(html, /<div class="finding-card__note" role="note"><p>Before you remove or turn anything off: if you think someone close to you set this up to watch you, removing it can alert them\./, 'the safety note on its face');
   assert.doesNotMatch(html, /data-fix-open/);
 });
@@ -105,7 +106,7 @@ async function missionScreen(mode, fixable = true, theDoc = null) {
 
 test('the mission screen, standard mode: the one line with "Read this first" and the note behind it; the fix confirm says it too', async () => {
   const { item, html, seen } = await missionScreen('standard');
-  assert.match(item, /TeamViewer is installed/);
+  assert.match(item, /AnyDesk can let someone control this computer/);
   assert.match(item, /<summary>Removing this can alert whoever installed it\. Read this first\.<\/summary>/);
   const note = /<details class="finding-card__note">[\s\S]*?<\/details>/.exec(item)[0];
   assert.match(note, ALERT);
@@ -124,7 +125,7 @@ test('the mission screen, city mode: the help lives in the help district; one wa
   assert.match(item, /<b>Removing this can alert whoever installed it\.<\/b>/);
   assert.match(item, /data-go="side"/, 'the way to the help district');
   assert.ok(html.indexOf('Removing this can alert whoever installed it') < html.indexOf('data-fix-module'), 'the warning comes before the fix');
-  assert.match(item, /TeamViewer/);
+  assert.match(item, /AnyDesk/);
   assert.ok(!html.includes(FixFlow.WATCHED_WARNING), 'never the advocate line in the city');
   const panel = /<div class="fix-panel"[\s\S]*?data-fix-confirm/.exec(html)[0];
   assert.match(panel, /data-fix-city><strong>Removing this can alert whoever installed it\.<\/strong> Stop by [A-Z][^<.]+ before you change it\./);
@@ -146,7 +147,7 @@ test('a fix with no engine action: the warning in city mode, in the game; not in
   for (const mode of ['city', 'standard']) {
     const game = (await missionScreen(mode, 'module')).html;
     for (const [where, html] of [['game', game]]) {
-      assert.match(html, /data-fix-module="win_remote_access_audit"/, `${mode} ${where}: the fix is offered`);
+      assert.match(html, /data-fix-module="remote_access_tools"/, `${mode} ${where}: the fix is offered`);
       assert.doesNotMatch(html, /data-fix-action=/, `${mode} ${where}: no engine action`);
       assert.ok(!html.includes(FixFlow.WATCHED_WARNING), `${mode} ${where}: never the advocate line in the game`);
       assert.strictEqual(/data-fix-city><strong>Removing this can alert whoever installed it\.<\/strong> Stop by /.test(html), mode === 'city', `${mode} ${where}`);

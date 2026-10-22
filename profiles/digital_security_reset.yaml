@@ -21,6 +21,8 @@ modules:
     - malware_scan_indicators
     - suspicious_processes
     - remote_login_check
+    # TeamViewer, AnyDesk and the like: how most tech-support scams get in.
+    - remote_access_tools
     - network_connections_monitor
     - browser_extension_audit
     - app_permissions

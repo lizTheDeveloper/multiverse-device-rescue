@@ -482,86 +482,6 @@
  {
   "module": "stalkerware_scan",
   "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Remote access product commonly used for persistent covert access.\n\nFound as ExampleApp: ExampleApp.\n\nThis product is sold for watching another person without their knowledge. If nobody told you it was here, someone installed it to watch what you do on this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: Don't remove it yet. Write down its name, where it was found and today's date, and make a safety plan first."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Remote access product commonly used for persistent covert access.\n\nFound as ExampleApp: ExampleApp.\n\nThis product is sold for watching another person without their knowledge. If nobody told you it was here, someone installed it to watch what you do on this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: If you installed it and use it, there's nothing to do. If not, make a safety plan before removing it."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Remote access product commonly used for persistent covert access.\n\nFound as ExampleApp: ExampleApp.\n\nApps like this have honest uses, such as IT support, parental controls or work monitoring, but they also let someone see or control this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: Don't remove it yet. Write down its name, where it was found and today's date, and make a safety plan first."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Remote access product commonly used for persistent covert access.\n\nFound as ExampleApp: ExampleApp.\n\nApps like this have honest uses, such as IT support, parental controls or work monitoring, but they also let someone see or control this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: If you installed it and use it, there's nothing to do. If not, make a safety plan before removing it."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Remote access tool strongly associated with support scams and unauthorised access.\n\nFound as ExampleApp: ExampleApp.\n\nThis product is sold for watching another person without their knowledge. If nobody told you it was here, someone installed it to watch what you do on this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: Don't remove it yet. Write down its name, where it was found and today's date, and make a safety plan first."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Remote access tool strongly associated with support scams and unauthorised access.\n\nFound as ExampleApp: ExampleApp.\n\nThis product is sold for watching another person without their knowledge. If nobody told you it was here, someone installed it to watch what you do on this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: If you installed it and use it, there's nothing to do. If not, make a safety plan before removing it."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Remote access tool strongly associated with support scams and unauthorised access.\n\nFound as ExampleApp: ExampleApp.\n\nApps like this have honest uses, such as IT support, parental controls or work monitoring, but they also let someone see or control this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: Don't remove it yet. Write down its name, where it was found and today's date, and make a safety plan first."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Remote access tool strongly associated with support scams and unauthorised access.\n\nFound as ExampleApp: ExampleApp.\n\nApps like this have honest uses, such as IT support, parental controls or work monitoring, but they also let someone see or control this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: If you installed it and use it, there's nothing to do. If not, make a safety plan before removing it."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Remote administration server providing full control of the machine.\n\nFound as ExampleApp: ExampleApp.\n\nThis product is sold for watching another person without their knowledge. If nobody told you it was here, someone installed it to watch what you do on this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: Don't remove it yet. Write down its name, where it was found and today's date, and make a safety plan first."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Remote administration server providing full control of the machine.\n\nFound as ExampleApp: ExampleApp.\n\nThis product is sold for watching another person without their knowledge. If nobody told you it was here, someone installed it to watch what you do on this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: If you installed it and use it, there's nothing to do. If not, make a safety plan before removing it."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Remote administration server providing full control of the machine.\n\nFound as ExampleApp: ExampleApp.\n\nApps like this have honest uses, such as IT support, parental controls or work monitoring, but they also let someone see or control this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: Don't remove it yet. Write down its name, where it was found and today's date, and make a safety plan first."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Remote administration server providing full control of the machine.\n\nFound as ExampleApp: ExampleApp.\n\nApps like this have honest uses, such as IT support, parental controls or work monitoring, but they also let someone see or control this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: If you installed it and use it, there's nothing to do. If not, make a safety plan before removing it."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Remote control product routinely repackaged as malware ('NetSupport RAT') and installed silently.\n\nFound as ExampleApp: ExampleApp.\n\nThis product is sold for watching another person without their knowledge. If nobody told you it was here, someone installed it to watch what you do on this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: Don't remove it yet. Write down its name, where it was found and today's date, and make a safety plan first."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Remote control product routinely repackaged as malware ('NetSupport RAT') and installed silently.\n\nFound as ExampleApp: ExampleApp.\n\nThis product is sold for watching another person without their knowledge. If nobody told you it was here, someone installed it to watch what you do on this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: If you installed it and use it, there's nothing to do. If not, make a safety plan before removing it."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Remote control product routinely repackaged as malware ('NetSupport RAT') and installed silently.\n\nFound as ExampleApp: ExampleApp.\n\nApps like this have honest uses, such as IT support, parental controls or work monitoring, but they also let someone see or control this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: Don't remove it yet. Write down its name, where it was found and today's date, and make a safety plan first."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Remote control product routinely repackaged as malware ('NetSupport RAT') and installed silently.\n\nFound as ExampleApp: ExampleApp.\n\nApps like this have honest uses, such as IT support, parental controls or work monitoring, but they also let someone see or control this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: If you installed it and use it, there's nothing to do. If not, make a safety plan before removing it."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
   "description": "Remote control software frequently installed by tech-support scammers and left behind afterwards.\n\nFound as ExampleApp: ExampleApp.\n\nThis product is sold for watching another person without their knowledge. If nobody told you it was here, someone installed it to watch what you do on this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: Don't remove it yet. Write down its name, where it was found and today's date, and make a safety plan first."
  },
  {
@@ -618,26 +538,6 @@
   "module": "stalkerware_scan",
   "code": "security.stalkerware_scan.monitoring_software_found",
   "description": "Remote desktop service with unattended access.\n\nFound as ExampleApp: ExampleApp.\n\nApps like this have honest uses, such as IT support, parental controls or work monitoring, but they also let someone see or control this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: If you installed it and use it, there's nothing to do. If not, make a safety plan before removing it."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Remote management agent; abused by intruders because it is signed, silent, and grants full remote control.\n\nFound as ExampleApp: ExampleApp.\n\nThis product is sold for watching another person without their knowledge. If nobody told you it was here, someone installed it to watch what you do on this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: Don't remove it yet. Write down its name, where it was found and today's date, and make a safety plan first."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Remote management agent; abused by intruders because it is signed, silent, and grants full remote control.\n\nFound as ExampleApp: ExampleApp.\n\nThis product is sold for watching another person without their knowledge. If nobody told you it was here, someone installed it to watch what you do on this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: If you installed it and use it, there's nothing to do. If not, make a safety plan before removing it."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Remote management agent; abused by intruders because it is signed, silent, and grants full remote control.\n\nFound as ExampleApp: ExampleApp.\n\nApps like this have honest uses, such as IT support, parental controls or work monitoring, but they also let someone see or control this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: Don't remove it yet. Write down its name, where it was found and today's date, and make a safety plan first."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Remote management agent; abused by intruders because it is signed, silent, and grants full remote control.\n\nFound as ExampleApp: ExampleApp.\n\nApps like this have honest uses, such as IT support, parental controls or work monitoring, but they also let someone see or control this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: If you installed it and use it, there's nothing to do. If not, make a safety plan before removing it."
  },
  {
   "module": "stalkerware_scan",
@@ -858,26 +758,6 @@
   "module": "stalkerware_scan",
   "code": "security.stalkerware_scan.monitoring_software_found",
   "description": "Unattended remote access agent that runs as a service.\n\nFound as ExampleApp: ExampleApp.\n\nApps like this have honest uses, such as IT support, parental controls or work monitoring, but they also let someone see or control this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: If you installed it and use it, there's nothing to do. If not, make a safety plan before removing it."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Unattended remote access service.\n\nFound as ExampleApp: ExampleApp.\n\nThis product is sold for watching another person without their knowledge. If nobody told you it was here, someone installed it to watch what you do on this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: Don't remove it yet. Write down its name, where it was found and today's date, and make a safety plan first."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Unattended remote access service.\n\nFound as ExampleApp: ExampleApp.\n\nThis product is sold for watching another person without their knowledge. If nobody told you it was here, someone installed it to watch what you do on this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: If you installed it and use it, there's nothing to do. If not, make a safety plan before removing it."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Unattended remote access service.\n\nFound as ExampleApp: ExampleApp.\n\nApps like this have honest uses, such as IT support, parental controls or work monitoring, but they also let someone see or control this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: Don't remove it yet. Write down its name, where it was found and today's date, and make a safety plan first."
- },
- {
-  "module": "stalkerware_scan",
-  "code": "security.stalkerware_scan.monitoring_software_found",
-  "description": "Unattended remote access service.\n\nFound as ExampleApp: ExampleApp.\n\nApps like this have honest uses, such as IT support, parental controls or work monitoring, but they also let someone see or control this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: If you installed it and use it, there's nothing to do. If not, make a safety plan before removing it."
  },
  {
   "module": "stalkerware_scan",

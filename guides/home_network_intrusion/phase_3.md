@@ -43,7 +43,7 @@ sites, and hosts-file entries pointing mining domains somewhere unexpected.
 ## Step 4: Check who else has access to the machine
 
 Run `stalkerware_scan`, `remote_login_check` (macOS) or
-`win_remote_access_audit` (Windows), and `process_scanner`.
+`win_remote_access_audit` (Windows), `remote_access_tools`, and `process_scanner`.
 
 Three different things come out of this, and they need to be told apart:
 

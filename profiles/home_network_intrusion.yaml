@@ -27,6 +27,7 @@ modules:
     - stalkerware_scan
     - remote_login_check
     - win_remote_access_audit
+    - remote_access_tools
     - suspicious_connections
     - open_ports_scan
   exclude: []
