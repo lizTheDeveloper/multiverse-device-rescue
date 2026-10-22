@@ -56,7 +56,7 @@
 //   covers: [{ module, codes?, checks? }]; the notes game's wildcard { module: '*', severities: ['info'] } means every
 //      note no other game claims; it is matched last and never counts as a double claim.
 
-export const TYPE_IDS = ['door', 'keyring', 'loadout', 'seal', 'switchboard', 'locker', 'locks', 'junkyard', 'notes', 'simple'];
+export const TYPE_IDS = ['door', 'keyring', 'loadout', 'seal', 'guestbook', 'switchboard', 'locker', 'locks', 'junkyard', 'notes', 'simple'];
 
 export const EFFECT_KINDS = ['mark', 'fix', 'settings', 'link', 'closer', 'later', 'note', 'odd', 'recheck', 'keep', 'ask'];
 

@@ -30,6 +30,7 @@ export const TYPE_TITLES = Object.freeze({
   keyring: { standard: 'Apps with powerful access', city: 'The Keyring' },
   loadout: { standard: 'Browser add-ons', city: 'The Loadout' },
   seal: { standard: 'App seals', city: 'Seal Check' },
+  guestbook: { standard: 'Remote access', city: 'The Guest Book' },
   switchboard: { standard: 'Network lines', city: 'The Switchboard' },
   locker: { standard: 'Suspicious files', city: 'The Evidence Locker' },
   locks: { standard: 'Settings and locks', city: 'Lock Run' },
@@ -62,6 +63,8 @@ export const BASE_COVERS = Object.freeze({
     ...whole('code_signature_audit', 'gatekeeper_quarantine_check', 'suspicious_processes', 'certificate_audit', 'certificate_trust_audit'),
     { module: 'win_suspicious_processes', codes: ['security.win_suspicious_processes.suspicious_path', 'security.win_suspicious_processes.no_file_path'] },
   ],
+  // Remote-access tools: the Think Back walk-through (spec 2026-10-21). Held in the help district in city mode.
+  guestbook: whole('remote_access_tools'),
   switchboard: [
     ...whole('firewall_rules_audit', 'open_ports_scan', 'network_connections_monitor', 'suspicious_connections',
       'dns_config', 'dns_poisoning_check', 'dns_over_https_check', 'hosts_file_check', 'network_proxy', 'network_proxy_check',
@@ -228,9 +231,9 @@ export function typeOf(finding, table = DEFAULT_TABLE) {
 
 const RANK = { critical: 2, warning: 1, info: 0 };
 // Which kind of mission comes first at the same severity: known-bad files,
-// then what starts on its own, the network, seals, powerful access, add-ons,
+// then who can control this computer from somewhere else, then what starts on its own, the network, seals, powerful access, add-ons,
 // settings, clutter, the rest.
-export const IMPORTANCE = Object.freeze(['locker', 'door', 'switchboard', 'seal', 'keyring', 'loadout', 'locks', 'junkyard', 'simple', 'notes']);
+export const IMPORTANCE = Object.freeze(['locker', 'guestbook', 'door', 'switchboard', 'seal', 'keyring', 'loadout', 'locks', 'junkyard', 'simple', 'notes']);
 const importance = (t) => { const i = IMPORTANCE.indexOf(t); return i < 0 ? IMPORTANCE.length : i; };
 const NOT_CHECKED_CODE = /_(?:unknown|failed|unavailable|permission_denied)$/;
 const ORDER_OF_DISTRICT = new Map([...DISTRICTS.map((d) => d.id), OUTSKIRTS.id].map((id, i) => [id, i]));

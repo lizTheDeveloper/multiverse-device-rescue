@@ -4,7 +4,7 @@
 // in 'standard' the list shows them with the one line. The same three checks
 // as app.js's ALWAYS_SAFETY_MODULES; a test keeps them equal.
 import { esc } from './escape.js';
-import { dayWords } from '../missions/day.js';
+import { remoteFacts } from '../missions/remote-facts.js';
 // Sets globalThis.NotChecked (a plain script the list loads too).
 import '../not-checked.js';
 
@@ -75,27 +75,13 @@ export function heldEvidence(f, module = f && f.module) {
   };
   if (module === REMOTE_TOOLS) {
     out.name = str(d.tool) || out.name;
+    // The Guest Book's card says the same facts in the same words.
     Object.assign(out, remoteFacts(d));
   }
   return Object.fromEntries(Object.entries(out).filter(([, v]) => v !== '' && v != null));
 }
 
-// The Guest Book's card says the same facts in the same words (missions/games/guestbook.js).
-function remoteFacts(d) {
-  const added = dayWords(d.added_on);
-  const last = dayWords(d.last_incoming);
-  const n = Number.isInteger(d.incoming_count) && d.incoming_count >= 0 ? d.incoming_count : null;
-  const times = n === 1 ? 'once' : `${n} times`;
-  return {
-    added: added ? `Added on ${added}` : 'Couldn’t tell when this was added',
-    last_in: last && n ? `Last let someone in: ${last} (${times})`
-      : n === 0 ? 'Its connection list shows no one let in' : 'Couldn’t tell when it last let someone in',
-    unattended: d.lets_in_unattended === true ? 'Can let someone in without you clicking yes'
-      : d.lets_in_unattended === false ? 'Found no way for it to let someone in without you' : 'Couldn’t tell if it can let someone in without you',
-    running: d.running_now === true ? 'Running now' : d.running_now === false ? 'Not running now' : 'Couldn’t tell if it’s running now',
-    running_now: d.running_now === true ? true : d.running_now === false ? false : null,
-  };
-}
+
 
 // `doc` without those findings (their checks still count as having run), and
 // the detections they held, at any severity (an info-level product such as
