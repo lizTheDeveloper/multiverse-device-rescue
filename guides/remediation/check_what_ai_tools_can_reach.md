@@ -76,14 +76,14 @@ whoever set up the computer.
 The check looks at the settings for your whole account. It doesn't look
 inside each project folder, because that can take minutes. To look inside one
 project folder, use the command shown in the finding: it moves into the folder
-where Reclaim City keeps its copy of HackMyAgent and runs the same read-only
-`detect` command on the folder you name.
+where Reclaim City keeps its copy of HackMyAgent and runs the same `detect`
+command on the folder you name, with sharing and usage reporting off.
 
 ## Step 4: If this check couldn't run
 
 The finding says why:
 
-- **Node.js isn't installed, or is too old.** HackMyAgent runs on Node.js.
+- **Node.js isn't installed, is too old, or didn't start.** HackMyAgent runs on Node.js.
   If you use AI coding tools and want this check, install the LTS version
   from <https://nodejs.org> and run the checkup again. If you don't use AI
   coding tools, you can skip it. Reclaim City never installs Node.js for you.
@@ -93,6 +93,21 @@ The finding says why:
   your user cache folder; later runs reuse it.
 - **The download didn't finish.** Usually the connection dropped. Run the
   checkup again later. Nothing half-downloaded is left behind.
+- **The download didn't match.** The files that arrived weren't the ones
+  Reclaim City expects, so they weren't kept. Run the checkup again later.
+- **The saved copy had changed.** Before every run, Reclaim City checks each
+  file of its saved copy against the list it ships with. This copy didn't
+  match, so it was deleted instead of run. The next checkup that's allowed to
+  download fetches a fresh one. If it happens again, mention it to whoever
+  helps you with your computer.
+- **The checkup had administrator rights.** A downloaded tool is never run
+  with those rights. Run the checkup the normal way (no `sudo`, no "Run as
+  administrator").
+- **HackMyAgent's own settings are on this computer.** Someone has used
+  HackMyAgent here before, and running it would change its settings
+  (`~/.hackmyagent/config.json`), so Reclaim City leaves it alone. Run your
+  own copy the way you usually do, with `--no-contribute` if you don't want
+  it to share what it finds.
 - **HackMyAgent stopped or its answer couldn't be read.** Run the checkup
   again. If its self-check failed, delete the folder named in the finding;
   the next checkup downloads a fresh copy.

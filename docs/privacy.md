@@ -6,7 +6,9 @@ all need you to ask: `rescue update`, the optional AI layer, and the "who runs
 this address" lookups after a connection watch you start. One more happens
 during a normal scan, once: the AI tools check downloads a free tool
 (HackMyAgent) from the npm registry the first time it runs. That is an
-ordinary package download; nothing about your computer is sent.
+ordinary package download: the registry sees your IP address and npm's usual
+description of itself (npm and Node.js versions, operating system, processor
+type), and nothing else about your computer is sent.
 `rescue scan --no-downloads` turns it off.
 
 ## What the tool touches
@@ -55,9 +57,10 @@ filesystem supports it, because even redacted they describe a machine's
 security posture and land somewhere other local accounts may be able to read.
 
 Nothing else is persisted. A `rescue scan` writes nothing else: the AI tools
-check points HackMyAgent's own settings folder and npm's download cache at
-temp folders and deletes them afterwards, so nothing lands in `~/.opena2a` or
-`~/.npm`. `<user cache>` is `~/Library/Caches` on macOS, `$XDG_CACHE_HOME` or
+check points HackMyAgent's own settings folder, its telemetry file
+(normally `~/.config/opena2a/telemetry.json`), its temp folder and npm's
+download cache at temp folders and deletes them afterwards, so nothing lands
+in `~/.opena2a`, `~/.config/opena2a` or `~/.npm`. `<user cache>` is `~/Library/Caches` on macOS, `$XDG_CACHE_HOME` or
 `~/.cache` on Linux, and `%LOCALAPPDATA%` on Windows.
 
 ## What leaves the machine
@@ -91,12 +94,28 @@ Five things, exhaustively:
    the `ai_agent_audit` check, it downloads HackMyAgent and the packages it
    needs (about 51 MB) from `registry.npmjs.org` with `npm ci`, pinned to
    exact versions and integrity hashes in `vendor/hackmyagent/`. What is
-   sent is a normal package download: the package names and versions. Like
-   any website, the registry sees your computer's public IP address. Nothing
+   sent is a normal package download: the package names and versions, and
+   npm's User-Agent, which names the npm and Node.js versions, the operating
+   system and the processor type. Like any website, the registry sees your
+   computer's public IP address. Your own `.npmrc` files are not used (npm
+   gets empty ones), so an npm login token in them is not sent; a proxy set
+   in the `HTTPS_PROXY` environment variable is still used. Nothing else
    about your computer is sent. Later scans reuse the copy and don't use the
-   network. HackMyAgent's own usage reporting is turned off when it runs.
-   `rescue scan --no-downloads` (or `RESCUE_NO_DOWNLOADS=1`) turns the
-   download off.
+   network. When HackMyAgent runs, its usage reporting is off
+   (`OPENA2A_TELEMETRY=off`) and it is told not to share its findings
+   (`--no-contribute`). `rescue scan --no-downloads` (or
+   `RESCUE_NO_DOWNLOADS=1`) turns the download off; `rescue export` and
+   `rescue run` take the same flag.
+
+   What HackMyAgent itself looks at, all on the computer: the list of
+   running programs with their command lines (`ps aux`), to spot AI tools
+   that are running; AI tools' settings files in your home folder; and the
+   computer's hardware ID (`ioreg` on macOS, `/etc/machine-id` on Linux, the
+   `MachineGuid` registry value on Windows), which it hashes into an install
+   ID for its own telemetry file. That file goes into the throwaway folder
+   and is deleted, and with telemetry off the ID is never sent. On start it
+   also clears old `hma-check-*` and `arp-lab-*` folders from its temp
+   folder, which is the throwaway folder too.
 
 There is no "phone home" on launch, no version check, no usage counter, and no
 error reporting.

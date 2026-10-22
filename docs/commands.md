@@ -29,8 +29,18 @@ directly; read a module's `__init__.py` for the full picture. No check writes
 anything — `fix()` is separate and always asks first — with one exception:
 `ai_agent_audit` downloads HackMyAgent once, with `npm ci` from the pinned
 lockfile in `vendor/hackmyagent/`, into the user cache folder
-(`ReclaimCity/hackmyagent-<version>`), and reuses it after that.
-`rescue scan --no-downloads` turns the download off.
+(`ReclaimCity/hackmyagent-<version>`), checks every file of it against
+`vendor/hackmyagent/tree.sha256` before each run, and reuses it.
+`--no-downloads` (on `scan`, `export` and `run`) turns the download off.
+
+HackMyAgent is a program of its own, so the commands *it* runs aren't in the
+list below. While `detect` runs it executes `ps aux` (running programs and
+their command lines, to spot AI tools) and, for the install ID in its
+telemetry file, `ioreg -rd1 -c IOPlatformExpertDevice` on macOS or
+`reg query "HKLM\SOFTWARE\Microsoft\Cryptography" /v MachineGuid` on
+Windows (on Linux it reads `/etc/machine-id`). That file, and the old
+`hma-check-*`/`arp-lab-*` temp folders it clears at start, are inside the
+throwaway folder Reclaim City gives it, which is deleted afterwards.
 
 
 ## Bloatware

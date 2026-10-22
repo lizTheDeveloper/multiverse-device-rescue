@@ -13,7 +13,7 @@ overstates its own guarantees is teaching you the wrong habit.
 | --- | --- |
 | Does `rescue --auto` change my system? | No. Zero shipped modules opt in to unattended change. |
 | Does it ever ask for a password, 2FA code, or recovery key? | No. There is no such prompt anywhere in the tool. |
-| Does it send anything anywhere? | Only when you ask: the AI layer when you turn it on, `rescue update` when you run it, and the "who runs this address" lookups after a connection watch you start or for addresses you give `rescue lookup`. Those send only the public addresses: to RIPE NCC, to rdap.org, which redirects your computer to the regional registry that holds each address (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC) to ask it directly, and to reverse DNS through your computer's own resolver. Each service also sees your computer's public IP address, as any website does, and the app's name and version. `rescue watch --no-lookups` turns them off. One download happens during a normal scan: the AI tools check fetches HackMyAgent from the npm registry once, pinned by integrity hash, and nothing about your computer is sent. `rescue scan --no-downloads` turns it off. |
+| Does it send anything anywhere? | Only when you ask: the AI layer when you turn it on, `rescue update` when you run it, and the "who runs this address" lookups after a connection watch you start or for addresses you give `rescue lookup`. Those send only the public addresses: to RIPE NCC, to rdap.org, which redirects your computer to the regional registry that holds each address (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC) to ask it directly, and to reverse DNS through your computer's own resolver. Each service also sees your computer's public IP address, as any website does, and the app's name and version. `rescue watch --no-lookups` turns them off. One download happens during a normal scan: the AI tools check fetches HackMyAgent from the npm registry once, pinned by integrity hash. The registry sees your IP address and npm's own User-Agent (npm and Node.js versions, operating system, processor type); nothing else about your computer is sent. `--no-downloads` on `scan`, `export` or `run` turns it off. |
 | Can an update push new Python code to my machine? | Not through the sanctioned path. Updates carry data files only, and content commits containing anything else are rejected. |
 | Can I read what a check does before running it? | Yes. Every module is one plain Python file in the source tree. |
 | Does it verify it has not been tampered with? | Yes, at every launch, with a SHA-256 manifest — but the check warns and continues rather than blocking. |
@@ -338,14 +338,45 @@ this with HackMyAgent (OpenA2A, Apache-2.0,
   complete. A failed or partial download is deleted. npm's own cache is a
   temp folder, deleted afterwards. Later scans reuse the copy after checking
   its version.
-- **What runs.** Only `detect <home> --json --depth 0`, with
-  `OPENA2A_TELEMETRY=off` and `OPENA2A_HOME` set to a temp folder deleted
-  afterwards. Never `secure`, `--fix`, `attack` or any other command. It reads
-  AI settings files; it masks any key values it finds, and Reclaim City keeps
-  only the variable name, never the value.
+- **Checked before every run.** `vendor/hackmyagent/tree.sha256` lists the
+  sha256 of every file a clean `npm ci` installs (made by
+  `scripts/generate_hackmyagent_manifest.py`). Right before each run, also
+  with `--no-downloads`, every file in the saved copy is compared with it.
+  A changed, missing or extra file, or any link other than the AI-runtime
+  stub, means the copy is deleted and not run; it is downloaded once more
+  if downloads are allowed, and otherwise the check says the copy had
+  changed. So a program that rewrites the saved copy can't get its code run
+  by the next scan. `npm ci --no-bin-links` keeps npm from adding links.
+- **What runs.** Only `detect <home> --json --depth 0 --no-contribute`, with
+  `OPENA2A_TELEMETRY=off`, and `OPENA2A_HOME`, `XDG_CONFIG_HOME` and the temp
+  folder (`TMPDIR`, `TMP`, `TEMP`) all set to one temp folder deleted
+  afterwards. Never `secure`, `--fix`, `attack` or any other command. It
+  reads AI settings files and the list of running programs; it masks any key
+  values it finds, and Reclaim City keeps only the variable name, never the
+  value. See [Privacy](privacy.md#what-leaves-the-machine) for everything it
+  looks at.
+- **When it doesn't run.** If the scan has administrator rights (root, `sudo`,
+  or "Run as administrator"), the check runs neither node nor npm and says
+  so: both, and the saved copy, live in folders any program running as you
+  can change. If HackMyAgent's own settings (`~/.hackmyagent/config.json`)
+  are on the computer, it doesn't run either, because HackMyAgent would move
+  and rewrite them at start.
 - **Off switch.** `rescue scan --no-downloads` or `RESCUE_NO_DOWNLOADS=1`.
 - **What it needs.** Node.js 18 or newer, already installed. Reclaim City
   never installs Node.js; without it the check reports "couldn't check".
+  `node` and `npm` are looked up only in absolute folders on `PATH` and in
+  the usual install places, never in the current folder. On Windows npm is
+  run as `node npm-cli.js`, not through `npm.cmd` and `cmd.exe`, and npm
+  gets empty `.npmrc` files on every platform.
+
+!!! warning "What the check can't protect against"
+    Your own `node` and `npm` run with the same permissions Reclaim City has,
+    including Full Disk Access on a Mac if you gave the app that. If they are
+    in a folder any program running as you can change (Homebrew on an Intel
+    Mac, nvm, Volta, `~/.local/bin`), a program running as you could replace
+    them, and the next scan would run the replacement. The file check above
+    covers the saved HackMyAgent copy, not your Node.js. Turn the check off
+    with `--no-downloads` and delete the saved copy if that matters to you.
 
 Updating the pinned version is a reviewed change to the lockfile, never
 automatic.
