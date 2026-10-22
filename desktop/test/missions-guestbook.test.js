@@ -168,15 +168,35 @@ test('played through the runner: answers stay on the item, BACK undoes one, and 
   run = Run.choose(run, 'closer', game, ctx).run;
   const v = Run.viewFor(run, game, ctx, {});
   assert.ok(v.guide && v.guide.steps.length === 4, 'the scam steps are on screen');
-  assert.deepStrictEqual(ids(v.decisions), ['later', 'remove'], 'the removal still isn’t first');
+  assert.deepStrictEqual(ids(v.decisions), ['later', 'remove', 'did'], 'the removal still isn’t first; then a recheck');
   const r = Run.choose(run, 'remove', game, ctx);
   assert.strictEqual(r.run.phase, 'confirm', 'the removal warning first');
   assert.strictEqual(Run.viewFor(r.run, game, ctx, {}).warning, Run.REMOVAL_WARNING);
+  // Removed by hand: the recheck (which also looks for a second tool) confirms it, and pays the confirmed bonus.
+  const did = Run.choose(run, 'did', game, ctx);
+  assert.deepStrictEqual(did.act && [did.act.kind, did.act.modules], ['recheck', ['remote_access_tools']]);
+  const settled = Run.settle(did.run, 'done');
+  assert.strictEqual(settled.results.length, 1);
+  assert.strictEqual(settled.results[0].decision, 'did');
+  assert.strictEqual(settled.results[0].effect.kind, 'recheck', 'a recheck: what the confirmed bonus pays for (missions-city.js)');
   // Someone I know: answered, and unpaid, so never remembered.
   run = Run.startRun({ id: 'guestbook:gatehouse:1', type: 'guestbook', items: [by('AnyDesk')] });
   for (const a of ['helped', 'knows', 'talk']) run = Run.choose(run, a, game, ctx).run;
   assert.strictEqual(run.results[0].effect.unpaid, true);
   assert.strictEqual(Run.remembers(run.results[0]), false);
+});
+
+test('scam: before its steps are open, Do these now / Later / Remove it; after, Later / Remove it / I removed it', async () => {
+  const { C, game, items } = await load();
+  for (const item of items.filter((i) => i.finding.data.check !== 'several_tools')) {
+    const answers = answersFor(item, 'scam');
+    const before = game.decisions(item, ctxOf(C, { answers }));
+    assert.deepStrictEqual(ids(before), ['closer', 'later', 'remove']);
+    const after = game.decisions(item, ctxOf(C, { answers, closer: true }));
+    assert.deepStrictEqual(ids(after), ['later', 'remove', 'did']);
+    assert.deepStrictEqual(byId(after, 'did').effect, { kind: 'recheck', module: 'remote_access_tools' });
+    for (const d of [before, after]) assert.deepStrictEqual(C.checkDecisions(d, item).filter((p) => !/removal warning/.test(p)), []);
+  }
 });
 
 test('scam links are lookup/lesson intents only', async () => {

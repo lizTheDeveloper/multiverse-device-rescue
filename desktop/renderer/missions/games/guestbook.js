@@ -13,7 +13,7 @@
 //   q4          Around then, did a call, pop-up, email or text say something was wrong...?  yes -> scam, else unsure
 //   mine        mark it as yours (and turn off unattended access when it has it)
 //   notneeded   remove it (the removal warning first), then check again
-//   scam        the steps in order (bank, email, remove and recheck, report), then remove it
+//   scam        the steps in order (bank, email, remove and recheck, report), then remove it and recheck
 //   known       talk to an advocate first; no removal offered. Every effect is unpaid (R13): no points, never kept
 //   unsure      the safe middle: turn off unattended access, look at its connections
 //
@@ -193,8 +193,10 @@ export function decisions(item, ctx) {
     }
     case 'notneeded': return [later(), remove(item, c), recheck()];
     // "Do these now" is Look closer (id 'closer'): its steps stay on screen and the item stays open for the removal.
-    // Later comes before Remove it, so once the steps are open (and Look closer is gone) the removal still never leads.
-    case 'scam': return [{ id: 'closer', label: W('Do these now', 'Do these now'), effect: { kind: 'closer', steps: SCAM_STEPS } }, later(), remove(item, c)];
+    // Once they're open (ctx.closer) it's Later, Remove it, then I removed it: the recheck confirms the removal (and
+    // pays for it) and looks for a second tool. Later always comes before Remove it, so the removal never leads.
+    case 'scam': return c.closer === true ? [later(), remove(item, c), recheck()]
+      : [{ id: 'closer', label: W('Do these now', 'Do these now'), effect: { kind: 'closer', steps: SCAM_STEPS } }, later(), remove(item, c)];
     // R13: nothing here pays or is kept, and nothing removes it.
     case 'known': return [{ id: 'talk', label: W('Talk to someone first', 'Talk to someone first'), effect: { kind: 'closer', unpaid: true, steps: KNOWN_STEPS } },
       later({ unpaid: true })];

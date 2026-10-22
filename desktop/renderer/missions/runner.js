@@ -10,7 +10,7 @@
 //   viewFor(run, game, ctx, research) -> view          what the screen draws (game.render gets the same view)
 //   choose(run, id, game, ctx) -> { run, act }         act: null | { kind: mark|fix|settings|link|recheck|lesson|odd, … }
 //   unask(run) -> run                                  BACK: the current item's last question answer (R12) undone
-//   contextFor(run, ctx, item) -> ctx                  ctx with that item's answers, for research and render (R12)
+//   contextFor(run, ctx, item) -> ctx                  ctx with that item's answers (R12) and `closer`, for decisions, research, render
 //   confirmPending(run, game, ctx) / cancelPending(run) the warning-before-acting step (R6)
 //   openLink(run, game, ctx, act) -> { run, act }       a research link; behind the confirm when the item warns
 //   proceed(run)                                       past an answered item whose steps are on screen
@@ -80,9 +80,11 @@ export function answersOf(run, item) {
   return Array.isArray(a) ? a.filter((x) => typeof x === 'string') : [];
 }
 const ownAnswers = (ctx) => (ctx && Array.isArray(ctx.answers) ? ctx.answers.filter((x) => typeof x === 'string') : []);
-// The ctx a game gets for one item: its answers (from the run, or a practice step's own when there's no run).
+// The ctx a game gets for one item: its answers (from the run, or a practice step's own when there's no run), and
+// `closer`: whether its Look closer steps are open (a game may offer what follows them, e.g. a recheck).
 export function contextFor(run, ctx, item) {
-  return { ...(ctx || {}), answers: run ? answersOf(run, item) : ownAnswers(ctx) };
+  const closer = run ? !!(item && run.closer && run.closer[item.key]) : !!(ctx && ctx.closer === true);
+  return { ...(ctx || {}), answers: run ? answersOf(run, item) : ownAnswers(ctx), closer };
 }
 
 // A game's decisions, made safe: a game that throws or breaks the rules gets
