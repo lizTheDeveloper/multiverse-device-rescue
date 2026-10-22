@@ -64,6 +64,13 @@ STALE_SECONDS = 3600
 # sha256 of every file npm ci puts in the install folder, committed next to
 # the lockfile and checked before every run.
 MANIFEST_NAME = "tree.sha256"
+# The only variables from Reclaim City's own environment that node and npm see
+# (plus LC_* and the ones this module sets).
+_ENV_ALLOWED = frozenset({
+    "PATH", "HOME", "USERPROFILE", "SystemRoot", "SYSTEMROOT", "windir", "TEMP", "TMP",
+    "TMPDIR", "LANG", "APPDATA", "LOCALAPPDATA", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY",
+    "https_proxy", "http_proxy", "no_proxy",
+})
 # The one link allowed in the install folder: the AI-runtime stub.
 STUB_LINK = "node_modules/onnxruntime-node"
 # Written by npm itself (its record of what it installed); nothing runs it.
@@ -132,7 +139,23 @@ _COULD_NOT_CHECK = {
     ),
     "download_mismatch": (
         "Reclaim City downloaded HackMyAgent, but the files didn't match the copy "
-        "it expects, so it didn't use or keep them. Run the checkup again later."
+        "it expects, so it didn't use or keep them. Run the checkup again later; "
+        "if it keeps happening, this copy of Reclaim City may need an update."
+    ),
+    "manifest_missing": (
+        "This copy of Reclaim City is missing a file it needs for this check (the "
+        "list of HackMyAgent's files), so the check didn't run. Reinstalling or "
+        "updating Reclaim City should fix it."
+    ),
+    "stub_link_failed": (
+        "Reclaim City couldn't finish setting up its working copy of HackMyAgent "
+        "on this computer (one folder link couldn't be made), so the check didn't "
+        "run. This is a problem on our side, not a sign that anything was changed."
+    ),
+    "copy_failed": (
+        "Reclaim City couldn't make a working copy of HackMyAgent to run (the disk "
+        "may be full), so the check didn't run. Run the checkup again after "
+        "freeing some space."
     ),
     "node_too_old": (
         "This check uses a free tool called HackMyAgent, which needs Node.js "
@@ -210,12 +233,25 @@ def _safe_name(token: Any) -> str | None:
     return token
 
 
+_FILE_ATTRIBUTE_REPARSE_POINT = 0x400
+
+
 def _is_link(path: Path) -> bool:
-    """A symlink, or (on Windows) a junction."""
+    """A symlink, or (on Windows) a junction or any other reparse point.
+
+    os.path.isjunction only exists from Python 3.12, so the reparse-point
+    attribute from lstat is checked too.
+    """
     if path.is_symlink():
         return True
     is_junction = getattr(os.path, "isjunction", None)
-    return bool(is_junction is not None and is_junction(path))
+    if is_junction is not None and is_junction(path):
+        return True
+    try:
+        attributes = getattr(os.lstat(path), "st_file_attributes", 0) or 0
+    except (OSError, ValueError):
+        return False
+    return bool(attributes & _FILE_ATTRIBUTE_REPARSE_POINT)
 
 
 def _remove_tree(path: Path) -> None:
@@ -330,6 +366,14 @@ def tree_problems(install: Path, expected: dict[str, str]) -> list[str]:
     return problems
 
 
+def _matches(root: Path, expected: dict[str, str]) -> bool:
+    """True when ``root`` matches the manifest. A file that can't be read counts as a mismatch."""
+    try:
+        return not tree_problems(root, expected)
+    except OSError:
+        return False
+
+
 def _version_tuple(name: str) -> tuple[int, ...]:
     return tuple(int(n) for n in re.findall(r"\d+", name)[:3]) or (0,)
 
@@ -381,18 +425,27 @@ class Module(ModuleBase):
     system_node_dirs: list[Path] | None = None
     vendor_dir: Path | None = None
     elevated: bool | None = None  # None = ask the operating system
+    _left_in_home: str | None = None
 
     # --- check ------------------------------------------------------------------
 
     def check(self, profile: SystemProfile) -> CheckResult:
+        self._left_in_home = None
         try:
             doc = self._detect(profile.platform)
         except _CouldNotCheck as exc:
-            return CheckResult(module_name=self.name, findings=[self._could_not_check(exc)])
-        return CheckResult(
-            module_name=self.name,
-            findings=self._findings(doc, self._install_dir(profile.platform), profile.platform),
-        )
+            findings = [self._could_not_check(exc)]
+        else:
+            findings = self._findings(doc, self._install_dir(profile.platform), profile.platform)
+        if self._left_in_home and findings:
+            target = next((f for f in findings
+                           if f.code == "security.ai_agent_audit.ai_inventory"), findings[0])
+            target.data["left_in_home"] = self._left_in_home
+            target.description += (
+                f"\n\nHackMyAgent's start-up self-check added a line to {self._left_in_home}. "
+                "Something else changed that file during the check, so we left it as it is."
+            )
+        return CheckResult(module_name=self.name, findings=findings)
 
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:
         # Every finding is about settings the person changes in their own AI
@@ -427,7 +480,7 @@ class Module(ModuleBase):
         try:
             return read_manifest(self._vendor_dir() / MANIFEST_NAME)
         except OSError as exc:
-            raise _CouldNotCheck("download_mismatch", detail=f"no {MANIFEST_NAME}: {exc}"[:200]) from exc
+            raise _CouldNotCheck("manifest_missing", detail=f"no {MANIFEST_NAME}: {exc}"[:200]) from exc
 
     def _detect(self, platform: Platform) -> dict:
         # A downloaded tool never runs with administrator rights: the copy and
@@ -448,7 +501,8 @@ class Module(ModuleBase):
         node = self._find_node(platform)
         if node is None:
             raise _CouldNotCheck("node_missing")
-        version = run([str(node), *NODE_VERSION_ARGS[1:]], timeout=VERSION_TIMEOUT)
+        version = run([str(node), *NODE_VERSION_ARGS[1:]], timeout=VERSION_TIMEOUT,
+                      env=self._env(node))
         if not version.ok:
             raise _CouldNotCheck("node_failed")
         if _version_tuple(version.stdout.strip())[0] < MIN_NODE_MAJOR:
@@ -456,17 +510,62 @@ class Module(ModuleBase):
 
         if not usable:
             self._fetch(node, install, platform, expected)
-        # Checked right before it runs, every time, so what runs is what was
-        # downloaded. A saved copy that changed is deleted and fetched once more.
-        if tree_problems(install, expected):
+        # HackMyAgent runs from a fresh private copy that is checked right
+        # before and again right after the run; a saved copy that changed is
+        # deleted and fetched once more.
+        run_dir = self._verified_copy(install, expected, platform)
+        if run_dir is None:
             _remove_tree(install)
             if not usable or downloads_off:
                 raise _CouldNotCheck("tampered")
             self._fetch(node, install, platform, expected)
-            if tree_problems(install, expected):
+            run_dir = self._verified_copy(install, expected, platform)
+            if run_dir is None:
                 _remove_tree(install)
                 raise _CouldNotCheck("tampered")
-        return self._run_detect(node, install)
+        try:
+            try:
+                doc = self._run_detect(node, run_dir, install)
+            finally:
+                changed_during_run = not _matches(run_dir, expected)
+            if changed_during_run:
+                raise _CouldNotCheck("tampered")
+            return doc
+        except _CouldNotCheck as exc:
+            if changed_during_run and exc.reason != "tampered":
+                raise _CouldNotCheck("tampered") from exc
+            raise
+        finally:
+            _remove_tree(run_dir.parent)
+
+    def _verified_copy(self, install: Path, expected: dict[str, str], platform: Platform) -> Path | None:
+        """Copy the saved copy into a new private temp folder and check the copy.
+
+        Returns the copy's folder, or None when it doesn't match the manifest.
+        """
+        if not self._installed(install) or _is_link(install):
+            return None
+        holder = Path(tempfile.mkdtemp(prefix="rc-hackmyagent-run-"))
+        copy = holder / "hackmyagent"
+
+        def skip_stub_link(directory: str, names: list[str]) -> set[str]:
+            here = Path(directory)
+            return {n for n in names if here / n == install / STUB_LINK}
+
+        try:
+            shutil.copytree(install, copy, symlinks=True, ignore=skip_stub_link)
+        except (OSError, shutil.Error) as exc:
+            _remove_tree(holder)
+            raise _CouldNotCheck("copy_failed", detail=str(exc)[:200]) from exc
+        try:
+            self._make_stub_link(copy, platform)
+        except _CouldNotCheck:
+            _remove_tree(holder)
+            raise
+        if not _matches(copy, expected):
+            _remove_tree(holder)
+            return None
+        return copy
 
     @staticmethod
     def _installed(install: Path) -> bool:
@@ -480,7 +579,10 @@ class Module(ModuleBase):
         return meta.get("version") == HMA_VERSION and (pkg / "dist" / "cli.js").is_file()
 
     def _env(self, node: Path, **extra: str) -> dict[str, str]:
-        env = dict(os.environ)
+        """The child's environment, from an allow-list: nothing like NODE_OPTIONS or npm_config_*
+        can reach node or npm and change what code runs."""
+        env = {key: value for key, value in os.environ.items()
+               if key in _ENV_ALLOWED or key.startswith("LC_")}
         env["PATH"] = os.pathsep.join([str(node.parent), env.get("PATH", "")]).rstrip(os.pathsep)
         env.update(extra)
         return env
@@ -552,45 +654,43 @@ class Module(ModuleBase):
                 raise _CouldNotCheck("fetch_failed", detail=detail.strip()[-300:])
             if not self._installed(work):
                 raise _CouldNotCheck("fetch_failed", detail="the download wasn't the pinned version")
-            problems = tree_problems(work, expected)
+            try:
+                problems = tree_problems(work, expected)
+            except OSError as exc:
+                problems = [f"unreadable: {exc}"]
             if problems:
                 raise _CouldNotCheck("download_mismatch", detail="; ".join(problems[:5])[:300])
             try:
-                if self._installed(install) and not tree_problems(install, expected):
+                if self._installed(install) and _matches(install, expected):
                     return  # another scan put a good copy in place meanwhile; keep it
                 if install.exists() or _is_link(install):
                     _remove_tree(install)
                 os.replace(work, install)
             except OSError as exc:
                 raise _CouldNotCheck("fetch_failed", detail=str(exc)[:200]) from exc
-            self._relink_stub(install, platform)
         finally:
             _remove_tree(work)
             _remove_tree(npm_cache)
 
     @staticmethod
-    def _relink_stub(install: Path, platform: Platform) -> None:
-        """Windows makes the stub link a junction to an absolute path: point it at the renamed copy."""
-        if platform != Platform.WIN32:
-            return  # a relative symlink (../stub) survives the rename
-        link = install / STUB_LINK
+    def _make_stub_link(root: Path, platform: Platform) -> None:
+        """node_modules/onnxruntime-node -> stub: a junction on Windows, a relative symlink elsewhere."""
+        link = root / STUB_LINK
         try:
-            if _is_link(link):
-                try:
-                    os.unlink(link)
-                except OSError:
-                    os.rmdir(link)
-            _create_junction(str(install / "stub"), str(link))
-        except OSError:
-            pass  # detect never loads it; tree_problems reports a link that points elsewhere
+            if platform == Platform.WIN32:
+                _create_junction(str(root / "stub"), str(link))
+            else:
+                os.symlink(os.path.join("..", "stub"), link)
+        except OSError as exc:
+            raise _CouldNotCheck("stub_link_failed", detail=str(exc)[:200]) from exc
 
-    def _run_detect(self, node: Path, install: Path) -> dict:
-        cli = install / "node_modules" / "hackmyagent" / "dist" / "cli.js"
+    def _run_detect(self, node: Path, run_dir: Path, install: Path) -> dict:
+        cli = run_dir / "node_modules" / "hackmyagent" / "dist" / "cli.js"
         settings = Path(tempfile.mkdtemp(prefix="rc-opena2a-"))
         # Its start-up self-check appends to ~/.nanomind/integrity-events.jsonl
         # (a path taken from the home folder, which detect needs as it is);
         # that write is undone afterwards.
-        log_state = self._nanomind_state()
+        log_state = self._nanomind_before()
         try:
             argv = [str(node) if a == "node" else str(cli) if i == 1 else
                     str(self._home()) if a is _HOME else a
@@ -605,7 +705,7 @@ class Module(ModuleBase):
             )
         finally:
             _remove_tree(settings)
-            self._restore_nanomind(log_state)
+            self._left_in_home = self._nanomind_after(log_state)
         if result.timed_out:
             raise _CouldNotCheck("timed_out")
         if result.returncode == 2:
@@ -633,31 +733,110 @@ class Module(ModuleBase):
             raise _CouldNotCheck("not_measured")
         return doc
 
-    def _nanomind_state(self) -> tuple[bool, int | None]:
-        """(does ~/.nanomind exist, size of its integrity-events.jsonl or None)."""
-        folder = self._home() / ".nanomind"
-        log = folder / "integrity-events.jsonl"
-        try:
-            size = log.lstat().st_size if stat.S_ISREG(log.lstat().st_mode) else -1
-        except OSError:
-            size = None
-        return folder.exists() or _is_link(folder), size
+    _NANOMIND_LOG = ".nanomind/integrity-events.jsonl"
 
-    def _restore_nanomind(self, state: tuple[bool, int | None]) -> None:
-        folder_existed, old_size = state
+    def _nanomind_before(self) -> dict:
         folder = self._home() / ".nanomind"
         log = folder / "integrity-events.jsonl"
+        state: dict[str, Any] = {"folder_existed": folder.exists() or _is_link(folder),
+                                 "start": time.time(), "file": None, "odd": False}
         try:
-            if _is_link(folder) or old_size == -1:
-                return  # not a plain folder and file: leave it alone
-            if not stat.S_ISREG(log.lstat().st_mode):
-                return
-            if old_size is None:
-                log.unlink()
-                if not folder_existed and not any(folder.iterdir()):
-                    folder.rmdir()
-            elif log.lstat().st_size > old_size:
-                os.truncate(log, old_size)
+            st = os.lstat(log)
+        except OSError:
+            return state
+        if stat.S_ISREG(st.st_mode) and not _is_link(log):
+            state["file"] = (st.st_dev, st.st_ino, st.st_size)
+        else:
+            state["odd"] = True
+        return state
+
+    @staticmethod
+    def _our_events(data: bytes, start: float, end: float) -> bool:
+        """True when every line is a HackMyAgent integrity event stamped inside this run."""
+        from datetime import datetime
+
+        lines = [line for line in data.decode("utf-8", errors="replace").splitlines() if line.strip()]
+        if not lines:
+            return False
+        for line in lines:
+            try:
+                event = json.loads(line)
+                when = datetime.fromisoformat(str(event["timestamp"]).replace("Z", "+00:00"))
+            except (ValueError, KeyError, TypeError):
+                return False
+            if not isinstance(event.get("eventType"), str):
+                return False
+            if not (start - 2 <= when.timestamp() <= end + 2):
+                return False
+        return True
+
+    def _nanomind_after(self, state: dict) -> str | None:
+        """Undo HackMyAgent's self-check log line(s), only when they are surely ours.
+
+        Returns the home-relative path when something was left in place, else None.
+        """
+        folder = self._home() / ".nanomind"
+        log = folder / "integrity-events.jsonl"
+        left = "~/" + self._NANOMIND_LOG
+        end = time.time()
+        if state["odd"] or _is_link(folder):
+            return left
+        try:
+            st = os.lstat(log)
+        except OSError:
+            st = None
+        if st is None:
+            if state["file"] is not None:
+                return left  # it was there before and is gone now: not ours to explain
+            self._remove_our_folder(folder, state)
+            return None
+        if not stat.S_ISREG(st.st_mode) or _is_link(log):
+            return left
+        flags = os.O_RDWR | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0)
+        try:
+            fd = os.open(log, flags)
+        except OSError:
+            return left
+        try:
+            opened = os.fstat(fd)
+            if not stat.S_ISREG(opened.st_mode) or (opened.st_dev, opened.st_ino) != (st.st_dev, st.st_ino):
+                return left
+            before = state["file"]
+            if before is not None:
+                dev, ino, old_size = before
+                if (opened.st_dev, opened.st_ino) != (dev, ino):
+                    return left
+                if opened.st_size == old_size:
+                    return None
+                if opened.st_size < old_size or opened.st_size - old_size > 1 << 20:
+                    return left
+                os.lseek(fd, old_size, os.SEEK_SET)
+                tail = os.read(fd, opened.st_size - old_size)
+                if not self._our_events(tail, state["start"], end):
+                    return left
+                os.ftruncate(fd, old_size)
+                return None
+            if opened.st_size > 1 << 20:
+                return left
+            if not self._our_events(os.read(fd, opened.st_size), state["start"], end):
+                return left
+            now = os.lstat(log)
+            if (now.st_dev, now.st_ino) != (opened.st_dev, opened.st_ino):
+                return left
+            os.unlink(log)
+        except OSError:
+            return left
+        finally:
+            os.close(fd)
+        self._remove_our_folder(folder, state)
+        return None
+
+    @staticmethod
+    def _remove_our_folder(folder: Path, state: dict) -> None:
+        if state["folder_existed"] or _is_link(folder):
+            return
+        try:
+            folder.rmdir()  # only when empty
         except OSError:
             pass
 
@@ -866,8 +1045,9 @@ class Module(ModuleBase):
                 "This looked at the settings for your whole account, not inside "
                 "each project folder. To look inside one project folder too, open "
                 f"a terminal and run:\n  cd {self._tilde(str(install))}\n  {command}\n"
-                "(with your project folder's path in place of the example path)."
-                f"{leftovers}"
+                "(with your project folder's path in place of the example path). "
+                "Run by hand, it also adds a line to ~/.nanomind/integrity-events.jsonl "
+                f"each time.{leftovers}"
             ),
             severity=Severity.INFO,
             category=self.category,

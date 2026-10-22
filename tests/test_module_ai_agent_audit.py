@@ -8,6 +8,7 @@ the real fetch and run, and only when RESCUE_LIVE_HMA=1.
 import json
 import os
 import shutil
+import stat
 import sys
 from pathlib import Path
 
@@ -176,7 +177,11 @@ def test_detect_argv_and_environment_exactly(env, monkeypatch):
     mod.check(_profile())
 
     [call] = runner.named("detect")
-    cli = _install_dir(env) / "node_modules" / "hackmyagent" / "dist" / "cli.js"
+    cli = Path(call["args"][1])
+    # It runs from a private copy, not from the saved one in the cache.
+    assert cli.parts[-4:] == ("node_modules", "hackmyagent", "dist", "cli.js")
+    assert _install_dir(env) not in cli.parents and env["home"] not in cli.parents
+    assert not cli.exists(), "the run copy is removed afterwards"
     assert call["args"] == [
         str(env["bin"] / "node"), str(cli), "detect", str(env["home"]), "--json", "--depth", "0",
         "--no-contribute",
@@ -597,7 +602,7 @@ def test_a_planted_cli_js_with_downloads_off_is_deleted_not_run(env, monkeypatch
     assert not _install_dir(env).exists()
 
 
-@pytest.mark.parametrize("plant", ["extra_file", "extra_link", "missing_file", "stub_elsewhere"])
+@pytest.mark.parametrize("plant", ["extra_file", "extra_link", "missing_file", "unreadable"])
 def test_any_change_to_the_saved_copy_counts(env, monkeypatch, plant, tmp_path):
     monkeypatch.setenv("RESCUE_NO_DOWNLOADS", "1")
     install = _install_dir(env)
@@ -610,11 +615,19 @@ def test_any_change_to_the_saved_copy_counts(env, monkeypatch, plant, tmp_path):
         (nm / "evil").symlink_to(tmp_path)
     elif plant == "missing_file":
         (install / "stub" / "index.js").unlink()
-    else:
-        (nm / "onnxruntime-node").unlink()
-        (nm / "onnxruntime-node").symlink_to(tmp_path)
     runner = FakeRunner()
-    f = _one(_module(env, runner, monkeypatch).check(_profile()), "could_not_check")
+    mod = _module(env, runner, monkeypatch)
+    if plant == "unreadable":
+        code = sys.modules[type(mod).__module__]
+        real = code._sha256
+
+        def unreadable(path):
+            if path.name == "cli.js":
+                raise PermissionError(path)
+            return real(path)
+
+        monkeypatch.setattr(code, "_sha256", unreadable)
+    f = _one(mod.check(_profile()), "could_not_check")
     assert f.data["reason"] == "tampered"
     assert runner.named("detect") == []
     assert tmp_path.exists()  # links are removed, never followed
@@ -747,31 +760,150 @@ def test_windows_runs_npm_cli_js_through_node_without_cmd(env, monkeypatch, tmp_
     assert getattr(err.value, "reason", None) == "npm_missing"
 
 
-def test_windows_stub_junction_is_pointed_at_the_renamed_copy(env, monkeypatch):
+def test_the_stub_link_is_made_per_platform(env, monkeypatch, tmp_path):
     code = _code_module()
-    install = _install_dir(env)
-    _write_install(install)
+    root = tmp_path / "copy"
+    (root / "node_modules").mkdir(parents=True)
+    (root / "stub").mkdir()
     made = []
     monkeypatch.setattr(code, "_create_junction", lambda target, link: made.append((target, link)))
-    code.Module._relink_stub(install, Platform.WIN32)
-    link = install / "node_modules" / "onnxruntime-node"
-    assert made == [(str(install / "stub"), str(link))]
-    assert not link.is_symlink()  # the old link was removed first
-    made.clear()
-    _write_install(install)
-    code.Module._relink_stub(install, Platform.DARWIN)
-    assert made == [] and link.is_symlink()
+    code.Module._make_stub_link(root, Platform.WIN32)
+    assert made == [(str(root / "stub"), str(root / "node_modules" / "onnxruntime-node"))]
+    code.Module._make_stub_link(root, Platform.DARWIN)
+    link = root / "node_modules" / "onnxruntime-node"
+    assert link.is_symlink() and link.resolve() == (root / "stub").resolve()
+
+
+def test_a_stub_link_that_cannot_be_made_has_its_own_reason(env, monkeypatch):
+    _write_install(_install_dir(env))
+    runner = FakeRunner()
+    mod = _module(env, runner, monkeypatch)
+
+    def fail(*a, **k):
+        raise OSError("links not allowed here")
+
+    monkeypatch.setattr(os, "symlink", fail)
+    f = _one(mod.check(_profile()), "could_not_check")
+    assert f.data["reason"] == "stub_link_failed"
+    assert "not a sign that anything was changed" in f.description
+    assert runner.named("detect") == []
+    assert _install_dir(env).exists(), "the saved copy is fine and kept"
+
+
+def test_junctions_are_links_even_without_isjunction(monkeypatch, tmp_path):
+    code = _code_module()
+    target = tmp_path / "junction"
+    target.mkdir()
+    monkeypatch.delattr(os.path, "isjunction", raising=False)
+    real_lstat = os.lstat
+
+    class Attrs:
+        st_file_attributes = 0x400
+        st_mode = real_lstat(target).st_mode
+
+    monkeypatch.setattr(os, "lstat", lambda p, *a, **k: Attrs() if Path(p) == target
+                        else real_lstat(p, *a, **k))
+    assert code._is_link(target) is True
+    assert code._is_link(tmp_path) is False
+
+
+# --- the run copy (N1) ---------------------------------------------------------------------
+
+
+def test_a_copy_changed_while_it_runs_throws_the_results_away(env, monkeypatch):
+    _write_install(_install_dir(env))
+
+    def detect(args, cwd, e):
+        Path(args[1]).write_text("// swapped during the run\n")
+        return _result(args, 1, FIXTURE.read_text())
+
+    runner = FakeRunner(detect=detect)
+    result = _module(env, runner, monkeypatch).check(_profile())
+    assert _codes(result) == [CODE + "could_not_check"]
+    assert result.findings[0].data["reason"] == "tampered"
+    assert not Path(runner.named("detect")[0]["args"][1]).exists()
+
+
+def test_a_run_that_fails_after_the_copy_changed_still_says_tampered(env, monkeypatch):
+    _write_install(_install_dir(env))
+
+    def detect(args, cwd, e):
+        Path(args[1]).write_text("// swapped\n")
+        return _result(args, 5)
+
+    f = _one(_module(env, FakeRunner(detect=detect), monkeypatch).check(_profile()), "could_not_check")
+    assert f.data["reason"] == "tampered"
+
+
+def test_the_run_copy_is_private_and_verified(env, monkeypatch):
+    _write_install(_install_dir(env))
+    seen = {}
+
+    def detect(args, cwd, e):
+        root = Path(args[1]).parents[3]
+        seen["mode"] = stat.S_IMODE(root.parent.stat().st_mode)
+        link = root / "node_modules" / "onnxruntime-node"
+        seen["link"] = link.is_symlink() and link.resolve() == (root / "stub").resolve()
+        return _result(args, 1, FIXTURE.read_text())
+
+    _module(env, FakeRunner(detect=detect), monkeypatch).check(_profile())
+    assert seen == {"mode": 0o700, "link": True}
+
+
+# --- the child environment (N2) ------------------------------------------------------------
+
+
+def test_node_and_npm_get_only_an_allow_listed_environment(env, monkeypatch):
+    monkeypatch.setenv("NODE_OPTIONS", "--require /tmp/evil.js")
+    monkeypatch.setenv("NODE_PATH", "/tmp/evil")
+    monkeypatch.setenv("npm_config_registry", "https://evil.example/")
+    monkeypatch.setenv("SOME_SECRET_TOKEN", "x")
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.example:3128")
+    monkeypatch.setenv("LC_ALL", "en_US.UTF-8")
+    runner = FakeRunner()
+    _module(env, runner, monkeypatch).check(_profile())
+    assert {"--version", "ci", "detect"} <= {a for c in runner.calls for a in c["args"]}
+    for call in runner.calls:
+        child = call["env"]
+        assert child is not None, call["args"]
+        for name in ("NODE_OPTIONS", "NODE_PATH", "npm_config_registry", "SOME_SECRET_TOKEN"):
+            assert name not in child, (name, call["args"])
+        assert child["HTTPS_PROXY"] == "http://proxy.example:3128"
+        assert child["LC_ALL"] == "en_US.UTF-8"
+        assert child["PATH"].split(os.pathsep)[0] == str(env["bin"])
+
+
+# --- missing manifest (N8) -----------------------------------------------------------------
+
+
+def test_a_missing_file_list_is_a_packaging_problem(env, monkeypatch):
+    (env["vendor"] / "tree.sha256").unlink()
+    runner = FakeRunner()
+    f = _one(_module(env, runner, monkeypatch).check(_profile()), "could_not_check")
+    assert f.data["reason"] == "manifest_missing"
+    assert "Reinstalling or updating Reclaim City" in f.description
+    assert runner.calls == []
 
 
 # --- HackMyAgent's self-check log in ~/.nanomind -----------------------------------------
 
 
-def _detect_appending_to_nanomind(home):
+def _event(when=None):
+    from datetime import datetime, timezone
+
+    stamp = (when or datetime.now(timezone.utc)).isoformat().replace("+00:00", "Z")
+    return json.dumps({"seq": 0, "timestamp": stamp, "eventType": "check_pass",
+                       "detail": "All 4 checks passed"}) + "\n"
+
+
+def _detect_appending_to_nanomind(home, extra=None):
     def detect(args, cwd, env):
         log = home / ".nanomind" / "integrity-events.jsonl"
         log.parent.mkdir(exist_ok=True)
         with open(log, "a") as fh:
-            fh.write('{"eventType":"check_pass"}\n')
+            fh.write(_event())
+        if extra:
+            extra(log)
         return _result(args, 1, FIXTURE.read_text())
     return detect
 
@@ -791,9 +923,85 @@ def test_an_existing_self_check_log_is_put_back_as_it_was(env, monkeypatch):
     (nanomind / "integrity-events.jsonl").write_text('{"seq":0}\n')
     (nanomind / "models").mkdir()
     runner = FakeRunner(detect=_detect_appending_to_nanomind(env["home"]))
-    _module(env, runner, monkeypatch).check(_profile())
+    result = _module(env, runner, monkeypatch).check(_profile())
     assert (nanomind / "integrity-events.jsonl").read_text() == '{"seq":0}\n'
     assert sorted(p.name for p in nanomind.iterdir()) == ["integrity-events.jsonl", "models"]
+    assert "left_in_home" not in _one(result, "ai_inventory").data
+
+
+def _left(result):
+    return _one(result, "ai_inventory").data.get("left_in_home")
+
+
+def test_a_line_someone_else_wrote_during_the_run_is_left_alone(env, monkeypatch):
+    from datetime import datetime, timezone
+
+    _write_install(_install_dir(env))
+    nanomind = env["home"] / ".nanomind"
+    nanomind.mkdir()
+    log = nanomind / "integrity-events.jsonl"
+    log.write_text('{"seq":0}\n')
+
+    def other_writer(path):
+        with open(path, "a") as fh:
+            fh.write(_event(datetime(2020, 1, 1, tzinfo=timezone.utc)))
+
+    runner = FakeRunner(detect=_detect_appending_to_nanomind(env["home"], other_writer))
+    result = _module(env, runner, monkeypatch).check(_profile())
+    assert log.read_text().startswith('{"seq":0}\n') and log.read_text().count("\n") == 3
+    assert _left(result) == "~/.nanomind/integrity-events.jsonl"
+    assert "left it as it is" in _one(result, "ai_inventory").description
+
+
+def test_a_new_log_with_someone_elses_line_is_kept(env, monkeypatch):
+    _write_install(_install_dir(env))
+
+    def other_writer(path):
+        with open(path, "a") as fh:
+            fh.write("not an event\n")
+
+    runner = FakeRunner(detect=_detect_appending_to_nanomind(env["home"], other_writer))
+    result = _module(env, runner, monkeypatch).check(_profile())
+    assert (env["home"] / ".nanomind" / "integrity-events.jsonl").exists()
+    assert _left(result) == "~/.nanomind/integrity-events.jsonl"
+
+
+def test_a_log_swapped_for_a_link_truncates_nothing(env, monkeypatch, tmp_path):
+    _write_install(_install_dir(env))
+    victim = tmp_path / "chat.db"
+    victim.write_text("precious data\n" * 10)
+    nanomind = env["home"] / ".nanomind"
+    nanomind.mkdir()
+    log = nanomind / "integrity-events.jsonl"
+    log.write_text("")
+
+    def swap(path):
+        path.unlink()
+        path.symlink_to(victim)
+
+    runner = FakeRunner(detect=_detect_appending_to_nanomind(env["home"], swap))
+    result = _module(env, runner, monkeypatch).check(_profile())
+    assert victim.read_text() == "precious data\n" * 10
+    assert log.is_symlink()
+    assert _left(result) == "~/.nanomind/integrity-events.jsonl"
+
+
+def test_a_log_replaced_by_another_file_is_not_truncated(env, monkeypatch):
+    _write_install(_install_dir(env))
+    nanomind = env["home"] / ".nanomind"
+    nanomind.mkdir()
+    log = nanomind / "integrity-events.jsonl"
+    log.write_text('{"seq":0}\n')
+
+    def replace(path):
+        fresh = path.with_name("new")
+        fresh.write_text(path.read_text() + _event())
+        os.replace(fresh, path)
+
+    runner = FakeRunner(detect=_detect_appending_to_nanomind(env["home"], replace))
+    result = _module(env, runner, monkeypatch).check(_profile())
+    assert log.read_text().count("\n") == 3
+    assert _left(result) == "~/.nanomind/integrity-events.jsonl"
 
 
 def test_a_nanomind_folder_without_the_log_keeps_everything_else(env, monkeypatch):
