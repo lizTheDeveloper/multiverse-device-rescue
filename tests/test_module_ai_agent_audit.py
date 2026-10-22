@@ -763,6 +763,48 @@ def test_windows_stub_junction_is_pointed_at_the_renamed_copy(env, monkeypatch):
     assert made == [] and link.is_symlink()
 
 
+# --- HackMyAgent's self-check log in ~/.nanomind -----------------------------------------
+
+
+def _detect_appending_to_nanomind(home):
+    def detect(args, cwd, env):
+        log = home / ".nanomind" / "integrity-events.jsonl"
+        log.parent.mkdir(exist_ok=True)
+        with open(log, "a") as fh:
+            fh.write('{"eventType":"check_pass"}\n')
+        return _result(args, 1, FIXTURE.read_text())
+    return detect
+
+
+def test_the_self_check_log_it_creates_is_removed(env, monkeypatch):
+    _write_install(_install_dir(env))
+    runner = FakeRunner(detect=_detect_appending_to_nanomind(env["home"]))
+    result = _module(env, runner, monkeypatch).check(_profile())
+    assert CODE + "ai_inventory" in _codes(result)
+    assert list(env["home"].iterdir()) == []
+
+
+def test_an_existing_self_check_log_is_put_back_as_it_was(env, monkeypatch):
+    _write_install(_install_dir(env))
+    nanomind = env["home"] / ".nanomind"
+    nanomind.mkdir()
+    (nanomind / "integrity-events.jsonl").write_text('{"seq":0}\n')
+    (nanomind / "models").mkdir()
+    runner = FakeRunner(detect=_detect_appending_to_nanomind(env["home"]))
+    _module(env, runner, monkeypatch).check(_profile())
+    assert (nanomind / "integrity-events.jsonl").read_text() == '{"seq":0}\n'
+    assert sorted(p.name for p in nanomind.iterdir()) == ["integrity-events.jsonl", "models"]
+
+
+def test_a_nanomind_folder_without_the_log_keeps_everything_else(env, monkeypatch):
+    _write_install(_install_dir(env))
+    nanomind = env["home"] / ".nanomind"
+    (nanomind / "models").mkdir(parents=True)
+    runner = FakeRunner(detect=_detect_appending_to_nanomind(env["home"]))
+    _module(env, runner, monkeypatch).check(_profile())
+    assert sorted(p.name for p in nanomind.iterdir()) == ["models"]
+
+
 # --- output shape (M3) -----------------------------------------------------------------------
 
 
@@ -792,25 +834,58 @@ def test_capabilities_that_are_not_a_list_are_ignored(env, monkeypatch):
 # --- live ------------------------------------------------------------------------------------
 
 
+def _snapshot(root: Path) -> dict:
+    return {p.relative_to(root).as_posix(): (p.read_bytes() if p.is_file() else None)
+            for p in sorted(root.rglob("*"))}
+
+
 @pytest.mark.skipif(os.environ.get("RESCUE_LIVE_HMA") != "1", reason="set RESCUE_LIVE_HMA=1")
-def test_live_fetch_and_detect(tmp_path, monkeypatch):
+def test_live_fetch_and_detect_change_nothing_in_home(tmp_path, monkeypatch):
+    """The real download and run, with a fake home: nothing in it may change."""
     if not shutil.which("node"):
         pytest.skip("needs Node.js")
-    monkeypatch.setenv("RESCUE_CACHE_DIR", str(tmp_path / "cache"))
+    home, xdg, cache = tmp_path / "home", tmp_path / "xdg-config", tmp_path / "cache"
+    for d in (home, xdg):
+        d.mkdir()
+    for var, value in (("HOME", home), ("USERPROFILE", home), ("XDG_CONFIG_HOME", xdg),
+                       ("RESCUE_CACHE_DIR", cache)):
+        monkeypatch.setenv(var, str(value))
     monkeypatch.delenv("RESCUE_NO_DOWNLOADS", raising=False)
-    mod = next(m for m in discover_modules(ROOT / "modules") if m.name == "ai_agent_audit")
-    result = mod.check(_profile())
+    # Something for detect to find: Cursor with a database add-on.
+    (home / ".cursor").mkdir()
+    (home / ".cursor" / "mcp.json").write_text(json.dumps({"mcpServers": {
+        "postgres": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-postgres"]}}}))
+
+    def check():
+        mod = next(m for m in discover_modules(ROOT / "modules") if m.name == "ai_agent_audit")
+        return mod.check(_profile())
+
+    # 1. HackMyAgent's own settings are here: it is left alone, untouched.
+    legacy = home / ".hackmyagent" / "config.json"
+    legacy.parent.mkdir()
+    legacy.write_text('{"contribute": true, "pendingScans": [{"x": 1}]}')
+    before = _snapshot(home)
+    f = _one(check(), "could_not_check")
+    assert f.data["reason"] == "hackmyagent_settings"
+    assert _snapshot(home) == before and not cache.exists()
+    shutil.rmtree(home / ".hackmyagent")
+
+    # 2. The real fetch and detect: findings, and home and XDG_CONFIG_HOME unchanged.
+    before = _snapshot(home)
+    result = check()
     assert CODE + "could_not_check" not in _codes(result), [f.description for f in result.findings]
-    assert (tmp_path / "cache" / "ReclaimCity" / "hackmyagent-0.33.2").is_dir()
+    assert CODE + "ai_inventory" in _codes(result)
+    install = cache / "ReclaimCity" / "hackmyagent-0.33.2"
+    assert install.is_dir()
+    assert _snapshot(home) == before
+    assert list(xdg.iterdir()) == []
 
-
-def test_inventory_says_how_to_check_one_project_folder(env, monkeypatch):
-    _write_install(_install_dir(env))
-    result = _module(env, FakeRunner(), monkeypatch).check(_profile())
-    inv = _one(result, "ai_inventory")
-    assert "project folder" in inv.description
-    assert ('OPENA2A_TELEMETRY=off OPENA2A_HOME="$(mktemp -d)" XDG_CONFIG_HOME="$(mktemp -d)" '
-            "node node_modules/hackmyagent/dist/cli.js detect /path/to/project") in inv.description
-    assert f"cd {_install_dir(env)}" in inv.description
-    assert "--no-contribute" in inv.data["project_command"]
-    assert "/path/to/project" in inv.data["project_command"]
+    # 3. A planted cli.js (right version, changed code) is never run.
+    marker = tmp_path / "planted-code-ran"
+    cli = install / "node_modules" / "hackmyagent" / "dist" / "cli.js"
+    cli.write_text(f"require('fs').writeFileSync({json.dumps(str(marker))}, 'x');\n"
+                   "console.log(JSON.stringify({agents: [], mcpServers: []}));\n")
+    monkeypatch.setenv("RESCUE_NO_DOWNLOADS", "1")
+    f = _one(check(), "could_not_check")
+    assert f.data["reason"] == "tampered"
+    assert not marker.exists() and not install.exists()

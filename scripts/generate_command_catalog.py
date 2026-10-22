@@ -71,7 +71,9 @@ telemetry file, `ioreg -rd1 -c IOPlatformExpertDevice` on macOS or
 `reg query "HKLM\\SOFTWARE\\Microsoft\\Cryptography" /v MachineGuid` on
 Windows (on Linux it reads `/etc/machine-id`). That file, and the old
 `hma-check-*`/`arp-lab-*` temp folders it clears at start, are inside the
-throwaway folder Reclaim City gives it, which is deleted afterwards.
+throwaway folder Reclaim City gives it, which is deleted afterwards. Its
+start-up self-check also appends to `~/.nanomind/integrity-events.jsonl`;
+Reclaim City undoes that after the run.
 
 """
 

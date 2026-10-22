@@ -587,6 +587,10 @@ class Module(ModuleBase):
     def _run_detect(self, node: Path, install: Path) -> dict:
         cli = install / "node_modules" / "hackmyagent" / "dist" / "cli.js"
         settings = Path(tempfile.mkdtemp(prefix="rc-opena2a-"))
+        # Its start-up self-check appends to ~/.nanomind/integrity-events.jsonl
+        # (a path taken from the home folder, which detect needs as it is);
+        # that write is undone afterwards.
+        log_state = self._nanomind_state()
         try:
             argv = [str(node) if a == "node" else str(cli) if i == 1 else
                     str(self._home()) if a is _HOME else a
@@ -601,6 +605,7 @@ class Module(ModuleBase):
             )
         finally:
             _remove_tree(settings)
+            self._restore_nanomind(log_state)
         if result.timed_out:
             raise _CouldNotCheck("timed_out")
         if result.returncode == 2:
@@ -627,6 +632,34 @@ class Module(ModuleBase):
         if isinstance(coverage, dict) and coverage.get("measured") is False:
             raise _CouldNotCheck("not_measured")
         return doc
+
+    def _nanomind_state(self) -> tuple[bool, int | None]:
+        """(does ~/.nanomind exist, size of its integrity-events.jsonl or None)."""
+        folder = self._home() / ".nanomind"
+        log = folder / "integrity-events.jsonl"
+        try:
+            size = log.lstat().st_size if stat.S_ISREG(log.lstat().st_mode) else -1
+        except OSError:
+            size = None
+        return folder.exists() or _is_link(folder), size
+
+    def _restore_nanomind(self, state: tuple[bool, int | None]) -> None:
+        folder_existed, old_size = state
+        folder = self._home() / ".nanomind"
+        log = folder / "integrity-events.jsonl"
+        try:
+            if _is_link(folder) or old_size == -1:
+                return  # not a plain folder and file: leave it alone
+            if not stat.S_ISREG(log.lstat().st_mode):
+                return
+            if old_size is None:
+                log.unlink()
+                if not folder_existed and not any(folder.iterdir()):
+                    folder.rmdir()
+            elif log.lstat().st_size > old_size:
+                os.truncate(log, old_size)
+        except OSError:
+            pass
 
     def _node_search_dirs(self, platform: Platform) -> list[Path]:
         """Places Node.js is often installed that a desktop app's PATH misses."""

@@ -350,8 +350,11 @@ this with HackMyAgent (OpenA2A, Apache-2.0,
 - **What runs.** Only `detect <home> --json --depth 0 --no-contribute`, with
   `OPENA2A_TELEMETRY=off`, and `OPENA2A_HOME`, `XDG_CONFIG_HOME` and the temp
   folder (`TMPDIR`, `TMP`, `TEMP`) all set to one temp folder deleted
-  afterwards. Never `secure`, `--fix`, `attack` or any other command. It
-  reads AI settings files and the list of running programs; it masks any key
+  afterwards. Its start-up self-check appends to
+  `~/.nanomind/integrity-events.jsonl`, which can't be redirected; Reclaim
+  City removes what it added right after the run. Never `secure`, `--fix`,
+  `attack` or any other command. It reads AI settings files and the list of
+  running programs; it masks any key
   values it finds, and Reclaim City keeps only the variable name, never the
   value. See [Privacy](privacy.md#what-leaves-the-machine) for everything it
   looks at.

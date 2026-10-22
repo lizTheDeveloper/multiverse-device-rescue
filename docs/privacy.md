@@ -60,7 +60,11 @@ Nothing else is persisted. A `rescue scan` writes nothing else: the AI tools
 check points HackMyAgent's own settings folder, its telemetry file
 (normally `~/.config/opena2a/telemetry.json`), its temp folder and npm's
 download cache at temp folders and deletes them afterwards, so nothing lands
-in `~/.opena2a`, `~/.config/opena2a` or `~/.npm`. `<user cache>` is `~/Library/Caches` on macOS, `$XDG_CACHE_HOME` or
+in `~/.opena2a`, `~/.config/opena2a` or `~/.npm`. One write can't be
+redirected: HackMyAgent's start-up self-check appends a line to
+`~/.nanomind/integrity-events.jsonl`. Reclaim City undoes it right after the
+run: it deletes the file (and the folder, if it made it) or cuts the file
+back to its earlier length. `<user cache>` is `~/Library/Caches` on macOS, `$XDG_CACHE_HOME` or
 `~/.cache` on Linux, and `%LOCALAPPDATA%` on Windows.
 
 ## What leaves the machine
