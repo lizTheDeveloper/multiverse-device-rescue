@@ -60,7 +60,7 @@
  *
  *   NotChecked.shownSeverity(finding) -> 'critical' | 'warning' | 'info'
  *       (critical only for security and network; the Plain list's rule)
- *   NotChecked.isHeld(finding, module) -> boolean   (game/held.js's rule)
+ *   NotChecked.isHeld(finding, module) -> boolean   (game/held.js's rule; HELD_IN_CITY's checks)
  *   NotChecked.itemKey(finding, module) -> string   one key per item: the
  *       engine's same_key (one thing seen by several checks), else the check,
  *       the finding's code (or title) and the thing it names. Monitoring
@@ -89,6 +89,11 @@
 const NotChecked = (function () {
   // The same three checks as app.js's ALWAYS_SAFETY_MODULES and game/held.js.
   const MONITORING_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
+  // What city (stealth) mode holds in the help district: the monitoring checks, and remote-access tools (a remote
+  // tool can be how someone watches a screen; a person who chose stealth has told us their situation). Only the
+  // hold differs: remote tools are not monitoring checks, so in standard mode they are ordinary to-dos that pay.
+  // app.js CITY_HELD_MODULES and game/held.js CITY_HELD_MODULES are the same set (a test keeps them equal).
+  const HELD_IN_CITY = new Set([...MONITORING_MODULES, 'remote_access_tools']);
 
   // What those checks say when they found nothing or couldn't look
   // (QuietNotes' NOT_DETECTIONS; a test keeps them equal).
@@ -259,7 +264,7 @@ const NotChecked = (function () {
       && apps.every((a) => mb.some((m) => m.subject === a));
   }
   function isHeld(f, module = f && f.module) {
-    return !!f && MONITORING_MODULES.has(module) && isDetection(f) && !familiarVerified(f, module);
+    return !!f && HELD_IN_CITY.has(module) && isDetection(f) && !familiarVerified(f, module);
   }
 
   const SUBJECT_KEYS = ['label', 'plist', 'path', 'program', 'bundle_id', 'extension_id', 'name', 'target', 'id'];
@@ -452,7 +457,7 @@ const NotChecked = (function () {
   }
 
   return {
-    MONITORING_MODULES, NOT_DETECTIONS, COULDNT_LOOK, COULDNT_LOOK_REASON, NOT_STARTED_CODE,
+    MONITORING_MODULES, HELD_IN_CITY, NOT_DETECTIONS, COULDNT_LOOK, COULDNT_LOOK_REASON, NOT_STARTED_CODE,
     isPartlyChecked, isDetection, couldntLook, notStarted, notCheckedParts, notCheckedSummary, notCheckedLine,
     shownSeverity, familiarVerified, isPathSubject, isHeld, itemKey, scanCounts,
     mergeKey, listSeverity, displayItems, asCard, namesLine, fmt,

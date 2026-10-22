@@ -194,6 +194,12 @@ function descriptionHtml(text, esc) {
 // Findings that are themselves monitoring software: these carry the advocate
 // note whatever worry the person picked.
 const ALWAYS_SAFETY_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
+// What city mode holds in the help district (NotChecked.HELD_IN_CITY): those
+// checks and remote-access tools, which can also be how someone watches a
+// screen. City mode never names them, and a warning from one means the person
+// may be watched. They stay out of ALWAYS_SAFETY_MODULES, which is the
+// monitoring checks only (never markable, never paid).
+const CITY_HELD_MODULES = new Set([...ALWAYS_SAFETY_MODULES, 'remote_access_tools']);
 
 const RECLAIM_CITY_URL = 'https://play.multiversegames.ai/reclaim-city/';
 
@@ -220,13 +226,13 @@ const LEARN_MORE = {
 /**
  * Whether the person may be watched by someone close to them: they said so
  * ("watching me"), they're worried about iPhone spyware, or the scan found
- * monitoring software. Then the web game's link isn't offered. (Game mode no
+ * monitoring software or a remote-access tool (CITY_HELD_MODULES). Then the web game's link isn't offered. (Game mode no
  * longer depends on this: see gameOfferedFor.)
  */
 function mayBeWatched(situation, doc) {
   if (situation && (situation.safety || WorryPick.has(situation, 'phone'))) return true;
   const modules = (doc && doc.modules) || [];
-  return modules.some((mod) => mod && ALWAYS_SAFETY_MODULES.has(mod.name)
+  return modules.some((mod) => mod && CITY_HELD_MODULES.has(mod.name)
     && (mod.findings || []).some((f) => f && (f.severity === 'critical' || f.severity === 'warning')));
 }
 
@@ -520,7 +526,7 @@ const safePlaceholderValue = StepFillRule.safeValue;
  * monitoring check is never named: just "A check".
  */
 function checkName(module, mode, doc) {
-  if (mode === 'city' && ALWAYS_SAFETY_MODULES.has(module)) return 'A check';
+  if (mode === 'city' && CITY_HELD_MODULES.has(module)) return 'A check';
   // The engine's own name for the check, when it gives one.
   const mods = doc && Array.isArray(doc.modules) ? doc.modules : [];
   const hit = mods.find((m) => m && m.name === module);
@@ -536,7 +542,7 @@ function checkName(module, mode, doc) {
  */
 function aiCheckLabel(module, mode, doc) {
   const words = checkName(module, mode, doc);
-  if (mode === 'city' && ALWAYS_SAFETY_MODULES.has(module)) return words;
+  if (mode === 'city' && CITY_HELD_MODULES.has(module)) return words;
   return `${words} (${String(module || '')})`;
 }
 
@@ -566,7 +572,7 @@ const ERROR_WORDS = {
  * either (it can name what it looked for).
  */
 function couldntCheckItems(erroredModules, unfinishedModules, mode, partlyChecked, doc) {
-  const hide = (name) => mode === 'city' && ALWAYS_SAFETY_MODULES.has(name);
+  const hide = (name) => mode === 'city' && CITY_HELD_MODULES.has(name);
   const mods = doc && Array.isArray(doc.modules) ? doc.modules : [];
   const engineKind = (name) => { const m = mods.find((x) => x && x.name === name); return m ? m.error_kind : null; };
   return [
@@ -1003,6 +1009,7 @@ if (typeof module !== 'undefined' && module.exports) {
     learnMoreFor,
     mayBeWatched,
     ALWAYS_SAFETY_MODULES,
+    CITY_HELD_MODULES,
     gameOfferedFor,
     gameScanFirst,
     worryStartsGameScan,

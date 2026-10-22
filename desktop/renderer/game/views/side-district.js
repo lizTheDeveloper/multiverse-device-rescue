@@ -34,7 +34,26 @@ export function heldBlockHtml(h, seen = new Date()) {
   const f = x.finding || { module: x.module, title: x.title,
     data: { stalkerware_name: x.name || x.title, location: x.where, detected_as: x.how } };
   const rows = EV.evidenceRows(f, { mode: 'city', held: true, seen });
-  return EV.renderEvidence(rows, { held: true, title: (h && h.title) || 'Write this down' });
+  return remoteFactsHtml(x) + EV.renderEvidence(rows, { held: true, title: (h && h.title) || 'Write this down' });
+}
+
+// A remote-access tool's dates and state (held.js heldEvidence), written down with the rest. "Couldn't tell"
+// when the checkup couldn't, never "no".
+const REMOTE_FACTS = ['running', 'added', 'last_in', 'unattended'];
+function remoteFactsHtml(h) {
+  if (!h || h.module !== 'remote_access_tools') return '';
+  const lines = REMOTE_FACTS.map((k) => h[k]).filter((v) => typeof v === 'string' && v);
+  return lines.length ? `<ul class="notes held-facts">${lines.map((v) => `<li>${esc(v)}</li>`).join('')}</ul>` : '';
+}
+
+// A remote-access tool that is running now may be showing this screen to someone: the first thing the district
+// says is to go offline, with the network settings (the controller's side-offline act: research.js's network
+// pane for this platform, through main's allowlist), before anything else.
+export const OFFLINE_LINE = 'Running now. To be safe, go offline first.';
+function offlineHtml(held) {
+  if (!held.some((h) => h && h.module === 'remote_access_tools' && h.running_now === true)) return '';
+  return `<p class="intel side-offline" role="alert"><b>${esc(OFFLINE_LINE)}</b> Turn off Wi-Fi or unplug the network cable.
+      <button type="button" class="btn-s" data-act="side-offline">NETWORK SETTINGS</button></p>`;
 }
 
 // `seen`: today, for the Date row.
@@ -42,7 +61,7 @@ export function renderSide({ district, held = [], notice = false, scout = () => 
   const v = district.voice;
   const item = (h) => `<li class="held-item">${heldBlockHtml(h, seen)}</li>`;
   const heldHtml = held.length ? `
-    <div class="panel active" role="note"><h3 class="side-h">${esc(HELD.heading.text)}</h3>
+    <div class="panel active" role="note">${offlineHtml(held)}<h3 class="side-h">${esc(HELD.heading.text)}</h3>
       <ul class="held-items">${held.map(item).join('')}</ul>
       <ol class="side-steps">${HELD.steps.map((x) => `<li>${esc(x.text)}</li>`).join('')}</ol></div>` : '';
   const help = HELP.map((r) => `<li>${esc(r.text)}${r.url ? ` <code>${esc(r.url)}</code>` : ''}</li>`).join('');

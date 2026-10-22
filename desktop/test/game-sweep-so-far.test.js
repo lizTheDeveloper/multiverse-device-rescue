@@ -99,7 +99,7 @@ test('a swept district with nothing to do says only SWEPT: no "clear" mid-sweep'
 
 test('the controller previews through its own scan-to-city path, and app.js forwards the stream to the game', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'game', 'controller.js'), 'utf8');
-  assert.match(src, /renderBoss\(\{[^}]*toCity: \(d\) => findingsToCity\(quietDoc\(splitHeld\(d\)\.doc\)\)/);
+  assert.match(src, /renderBoss\(\{[^}]*toCity: \(d\) => findingsToCity\(quietDoc\(splitHeld\(d, \{ mode: hostMode\(\) \}\)\.doc\)\)/);
   const { GAME_SCAN_EVENTS } = require('../renderer/app.js');
   for (const t of ['progress', 'plan', 'module']) assert.ok(GAME_SCAN_EVENTS.has(t), t);
 });
