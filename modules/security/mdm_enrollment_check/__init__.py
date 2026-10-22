@@ -1,8 +1,13 @@
-import json
-import re
-import subprocess
-from pathlib import Path
-
+from rescue.command import run
+from rescue.macos_profiles import (
+    MAX_LISTING_BYTES,
+    load_known,
+    parse_enrollment,
+    parse_profiles_text,
+    parse_profiles_xml,
+    parse_system_profile_count,
+    untrusted_profiles,
+)
 from rescue.models import (
     Action,
     CheckResult,
@@ -18,21 +23,19 @@ from rescue.module_base import ModuleBase
 from rescue.runtime import content_file
 
 # Device-management services an employer or school uses (the same list as
-# mdm_enrollment's). A profile whose organization names one is information;
-# any other profile, or one whose organization couldn't be read, is a warning.
+# mdm_enrollment's). A profile is information only when this Mac is enrolled
+# in device management, the profile came from it (when the listing says), and
+# its organization names one of these; anything else, or anything that
+# couldn't be read, is a warning. (A profile's organization is written by
+# whoever made the profile.)
 KNOWN_MDM_FILE = content_file("modules/security/mdm_enrollment_check/data/known_mdm.json")
+# `profiles` answers in well under a second; never wait long on it.
+_TIMEOUT = 15
+_RESTRICTION_TERMS = ["restrict", "parental", "managed", "content filter"]
 
 
 def _known_mdm() -> list[str]:
-    with open(KNOWN_MDM_FILE) as f:
-        return [n for n in json.load(f) if isinstance(n, str) and n.strip()]
-
-
-def is_known_mdm(organization, known: list[str]) -> bool:
-    """Whether a profile's organization names a known device-management service (whole words)."""
-    if not isinstance(organization, str) or not organization.strip():
-        return False
-    return any(re.search(rf"\b{re.escape(n)}\b", organization, re.IGNORECASE) for n in known)
+    return load_known(KNOWN_MDM_FILE)
 
 
 class Module(ModuleBase):
@@ -53,20 +56,46 @@ class Module(ModuleBase):
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
+        complete = True
 
-        # Check MDM enrollment status
-        enrollment_info = self._check_enrollment_status()
+        # Check MDM enrollment status (None: `profiles` didn't answer)
+        enrollment = self._check_enrollment_status()
 
         # Check DEP status
         dep_status = self._check_dep_status()
 
-        # Get list of installed configuration profiles
-        profiles_info = self._get_profiles_list()
+        # The system-wide profile count, and the profiles this check can read
+        status = run(["/usr/bin/profiles", "status"], timeout=_TIMEOUT)
+        system_count = parse_system_profile_count(status.stdout) if status.ok else None
+        profiles = self._get_profiles()
+
+        if enrollment is None and not status.ok and profiles is None:
+            return CheckResult(
+                module_name=self.name,
+                supported=False,
+                unsupported_reason=(
+                    "macOS's `profiles` tool didn't answer (it failed or took too long), "
+                    "so device management couldn't be checked."
+                ),
+            )
+        enrollment = enrollment or {"mdm": None, "dep": None, "server": None}
+        if enrollment["mdm"] is None:
+            complete = False
+        if profiles is None:
+            complete = False
+            profiles = []
+        unreadable = max(0, (system_count or 0) - len(profiles))
+        if unreadable:
+            complete = False
+        all_profiles = [p["name"] for p in profiles]
+        restrictions = [
+            p["name"] for p in profiles if any(t in p["name"].lower() for t in _RESTRICTION_TERMS)
+        ]
 
         # Check for MDM enrollment
-        if enrollment_info["enrolled"]:
-            mdm_server = enrollment_info.get("mdm_server", "Unknown")
-            profile_count = profiles_info.get("profile_count", 0)
+        if enrollment["mdm"] is True:
+            mdm_server = enrollment.get("server") or "Unknown"
+            profile_count = len(profiles) + unreadable
 
             findings.append(
                 Finding(
@@ -90,7 +119,6 @@ class Module(ModuleBase):
             )
 
         # Check for restrictions profiles
-        restrictions = profiles_info.get("restrictions_profiles", [])
         if restrictions:
             findings.append(
                 Finding(
@@ -125,36 +153,46 @@ class Module(ModuleBase):
             )
 
         # List all installed profiles if any exist
-        all_profiles = profiles_info.get("all_profiles", [])
-        if all_profiles:
-            organizations = profiles_info.get("organizations", {})
-            known = _known_mdm()
-            unknown = [p for p in all_profiles if not is_known_mdm(organizations.get(p), known)]
+        if all_profiles or unreadable:
+            # Each organization belongs to the profile in its own block only.
+            organizations = {p["name"]: p["organization"] for p in profiles}
+            unknown = [p["name"] for p in untrusted_profiles(profiles, enrollment["mdm"], _known_mdm())]
             description = (
                 "Installed configuration profiles:\n"
                 + "\n".join(f"  - {p}" for p in sorted(all_profiles))
-            )
+            ) if all_profiles else "Configuration profiles are installed."
             if unknown:
                 description += (
                     "\n\nNot from a device-management service this checkup knows: "
                     + ", ".join(unknown)
-                    + ". A profile you didn't add, or one from an employer or school "
-                    "you've left, can read or change what you do.\n\n"
+                    + ". A profile names its own organization, so this checkup only "
+                    "trusts one on a Mac enrolled in device management. A profile you "
+                    "didn't add, or one from an employer or school you've left, can "
+                    "read or change what you do.\n\n"
                     "What to do: Open System Settings, search for Profiles, and look "
                     "at who each one is from."
                 )
+            if unreadable:
+                description += (
+                    f"\n\nmacOS says {unreadable} more profile(s) are installed than this "
+                    "checkup could read (listing them all needs an administrator password, "
+                    "which this checkup never asks for). Open System Settings and search "
+                    "for Profiles to see every one."
+                )
             findings.append(
                 Finding(
-                    title=f"Configuration profiles: {len(all_profiles)} installed",
+                    title=f"Configuration profiles: {len(all_profiles) + unreadable} installed",
                     description=description,
-                    severity=Severity.WARNING if unknown else Severity.INFO,
+                    severity=Severity.WARNING if (unknown or unreadable) else Severity.INFO,
                     category=self.category,
                     code="security.mdm_enrollment_check.all_profiles",
                     data={
                         "check": "all_profiles",
                         "profiles": all_profiles,
-                        "organizations": {p: organizations.get(p) for p in all_profiles},
+                        "organizations": organizations,
                         "unknown_profiles": unknown,
+                        "unreadable_count": unreadable,
+                        "enrolled_in_mdm": enrollment["mdm"],
                     },
                 )
             )
@@ -176,7 +214,7 @@ class Module(ModuleBase):
                 )
             )
 
-        return CheckResult(module_name=self.name, findings=findings)
+        return CheckResult(module_name=self.name, findings=findings, complete=complete)
 
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:
         actions = []
@@ -251,149 +289,35 @@ class Module(ModuleBase):
 
         return FixResult(module_name=self.name, actions=actions)
 
-    def _check_enrollment_status(self) -> dict:
-        """Check if device is enrolled in MDM.
-
-        Returns dict with 'enrolled' bool and 'mdm_server' string.
-        """
-        try:
-            result = subprocess.run(
-                ["profiles", "status", "-type", "enrollment"],
-                capture_output=True,
-                text=True,
-            )
-
-            if result.returncode != 0:
-                return {"enrolled": False}
-
-            output = result.stdout.lower()
-
-            # Check if enrolled
-            enrolled = "enrollment" in output and "yes" in output
-
-            # Try to extract MDM server name
-            mdm_server = "Unknown"
-            for line in result.stdout.split("\n"):
-                if "mdm enrollment server" in line.lower():
-                    # Extract server name from line
-                    parts = line.split(":", 1)
-                    if len(parts) > 1:
-                        mdm_server = parts[1].strip()
-                        break
-
-            return {"enrolled": enrolled, "mdm_server": mdm_server}
-        except Exception:
-            return {"enrolled": False}
+    def _check_enrollment_status(self) -> dict | None:
+        """`profiles status -type enrollment`, parsed; None when it didn't answer."""
+        result = run(["/usr/bin/profiles", "status", "-type", "enrollment"], timeout=_TIMEOUT)
+        if not result.ok:
+            return None
+        return parse_enrollment(result.stdout)
 
     def _check_dep_status(self) -> dict:
         """Check if Device Enrollment Program (DEP) is enabled.
 
         Returns dict with 'dep_enabled' bool.
         """
-        try:
-            result = subprocess.run(
-                ["profiles", "status", "-type", "bootstraptoken"],
-                capture_output=True,
-                text=True,
-            )
-
-            if result.returncode != 0:
-                return {"dep_enabled": False}
-
-            # Check if DEP/bootstrap token is present
-            output = result.stdout.lower()
-            dep_enabled = "bootstraptoken" in output or "yes" in output
-
-            return {"dep_enabled": dep_enabled}
-        except Exception:
+        result = run(["/usr/bin/profiles", "status", "-type", "bootstraptoken"], timeout=_TIMEOUT)
+        if not result.ok:
             return {"dep_enabled": False}
+        output = result.stdout.lower()
+        return {"dep_enabled": "bootstraptoken" in output or "yes" in output}
 
-    def _get_profiles_list(self) -> dict:
-        """Get list of installed configuration profiles.
+    def _get_profiles(self) -> list[dict] | None:
+        """Installed profiles, one dict each; None when they couldn't be read.
 
-        Returns dict with:
-        - 'profile_count': int
-        - 'all_profiles': list of profile names
-        - 'restrictions_profiles': list of restriction profile names
+        Structured (XML) output first; the text listing when that fails or is
+        empty. Never with sudo.
         """
-        try:
-            result = subprocess.run(
-                ["sudo", "profiles", "list", "-verbose"],
-                capture_output=True,
-                text=True,
-            )
-
-            if result.returncode != 0:
-                # Try without sudo
-                result = subprocess.run(
-                    ["profiles", "list", "-verbose"],
-                    capture_output=True,
-                    text=True,
-                )
-                if result.returncode != 0:
-                    return {
-                        "profile_count": 0,
-                        "all_profiles": [],
-                        "restrictions_profiles": [],
-                    }
-
-            all_profiles = []
-            restrictions_profiles = []
-            # The organization each profile names (None when it names none).
-            organizations = {}
-            pending_org = None
-
-            # Parse profile list output
-            # Format: attribute: name / value: <name>, and attribute: organization / value: <org>
-            lines = result.stdout.split("\n")
-            prev_attr = None
-            for line in lines:
-                line = line.strip()
-                if not line:
-                    prev_attr = None
-                    continue
-
-                low = line.lower()
-                if low.startswith("attribute: name"):
-                    prev_attr = "name"
-                    continue
-                if low.startswith("attribute: organization"):
-                    prev_attr = "organization"
-                    continue
-
-                if prev_attr and low.startswith("value:"):
-                    parts = line.split(":", 1)
-                    value = parts[1].strip() if len(parts) > 1 else ""
-                    if prev_attr == "name" and value and value not in all_profiles:
-                        all_profiles.append(value)
-                        organizations[value] = pending_org
-                        pending_org = None
-
-                        # Check if this is a restrictions profile
-                        if any(
-                            term in value.lower()
-                            for term in ["restrict", "parental", "managed", "content filter"]
-                        ):
-                            restrictions_profiles.append(value)
-                    elif prev_attr == "organization" and value:
-                        # It belongs to the profile just named, unless that one already has one
-                        # (then to the next profile named).
-                        if all_profiles and organizations.get(all_profiles[-1]) is None and pending_org is None:
-                            organizations[all_profiles[-1]] = value
-                        else:
-                            pending_org = value
-
-                prev_attr = None
-
-            return {
-                "profile_count": len(all_profiles),
-                "all_profiles": all_profiles,
-                "organizations": organizations,
-                "restrictions_profiles": restrictions_profiles,
-            }
-        except Exception:
-            return {
-                "profile_count": 0,
-                "all_profiles": [],
-                "restrictions_profiles": [],
-            }
+        xml = run(["/usr/bin/profiles", "show", "-output", "stdout-xml"],
+                  timeout=_TIMEOUT, max_output=MAX_LISTING_BYTES)
+        from_xml = parse_profiles_xml(xml.stdout) if xml.ok and not xml.truncated else None
+        if from_xml:
+            return from_xml
+        text = run(["/usr/bin/profiles", "list", "-verbose"], timeout=_TIMEOUT, max_output=MAX_LISTING_BYTES)
+        from_text = parse_profiles_text(text.stdout) if text.ok and not text.truncated else None
+        return from_text if from_text is not None else from_xml

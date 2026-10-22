@@ -1724,6 +1724,7 @@ mdfind …
 
 ```text
 /usr/bin/profiles list -verbose
+/usr/bin/profiles show -output stdout-xml
 /usr/bin/profiles status
 /usr/bin/profiles status -type enrollment
 ```
@@ -1731,10 +1732,11 @@ mdfind …
 ### `mdm_enrollment_check`
 
 ```text
-profiles list -verbose
-profiles status -type bootstraptoken
-profiles status -type enrollment
-sudo profiles list -verbose
+/usr/bin/profiles list -verbose
+/usr/bin/profiles show -output stdout-xml
+/usr/bin/profiles status
+/usr/bin/profiles status -type bootstraptoken
+/usr/bin/profiles status -type enrollment
 ```
 
 ### `mvt_spyware_scan`
