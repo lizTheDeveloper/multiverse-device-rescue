@@ -37,11 +37,30 @@ def _result(args, rc=0, out="", err="", timed_out=False, error=None):
     )
 
 
+REAL_VENDOR = ROOT / "vendor" / "hackmyagent"
+
+
 def _write_install(directory: Path, version="0.33.2"):
+    """A small stand-in for what npm ci leaves: the vendor files, hackmyagent, the stub link."""
+    directory.mkdir(parents=True, exist_ok=True)
+    for name in ("package.json", "package-lock.json"):
+        if not (directory / name).exists():
+            shutil.copy2(REAL_VENDOR / name, directory / name)
+    if not (directory / "stub").exists():
+        shutil.copytree(REAL_VENDOR / "stub", directory / "stub")
     pkg = directory / "node_modules" / "hackmyagent"
     (pkg / "dist").mkdir(parents=True, exist_ok=True)
     (pkg / "package.json").write_text(json.dumps({"name": "hackmyagent", "version": version}))
     (pkg / "dist" / "cli.js").write_text("// fake\n")
+    (directory / "node_modules" / ".package-lock.json").write_text("{}")
+    link = directory / "node_modules" / "onnxruntime-node"
+    if not link.is_symlink():
+        link.symlink_to(Path("..") / "stub")
+
+
+def _code_module():
+    mod = next(m for m in discover_modules(ROOT / "modules") if m.name == "ai_agent_audit")
+    return sys.modules[type(mod).__module__]
 
 
 class FakeRunner:
@@ -60,7 +79,11 @@ class FakeRunner:
         if env and env.get("OPENA2A_HOME"):
             call["opena2a_home_existed"] = Path(env["OPENA2A_HOME"]).is_dir()
         if "--cache" in args:
-            call["npm_cache_existed"] = Path(args[args.index("--cache") + 1]).is_dir()
+            call["npm_cache_existed"] = Path(args[args.index("--cache") + 1]).parent.is_dir()
+        for flag in ("--userconfig", "--globalconfig"):
+            if flag in args:
+                rc = Path(args[args.index(flag) + 1])
+                call[flag[2:] + "_was_empty"] = rc.is_file() and rc.read_text() == ""
         if cwd:
             call["cwd_listing"] = sorted(p.name for p in Path(cwd).iterdir())
         self.calls.append(call)
@@ -91,7 +114,16 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setenv("RESCUE_CACHE_DIR", str(cache))
     monkeypatch.delenv("RESCUE_NO_DOWNLOADS", raising=False)
     monkeypatch.setenv("PATH", str(bindir))
-    return {"home": home, "cache": cache, "bin": bindir, "tmp": tmp_path}
+    # A vendor folder whose tree.sha256 describes the stand-in install.
+    vendor = tmp_path / "vendor"
+    shutil.copytree(REAL_VENDOR, vendor)
+    reference = tmp_path / "reference"
+    _write_install(reference)
+    code = _code_module()
+    files, _, _ = code.tree_hashes(reference)
+    (vendor / "tree.sha256").write_text(code.render_manifest(files))
+    shutil.rmtree(reference)
+    return {"home": home, "cache": cache, "bin": bindir, "tmp": tmp_path, "vendor": vendor}
 
 
 def _module(env, runner, monkeypatch):
@@ -99,6 +131,8 @@ def _module(env, runner, monkeypatch):
     monkeypatch.setattr(sys.modules[type(mod).__module__], "run", runner)
     mod.home = env["home"]
     mod.system_node_dirs = []
+    mod.vendor_dir = env["vendor"]
+    mod.elevated = False
     return mod
 
 
@@ -145,12 +179,17 @@ def test_detect_argv_and_environment_exactly(env, monkeypatch):
     cli = _install_dir(env) / "node_modules" / "hackmyagent" / "dist" / "cli.js"
     assert call["args"] == [
         str(env["bin"] / "node"), str(cli), "detect", str(env["home"]), "--json", "--depth", "0",
+        "--no-contribute",
     ]
     assert call["timeout"] == 60
     assert call["env"]["OPENA2A_TELEMETRY"] == "off"
     home_dir = Path(call["env"]["OPENA2A_HOME"])
     assert call["opena2a_home_existed"]
     assert env["home"] not in home_dir.parents
+    # Its telemetry file (~/.config/opena2a) and its temp-folder sweep go there too.
+    for var in ("XDG_CONFIG_HOME", "TMPDIR", "TMP", "TEMP"):
+        assert call["env"][var] == str(home_dir), var
+    assert call["cwd"] == str(home_dir)
     assert not home_dir.exists(), "the tool's settings folder is removed afterwards"
 
 
@@ -376,9 +415,15 @@ def test_first_run_fetches_with_npm_ci_into_a_temp_dir_then_renames(env, monkeyp
     [ci] = runner.named("ci")
     args = ci["args"]
     assert args[0] == str(env["bin"] / "npm")
-    assert args[1:6] == ["ci", "--ignore-scripts", "--no-audit", "--no-fund",
+    assert args[1:7] == ["ci", "--ignore-scripts", "--no-bin-links", "--no-audit", "--no-fund",
                          "--registry=https://registry.npmjs.org/"]
     assert ci["timeout"] == 180
+    # The person's .npmrc files (and any npm login token in them) aren't used.
+    user_rc = Path(args[args.index("--userconfig") + 1])
+    global_rc = Path(args[args.index("--globalconfig") + 1])
+    assert ci["userconfig_was_empty"] and ci["globalconfig_was_empty"]
+    assert user_rc != global_rc
+    assert env["home"] not in user_rc.parents and not user_rc.exists()
     # npm's own cache: a temp dir, outside home, gone afterwards.
     npm_cache = Path(args[args.index("--cache") + 1])
     assert ci["npm_cache_existed"] and not npm_cache.exists()
@@ -503,6 +548,247 @@ def test_ai_worm_profile_runs_it():
     assert "ai_agent_audit" in profile.include_modules
 
 
+# --- the saved copy is verified before every run (C1) ---------------------------------
+
+
+def _cli(env):
+    return _install_dir(env) / "node_modules" / "hackmyagent" / "dist" / "cli.js"
+
+
+def test_vendor_manifest_lists_every_locked_package():
+    code = _code_module()
+    manifest = code.read_manifest(REAL_VENDOR / "tree.sha256")
+    lock = json.loads((REAL_VENDOR / "package-lock.json").read_text())
+    for path, entry in lock["packages"].items():
+        if not path.startswith("node_modules/") or entry.get("link"):
+            continue
+        assert f"{path}/package.json" in manifest, path
+    assert "node_modules/hackmyagent/dist/cli.js" in manifest
+    for name in ("package.json", "package-lock.json", "stub/index.js", "stub/package.json"):
+        assert manifest[name] == code._sha256(REAL_VENDOR / name), name
+    assert not any(p.startswith("node_modules/.bin/") for p in manifest)
+    assert "node_modules/.package-lock.json" not in manifest
+
+
+def test_manifest_script_uses_the_module_hashing():
+    text = (ROOT / "scripts" / "generate_hackmyagent_manifest.py").read_text()
+    assert "tree_hashes" in text and "render_manifest" in text and "NPM_CI_ARGS" in text
+
+
+def test_a_planted_cli_js_never_runs_and_is_fetched_again(env, monkeypatch):
+    _write_install(_install_dir(env))
+    _cli(env).write_text("console.log('{\"agents\":[],\"mcpServers\":[]}')\n")
+    runner = FakeRunner()
+    result = _module(env, runner, monkeypatch).check(_profile())
+    assert len(runner.named("ci")) == 1
+    assert _cli(env).read_text() == "// fake\n"
+    assert CODE + "ai_inventory" in _codes(result)
+
+
+def test_a_planted_cli_js_with_downloads_off_is_deleted_not_run(env, monkeypatch):
+    monkeypatch.setenv("RESCUE_NO_DOWNLOADS", "1")
+    _write_install(_install_dir(env))
+    _cli(env).write_text("// planted\n")
+    runner = FakeRunner()
+    f = _one(_module(env, runner, monkeypatch).check(_profile()), "could_not_check")
+    assert f.data["reason"] == "tampered"
+    assert "changed since it was downloaded" in f.description
+    assert runner.named("detect") == [] and runner.named("ci") == []
+    assert not _install_dir(env).exists()
+
+
+@pytest.mark.parametrize("plant", ["extra_file", "extra_link", "missing_file", "stub_elsewhere"])
+def test_any_change_to_the_saved_copy_counts(env, monkeypatch, plant, tmp_path):
+    monkeypatch.setenv("RESCUE_NO_DOWNLOADS", "1")
+    install = _install_dir(env)
+    _write_install(install)
+    nm = install / "node_modules"
+    if plant == "extra_file":
+        (nm / "commander").mkdir()
+        (nm / "commander" / "index.js").write_text("evil()")
+    elif plant == "extra_link":
+        (nm / "evil").symlink_to(tmp_path)
+    elif plant == "missing_file":
+        (install / "stub" / "index.js").unlink()
+    else:
+        (nm / "onnxruntime-node").unlink()
+        (nm / "onnxruntime-node").symlink_to(tmp_path)
+    runner = FakeRunner()
+    f = _one(_module(env, runner, monkeypatch).check(_profile()), "could_not_check")
+    assert f.data["reason"] == "tampered"
+    assert runner.named("detect") == []
+    assert tmp_path.exists()  # links are removed, never followed
+
+
+def test_a_fetch_that_does_not_match_the_manifest_is_not_kept(env, monkeypatch):
+    def npm(args, cwd, e):
+        _write_install(Path(cwd))
+        (Path(cwd) / "node_modules" / "extra.js").write_text("x")
+        return _result(args)
+
+    runner = FakeRunner(npm=npm)
+    f = _one(_module(env, runner, monkeypatch).check(_profile()), "could_not_check")
+    assert f.data["reason"] == "download_mismatch"
+    assert not _install_dir(env).exists()
+    assert list(_install_dir(env).parent.iterdir()) == []
+    assert runner.named("detect") == []
+
+
+def test_a_good_copy_another_scan_put_in_place_is_kept(env, monkeypatch):
+    code = _code_module()
+    install = _install_dir(env)
+    _write_install(install)
+    before = install.stat().st_ino
+    runner = FakeRunner()
+    mod = _module(env, runner, monkeypatch)
+    expected = code.read_manifest(env["vendor"] / "tree.sha256")
+    mod._fetch(env["bin"] / "node", install, Platform.DARWIN, expected)
+    assert install.stat().st_ino == before
+    assert sorted(p.name for p in install.parent.iterdir()) == ["hackmyagent-0.33.2"]
+
+
+def test_stale_fetch_leftovers_are_cleaned(env, monkeypatch):
+    parent = _install_dir(env).parent
+    old = parent / ".hackmyagent-old"
+    fresh = parent / ".hackmyagent-fresh"
+    for d in (old, fresh):
+        (d / "node_modules").mkdir(parents=True)
+    os.utime(old, (0, 0))
+    _module(env, FakeRunner(), monkeypatch).check(_profile())
+    assert not old.exists() and fresh.exists()
+
+
+# --- elevated, HackMyAgent's own settings, node lookups (C1, I2, I4, M8) -----------------
+
+
+def test_an_elevated_scan_runs_neither_node_nor_npm(env, monkeypatch):
+    _write_install(_install_dir(env))
+    runner = FakeRunner()
+    mod = _module(env, runner, monkeypatch)
+    mod.elevated = True
+    f = _one(mod.check(_profile()), "could_not_check")
+    assert f.data["reason"] == "elevated"
+    assert runner.calls == []
+
+
+def test_elevation_is_asked_of_the_os_by_default(env, monkeypatch):
+    mod = _module(env, FakeRunner(), monkeypatch)
+    mod.elevated = None
+    monkeypatch.setattr(os, "geteuid", lambda: 0, raising=False)
+    assert mod._is_elevated(Platform.LINUX) is True
+    monkeypatch.setattr(os, "geteuid", lambda: 501, raising=False)
+    assert mod._is_elevated(Platform.DARWIN) is False
+
+
+def test_hackmyagent_settings_already_here_means_it_is_left_alone(env, monkeypatch):
+    legacy = env["home"] / ".hackmyagent" / "config.json"
+    legacy.parent.mkdir()
+    legacy.write_text('{"contribute": true, "pendingScans": [1]}')
+    _write_install(_install_dir(env))
+    runner = FakeRunner()
+    f = _one(_module(env, runner, monkeypatch).check(_profile()), "could_not_check")
+    assert f.data["reason"] == "hackmyagent_settings"
+    assert "--no-contribute" in f.description
+    assert runner.calls == []
+    assert legacy.read_text() == '{"contribute": true, "pendingScans": [1]}'
+
+
+def test_node_in_the_current_folder_is_never_used(env, monkeypatch, tmp_path):
+    here = tmp_path / "downloads"
+    here.mkdir()
+    for tool in ("node", "npm"):
+        (env["bin"] / tool).unlink()
+        exe = here / tool
+        exe.write_text("#!/bin/sh\n")
+        exe.chmod(0o755)
+    monkeypatch.chdir(here)
+    monkeypatch.setenv("PATH", os.pathsep.join([".", "", "downloads"]))
+    runner = FakeRunner()
+    f = _one(_module(env, runner, monkeypatch).check(_profile()), "could_not_check")
+    assert f.data["reason"] == "node_missing"
+    assert runner.calls == []
+
+
+def test_node_that_fails_to_start_is_not_called_too_old(env, monkeypatch):
+    runner = FakeRunner()
+    runner.node_version = None
+    real = runner.__call__
+
+    def broken(args, **kw):
+        if list(map(str, args))[1:] == ["--version"]:
+            runner.calls.append({"args": list(map(str, args))})
+            return _result(args, 1, err="dyld: Library not loaded")
+        return real(args, **kw)
+
+    f = _one(_module(env, broken, monkeypatch).check(_profile()), "could_not_check")
+    assert f.data["reason"] == "node_failed"
+    assert "didn't start" in f.description
+
+
+def test_windows_runs_npm_cli_js_through_node_without_cmd(env, monkeypatch, tmp_path):
+    mod = _module(env, FakeRunner(), monkeypatch)
+    nodejs = tmp_path / "nodejs"
+    cli = nodejs / "node_modules" / "npm" / "bin" / "npm-cli.js"
+    cli.parent.mkdir(parents=True)
+    cli.write_text("")
+    node = nodejs / "node.exe"
+    argv, extra = mod._npm_command(node, Platform.WIN32, tmp_path / "c", tmp_path / "u", tmp_path / "g")
+    assert argv[:3] == [str(node), str(cli), "ci"]
+    assert "--ignore-scripts" in argv and "--no-bin-links" in argv
+    assert "--registry=https://registry.npmjs.org/" in argv
+    assert not any(a in argv for a in ("--cache", "--userconfig", "--globalconfig"))
+    assert not any(a.lower().endswith((".cmd", ".bat")) for a in argv)
+    assert extra == {"npm_config_cache": str(tmp_path / "c"),
+                     "npm_config_userconfig": str(tmp_path / "u"),
+                     "npm_config_globalconfig": str(tmp_path / "g")}
+    cli.unlink()
+    with pytest.raises(Exception) as err:
+        mod._npm_command(node, Platform.WIN32, tmp_path / "c", tmp_path / "u", tmp_path / "g")
+    assert getattr(err.value, "reason", None) == "npm_missing"
+
+
+def test_windows_stub_junction_is_pointed_at_the_renamed_copy(env, monkeypatch):
+    code = _code_module()
+    install = _install_dir(env)
+    _write_install(install)
+    made = []
+    monkeypatch.setattr(code, "_create_junction", lambda target, link: made.append((target, link)))
+    code.Module._relink_stub(install, Platform.WIN32)
+    link = install / "node_modules" / "onnxruntime-node"
+    assert made == [(str(install / "stub"), str(link))]
+    assert not link.is_symlink()  # the old link was removed first
+    made.clear()
+    _write_install(install)
+    code.Module._relink_stub(install, Platform.DARWIN)
+    assert made == [] and link.is_symlink()
+
+
+# --- output shape (M3) -----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("doc, reason", [
+    ({"agents": 5, "mcpServers": []}, "bad_output"),
+    ({"mcpServers": []}, "bad_output"),
+    ({"agents": [], "mcpServers": [], "aiConfigs": "x"}, "bad_output"),
+    ({"agents": [], "mcpServers": [], "coverage": {"measured": False}}, "not_measured"),
+])
+def test_output_of_the_wrong_shape_is_could_not_check(env, monkeypatch, doc, reason):
+    _write_install(_install_dir(env))
+    runner = FakeRunner(detect=lambda a, c, e: _result(a, 0, json.dumps(doc)))
+    result = _module(env, runner, monkeypatch).check(_profile())
+    assert result.error is None
+    assert _one(result, "could_not_check").data["reason"] == reason
+
+
+def test_capabilities_that_are_not_a_list_are_ignored(env, monkeypatch):
+    _write_install(_install_dir(env))
+    doc = {"agents": [], "mcpServers": [{"name": "db", "source": "Cursor", "risk": "high",
+                                         "capabilities": "database"}]}
+    runner = FakeRunner(detect=lambda a, c, e: _result(a, 0, json.dumps(doc)))
+    mcp = _one(_module(env, runner, monkeypatch).check(_profile()), "risky_mcp_server")
+    assert mcp.data["capabilities"] == []
+
+
 # --- live ------------------------------------------------------------------------------------
 
 
@@ -523,6 +809,8 @@ def test_inventory_says_how_to_check_one_project_folder(env, monkeypatch):
     result = _module(env, FakeRunner(), monkeypatch).check(_profile())
     inv = _one(result, "ai_inventory")
     assert "project folder" in inv.description
-    assert "OPENA2A_TELEMETRY=off node node_modules/hackmyagent/dist/cli.js detect" in inv.description
+    assert ('OPENA2A_TELEMETRY=off OPENA2A_HOME="$(mktemp -d)" XDG_CONFIG_HOME="$(mktemp -d)" '
+            "node node_modules/hackmyagent/dist/cli.js detect /path/to/project") in inv.description
     assert f"cd {_install_dir(env)}" in inv.description
-    assert inv.data["project_command"].endswith("detect /path/to/project")
+    assert "--no-contribute" in inv.data["project_command"]
+    assert "/path/to/project" in inv.data["project_command"]
