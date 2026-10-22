@@ -9,6 +9,8 @@
 //   decisionsFor(run, game, item, ctx) -> Decision[]   checked, safe default first, Look closer (id 'closer') dropped while looking closer
 //   viewFor(run, game, ctx, research) -> view          what the screen draws (game.render gets the same view)
 //   choose(run, id, game, ctx) -> { run, act }         act: null | { kind: mark|fix|settings|link|recheck|lesson|odd, … }
+//   unask(run) -> run                                  BACK: the current item's last question answer (R12) undone
+//   contextFor(run, ctx, item) -> ctx                  ctx with that item's answers, for research and render (R12)
 //   confirmPending(run, game, ctx) / cancelPending(run) the warning-before-acting step (R6)
 //   openLink(run, game, ctx, act) -> { run, act }       a research link; behind the confirm when the item warns
 //   proceed(run)                                       past an answered item whose steps are on screen
@@ -53,7 +55,9 @@ export function startRun(mission, { practiceDue = false, recalled = {} } = {}) {
     if (was) results.push({ key: item.key, item, decision: was, effect: null, outcome: 'remembered', points: 0 });
   }
   const run = { missionId: mission ? mission.id : null, type: mission ? mission.type : 'simple', items, index: 0, results,
-    phase: practiceDue ? 'offer' : 'item', closer: {}, opened: {}, pending: null, practice: null, skipped: false, practiced: false };
+    phase: practiceDue ? 'offer' : 'item', closer: {}, opened: {}, pending: null, practice: null, skipped: false, practiced: false,
+    // R12: each item's question answers so far, in memory only (never stored, paid or remembered).
+    answers: {} };
   return practiceDue ? run : advance(run, 0);
 }
 
@@ -70,12 +74,23 @@ function advance(run, from = run.index) {
 export const currentItem = (run) => (run && run.items[run.index]) || null;
 export const doneCount = (run) => run.results.length;
 
+// R12: an item's answers so far (a copy; [] before the first).
+export function answersOf(run, item) {
+  const a = run && run.answers && item ? run.answers[item.key] : null;
+  return Array.isArray(a) ? a.filter((x) => typeof x === 'string') : [];
+}
+const ownAnswers = (ctx) => (ctx && Array.isArray(ctx.answers) ? ctx.answers.filter((x) => typeof x === 'string') : []);
+// The ctx a game gets for one item: its answers (from the run, or a practice step's own when there's no run).
+export function contextFor(run, ctx, item) {
+  return { ...(ctx || {}), answers: run ? answersOf(run, item) : ownAnswers(ctx) };
+}
+
 // A game's decisions, made safe: a game that throws or breaks the rules gets
 // Later / I did this; a removing decision never leads on an alerting item;
 // while looking closer, the item stays open until another decision.
 export function decisionsFor(run, game, item, ctx) {
   let d;
-  try { d = game.decisions(item, ctx); } catch (_) { d = null; }
+  try { d = game.decisions(item, contextFor(run, ctx, item)); } catch (_) { d = null; }
   const problems = checkDecisions(d, null).filter((p) => !/removal warning/.test(p));
   if (!Array.isArray(d) || problems.length) d = FALLBACK;
   d = d.filter((x) => x && x.effect && EFFECT_KINDS.includes(x.effect.kind));
@@ -96,7 +111,9 @@ export function viewFor(run, game, ctx, research) {
   if (run.phase === 'practice') {
     const step = game.practice.script[run.practice.step] || null;
     const item = step ? game.practice.items[step.item] : null;
-    const decisions = item ? decisionsFor(null, game, item, ctx) : [];
+    // R12: a step may stand at a later question (its own `answers`).
+    const answers = step && Array.isArray(step.answers) ? step.answers.filter((x) => typeof x === 'string') : [];
+    const decisions = item ? decisionsFor(null, game, item, { ...(ctx || {}), answers }) : [];
     const want = expected(step);
     const right = decisions.find((d) => want.includes(d.id));
     // `explain`: a step with no expected move only shows something (one GOT IT).
@@ -105,7 +122,7 @@ export function viewFor(run, game, ctx, research) {
     return { item, research, decisions, index: run.practice.step,
       total: game.practice.script.length, practice: true, step, warning: item && alerting(item) ? REMOVAL_WARNING : '', siblings: [], results: [],
       answer: run.practice.answers[run.practice.step] || null, explain: !want.length,
-      expectLabel: right ? right.label : null, why: step && step.why && typeof step.why === 'object' ? step.why : null };
+      expectLabel: right ? right.label : null, why: step && step.why && typeof step.why === 'object' ? step.why : null, answers };
   }
   const item = currentItem(run);
   const pending = run.pending;
@@ -114,7 +131,7 @@ export function viewFor(run, game, ctx, research) {
     closer: !!(item && run.closer[item.key]), confirming: run.phase === 'confirm' ? pending : null, done: doneCount(run),
     // Answered, its steps on screen until NEXT.
     showing: !!(item && run.showing && run.showing.key === item.key),
-    siblings: run.items.filter((x) => x !== item), results: summaryResults(run),
+    siblings: run.items.filter((x) => x !== item), results: summaryResults(run), answers: answersOf(run, item),
     // What the last state-only move asked to show (a checklist, steps, a focus).
     guide: item && run.guide && run.guide.key === item.key ? run.guide : null };
 }
@@ -214,9 +231,23 @@ export function choose(run, id, game, ctx) {
     }
     case 'recheck':
       return { run: { ...base, guide, pending: { key: item.key, decision: d } }, act: { kind: 'recheck', item, modules: modulesOf(e, item), steps } };
+    case 'ask':
+      // R12: the answer only moves the item to its next question; nothing is recorded, paid or remembered.
+      return { run: { ...base, guide: null, answers: { ...(run.answers || {}), [item.key]: [...answersOf(run, item), d.id] } }, act: null };
     default:
       return { run, act: null };
   }
+}
+
+// BACK on a question (R12): the current item's last answer is dropped, and its
+// question is asked again. Nothing else changes; no answers, the same run.
+export function unask(run) {
+  const item = currentItem(run);
+  const a = answersOf(run, item);
+  if (!item || !a.length || run.showing || (run.phase !== 'item' && run.phase !== 'confirm')) return run;
+  const answers = { ...run.answers };
+  if (a.length > 1) answers[item.key] = a.slice(0, -1); else delete answers[item.key];
+  return { ...run, phase: 'item', pending: null, guide: null, answers };
 }
 
 // A link under "Check it yourself" (a settings page or a look-up). On an item
@@ -345,8 +376,9 @@ export function fingerprint(item) {
 }
 
 const KEPT_KINDS = new Set(['keep', 'note', 'mark', 'fix', 'recheck']);
+// R13: an unpaid answer is never kept.
 export function remembers(result) {
-  return !!result && result.outcome !== 'remembered' && !!result.effect && KEPT_KINDS.has(result.effect.kind);
+  return !!result && result.outcome !== 'remembered' && !!result.effect && KEPT_KINDS.has(result.effect.kind) && result.effect.unpaid !== true;
 }
 
 export function summaryResults(run) {
