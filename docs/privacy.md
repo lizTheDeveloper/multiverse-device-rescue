@@ -3,7 +3,13 @@
 Short version: everything happens on your machine. There is no telemetry, no
 analytics, no crash reporting, and no account. Three things reach the network and
 all need you to ask: `rescue update`, the optional AI layer, and the "who runs
-this address" lookups after a connection watch you start.
+this address" lookups after a connection watch you start. One more happens
+during a normal scan, once: the AI tools check downloads a free tool
+(HackMyAgent) from the npm registry the first time it runs. That is an
+ordinary package download: the registry sees your IP address and npm's usual
+description of itself (npm and Node.js versions, operating system, processor
+type), and nothing else about your computer is sent.
+`rescue scan --no-downloads` turns it off.
 
 ## What the tool touches
 
@@ -44,16 +50,30 @@ Only these, and only when you run the command that writes them:
 | `~/.rescue/cases/case-<timestamp>.{json,md}` | `rescue export` | A redacted record of one scan. |
 | `~/.config/rescue/revoked_signers.json` | `rescue trust revoke` | Signer IDs you have stopped trusting, and why. |
 | `~/.local/share/rescue/content/` | `rescue update` | The verified content checkout. |
+| `<user cache>/ReclaimCity/hackmyagent-<version>/` | `rescue scan` (the AI tools check), once | The downloaded copy of HackMyAgent. No findings. Safe to delete. |
 
 Case files are written with owner-only permissions (`0600`) where the
 filesystem supports it, because even redacted they describe a machine's
 security posture and land somewhere other local accounts may be able to read.
 
-Nothing else is persisted. A `rescue scan` writes nothing at all.
+Nothing else is persisted. A `rescue scan` writes nothing else: the AI tools
+check points HackMyAgent's own settings folder, its telemetry file
+(normally `~/.config/opena2a/telemetry.json`), its temp folder and npm's
+download cache at short-lived folders inside `<user cache>/ReclaimCity/` and
+deletes them afterwards, so nothing lands in `~/.opena2a`,
+`~/.config/opena2a` or `~/.npm`. One write can't be
+redirected: HackMyAgent's start-up self-check appends a line to
+`~/.nanomind/integrity-events.jsonl`. Right after the run Reclaim City undoes
+it: it deletes the file (and the folder, if it made it) or cuts the file back
+to its earlier length, but only when it is still the same file, not a link,
+and every new line is one of HackMyAgent's self-check events from this run.
+Otherwise it leaves the file as it is and the finding says so
+(`left_in_home`). Run by hand, HackMyAgent adds that line every time. `<user cache>` is `~/Library/Caches` on macOS, `$XDG_CACHE_HOME` or
+`~/.cache` on Linux, and `%LOCALAPPDATA%` on Windows.
 
 ## What leaves the machine
 
-Four things, exhaustively:
+Five things, exhaustively:
 
 1. **`rescue update`** contacts the configured content git remote when you run
    it. It sends nothing about your machine — it is a `git fetch`. (On the
@@ -78,6 +98,32 @@ Four things, exhaustively:
    address, and the request names the app and its version (Reclaim City).
    `rescue watch --no-lookups` turns this off. See
    [the CLI reference](cli.md#rescue-watch-watch-connections-for-a-few-minutes).
+5. **The AI tools check's one-time download.** The first time a scan runs
+   the `ai_agent_audit` check, it downloads HackMyAgent and the packages it
+   needs (about 51 MB) from `registry.npmjs.org` with `npm ci`, pinned to
+   exact versions and integrity hashes in `vendor/hackmyagent/`. What is
+   sent is a normal package download: the package names and versions, and
+   npm's User-Agent, which names the npm and Node.js versions, the operating
+   system and the processor type. Like any website, the registry sees your
+   computer's public IP address. Your own `.npmrc` files are not used (npm
+   gets empty ones), so an npm login token in them is not sent; a proxy set
+   in the `HTTPS_PROXY` environment variable is still used. Nothing else
+   about your computer is sent. Later scans reuse the copy and don't use the
+   network. When HackMyAgent runs, its usage reporting is off
+   (`OPENA2A_TELEMETRY=off`) and it is told not to share its findings
+   (`--no-contribute`). `rescue scan --no-downloads` (or
+   `RESCUE_NO_DOWNLOADS=1`) turns the download off; `rescue export` and
+   `rescue run` take the same flag.
+
+   What HackMyAgent itself looks at, all on the computer: the list of
+   running programs with their command lines (`ps aux`), to spot AI tools
+   that are running; AI tools' settings files in your home folder; and the
+   computer's hardware ID (`ioreg` on macOS, `/etc/machine-id` on Linux, the
+   `MachineGuid` registry value on Windows), which it hashes into an install
+   ID for its own telemetry file. That file goes into the throwaway folder
+   and is deleted, and with telemetry off the ID is never sent. On start it
+   also clears old `hma-check-*` and `arp-lab-*` folders from its temp
+   folder, which is the throwaway folder too.
 
 There is no "phone home" on launch, no version check, no usage counter, and no
 error reporting.

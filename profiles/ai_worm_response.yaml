@@ -16,6 +16,7 @@ modules:
     - launchd_persistence_audit
     - scheduled_tasks_audit
     - mvt_spyware_scan
+    - ai_agent_audit
   exclude: []
 module_config:
   ai_worm_filesystem:

@@ -8,6 +8,7 @@ Produces a single-file `rescue` executable bundling:
     disk at runtime rather than importing them as regular packages
   - profiles/*.yaml (threat-model profiles)
   - guides/**/*.md (guided-walkthrough content)
+  - vendor/hackmyagent/* (pinned lockfile the AI tools check downloads with)
   - rescue/security/trusted_signers.json and integrity_manifest.json
   - rescue/tui/app.tcss (Textual stylesheet, loaded relative to app.py)
 
@@ -58,6 +59,11 @@ datas += collect_tree(PROJECT_ROOT / "modules", "modules")
 
 # guides/**/*.md -- guided walkthrough content
 datas += collect_tree(PROJECT_ROOT / "guides", "guides")
+
+# vendor/hackmyagent -- the pinned lockfile (and onnxruntime stub) the
+# ai_agent_audit check fetches HackMyAgent with; found via
+# rescue.runtime.bundled_root() / "vendor" / "hackmyagent"
+datas += collect_tree(PROJECT_ROOT / "vendor", "vendor")
 
 # profiles/*.yaml -- threat-model profiles
 profiles_dir = PROJECT_ROOT / "profiles"

@@ -86,8 +86,12 @@ exact list.
 | `~/.rescue/cases/` | Exported case reports |
 | `~/.local/share/rescue/content/` | Applied content updates |
 | `~/.config/rescue/revoked_signers.json` | Locally revoked update signers |
+| `<user cache>/ReclaimCity/hackmyagent-<version>/` | The AI tools check's one-time download of HackMyAgent |
 
-`rescue scan` writes nothing at all.
+`rescue scan` writes nothing else. The AI tools check downloads HackMyAgent
+once into your user cache folder (`~/Library/Caches` on macOS, `~/.cache` on
+Linux, `%LOCALAPPDATA%` on Windows); `rescue scan --no-downloads` turns that
+off. See [Privacy](privacy.md).
 
 ## What is a "profile"?
 

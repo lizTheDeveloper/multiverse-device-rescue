@@ -26,7 +26,25 @@ In the desktop app, open **Show technical details** while a checkup runs.
 
 Besides commands, checks read files (launch agents, browser profiles, logs)
 directly; read a module's `__init__.py` for the full picture. No check writes
-anything — `fix()` is separate and always asks first.
+anything — `fix()` is separate and always asks first — with one exception:
+`ai_agent_audit` downloads HackMyAgent once, with `npm ci` from the pinned
+lockfile in `vendor/hackmyagent/`, into the user cache folder
+(`ReclaimCity/hackmyagent-<version>`), checks every file of it against
+`vendor/hackmyagent/tree.sha256` before each run, and reuses it.
+`--no-downloads` (on `scan`, `export` and `run`) turns the download off.
+
+HackMyAgent is a program of its own, so the commands *it* runs aren't in the
+list below. While `detect` runs it executes `ps aux` (running programs and
+their command lines, to spot AI tools) and, for the install ID in its
+telemetry file, `ioreg -rd1 -c IOPlatformExpertDevice` on macOS or
+`reg query "HKLM\SOFTWARE\Microsoft\Cryptography" /v MachineGuid` on
+Windows (on Linux it reads `/etc/machine-id`). That file, and the old
+`hma-check-*`/`arp-lab-*` temp folders it clears at start, are inside the
+throwaway folder Reclaim City gives it, which is deleted afterwards. Its
+start-up self-check also appends to `~/.nanomind/integrity-events.jsonl`;
+Reclaim City removes those lines after the run when they are surely its own.
+HackMyAgent runs from a private, checked copy of the saved download, with an
+allow-listed environment (no `NODE_OPTIONS` or `npm_config_*`).
 
 
 ## Bloatware
@@ -1320,6 +1338,16 @@ Runs no external commands; reads files and system APIs only.
 ```text
 sqlite3 … "SELECT client FROM access WHERE service='kTCCServiceAccessibility' AND auth_value=2"
 ```
+
+### `ai_agent_audit`
+
+```text
+node --version
+node node_modules/hackmyagent/dist/cli.js detect … --json --depth 0 --no-contribute
+npm ci --ignore-scripts --no-bin-links --no-audit --no-fund --registry=https://registry.npmjs.org/ --cache … --userconfig … --globalconfig …
+```
+
+Plus 3 command(s) built at runtime.
 
 ### `ai_threat_indicators`
 

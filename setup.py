@@ -9,7 +9,7 @@ ASSET_ROOT = "share/multiverse-device-rescue"
 
 def runtime_assets() -> list[tuple[str, list[str]]]:
     assets = []
-    for source_root in (ROOT / "modules", ROOT / "profiles", ROOT / "guides"):
+    for source_root in (ROOT / "modules", ROOT / "profiles", ROOT / "guides", ROOT / "vendor"):
         for directory, files in _files_by_directory(source_root).items():
             relative = directory.relative_to(ROOT)
             assets.append(

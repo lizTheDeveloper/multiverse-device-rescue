@@ -1,0 +1,302 @@
+{
+  "scanTimestamp": "2026-10-22T01:47:57.784Z",
+  "scanDirectory": "/Users/sam",
+  "summary": {
+    "totalAgents": 5,
+    "ungoverned": 5,
+    "mcpServers": 16,
+    "localLlms": 1,
+    "aiConfigs": 4,
+    "governanceScore": 0,
+    "governanceRaw": 0,
+    "governanceClamped": false,
+    "recoverablePoints": 100
+  },
+  "agents": [
+    {
+      "name": "Claude Code",
+      "state": "running",
+      "source": "process",
+      "category": "ai-assistant",
+      "identityStatus": "no identity",
+      "governanceStatus": "no governance",
+      "risk": "high"
+    },
+    {
+      "name": "LM Studio",
+      "state": "running",
+      "source": "process",
+      "category": "local-llm",
+      "identityStatus": "no identity",
+      "governanceStatus": "no governance",
+      "risk": "medium"
+    },
+    {
+      "name": "Claude Desktop",
+      "state": "installed",
+      "source": "~/Library/Application Support/Claude/claude_desktop_config.json",
+      "category": "ai-assistant",
+      "identityStatus": "no identity",
+      "governanceStatus": "no governance",
+      "risk": "high"
+    },
+    {
+      "name": "Cursor",
+      "state": "installed",
+      "source": "~/.cursor/mcp.json",
+      "category": "ai-assistant",
+      "identityStatus": "no identity",
+      "governanceStatus": "no governance",
+      "risk": "high"
+    },
+    {
+      "name": "GitHub Copilot",
+      "state": "installed",
+      "source": ".copilot",
+      "category": "ai-assistant",
+      "identityStatus": "no identity",
+      "governanceStatus": "no governance",
+      "risk": "high"
+    }
+  ],
+  "mcpServers": [
+    {
+      "name": "chat-bridge",
+      "transport": "stdio",
+      "source": "Claude Code (user)",
+      "verified": false,
+      "capabilities": [
+        "unknown"
+      ],
+      "risk": "medium"
+    },
+    {
+      "name": "playwright",
+      "transport": "stdio",
+      "source": "Claude Desktop",
+      "verified": false,
+      "capabilities": [
+        "browser"
+      ],
+      "risk": "medium"
+    },
+    {
+      "name": "tavily-mcp",
+      "transport": "stdio",
+      "source": "Claude Desktop",
+      "verified": false,
+      "capabilities": [
+        "unknown"
+      ],
+      "risk": "medium"
+    },
+    {
+      "name": "pdf-indexer",
+      "transport": "stdio",
+      "source": "Cursor (global)",
+      "verified": false,
+      "capabilities": [
+        "unknown"
+      ],
+      "risk": "medium"
+    },
+    {
+      "name": "tavily-mcp",
+      "transport": "stdio",
+      "source": "Cursor (global)",
+      "verified": false,
+      "capabilities": [
+        "unknown"
+      ],
+      "risk": "medium"
+    },
+    {
+      "name": "context7",
+      "transport": "stdio",
+      "source": "Cursor (global)",
+      "verified": false,
+      "capabilities": [
+        "network"
+      ],
+      "risk": "medium"
+    },
+    {
+      "name": "postgres",
+      "transport": "stdio",
+      "source": "Cursor (global)",
+      "verified": false,
+      "capabilities": [
+        "database"
+      ],
+      "risk": "high"
+    },
+    {
+      "name": "playwright",
+      "transport": "stdio",
+      "source": "Cursor (global)",
+      "verified": false,
+      "capabilities": [
+        "browser"
+      ],
+      "risk": "medium"
+    },
+    {
+      "name": "Zapier",
+      "transport": "sse",
+      "source": "Cursor (global)",
+      "verified": false,
+      "capabilities": [
+        "network"
+      ],
+      "risk": "medium"
+    },
+    {
+      "name": "chrome-devtools",
+      "transport": "stdio",
+      "source": "Cursor (global)",
+      "verified": false,
+      "capabilities": [
+        "unknown"
+      ],
+      "risk": "medium"
+    },
+    {
+      "name": "chat-bridge",
+      "transport": "stdio",
+      "source": "Cursor (global)",
+      "verified": false,
+      "capabilities": [
+        "unknown"
+      ],
+      "risk": "medium"
+    },
+    {
+      "name": "mcp-proxy",
+      "transport": "stdio",
+      "source": "Cursor (global)",
+      "verified": false,
+      "capabilities": [
+        "unknown"
+      ],
+      "risk": "medium"
+    },
+    {
+      "name": "browser-debugger",
+      "transport": "stdio",
+      "source": "Cursor (global)",
+      "verified": false,
+      "capabilities": [
+        "browser"
+      ],
+      "risk": "medium"
+    },
+    {
+      "name": "playwright",
+      "transport": "stdio",
+      "source": "Claude Code (project)",
+      "verified": false,
+      "capabilities": [
+        "browser"
+      ],
+      "risk": "medium"
+    },
+    {
+      "name": "mcp-proxy",
+      "transport": "stdio",
+      "source": "Claude Code (project)",
+      "verified": false,
+      "capabilities": [
+        "unknown"
+      ],
+      "risk": "medium"
+    },
+    {
+      "name": "browser-debugger",
+      "transport": "stdio",
+      "source": "Claude Code (project)",
+      "verified": false,
+      "capabilities": [
+        "browser"
+      ],
+      "risk": "medium"
+    }
+  ],
+  "aiConfigs": [
+    {
+      "file": ".claude/settings.json",
+      "tool": "Claude Code",
+      "risk": "critical",
+      "details": "Claude Code config contains credential references",
+      "evidence": {
+        "line": 3,
+        "token": "EXAMPLE_API_KEY",
+        "reason": "= … (36 chars)"
+      }
+    },
+    {
+      "file": ".claude/settings.local.json",
+      "tool": "Claude Code",
+      "risk": "low",
+      "details": "Claude Code configuration"
+    },
+    {
+      "file": "CLAUDE.md",
+      "tool": "Claude Code",
+      "risk": "low",
+      "details": "Claude Code configuration"
+    },
+    {
+      "file": ".copilot",
+      "tool": "GitHub Copilot",
+      "risk": "low",
+      "details": "GitHub Copilot configuration"
+    }
+  ],
+  "identity": {
+    "soulFiles": 0,
+    "capabilityPolicies": 0,
+    "totalAgents": 5,
+    "governanceFile": "CLAUDE.md"
+  },
+  "findings": [
+    {
+      "severity": "critical",
+      "category": "config",
+      "title": "AI config files contain credential references",
+      "detail": ".claude/settings.json:3 — \"EXAMPLE_API_KEY\" = … (36 chars)",
+      "whyItMatters": "API keys or tokens appear to be stored directly in these configuration files. Anyone with repository access can see and use these credentials.",
+      "remediation": "opena2a protect /Users/sam  — migrates hardcoded secrets into the Secretless vault (local, keychain, 1Password, or HashiCorp Vault). Keys are injected at runtime; source files reference them by name only.",
+      "verify": "sed -n '3p' /Users/sam/.claude/settings.json"
+    },
+    {
+      "severity": "high",
+      "category": "governance",
+      "title": "5 AI agents without governance",
+      "detail": "Claude Code (running), LM Studio (running), Claude Desktop (installed: ~/Library/Application Support/Claude/claude_desktop_config.json), Cursor (installed: ~/.cursor/mcp.json), GitHub Copilot (installed: .copilot) — CLAUDE.md is missing 2 critical control(s)",
+      "whyItMatters": "These agents can take actions in your project but have no rules defining what they should or should not do. A SOUL.md file sets behavioral boundaries — what agents can and cannot do, and what requires human approval.",
+      "remediation": "hackmyagent harden-soul /Users/sam"
+    },
+    {
+      "severity": "medium",
+      "category": "mcp",
+      "title": "3 project MCP servers without a security scan",
+      "detail": "playwright, mcp-proxy, browser-debugger",
+      "whyItMatters": "These servers are configured in your project but have not been scanned for security issues. Running hackmyagent secure surfaces any vulnerabilities in their configuration.",
+      "remediation": "hackmyagent secure /Users/sam"
+    },
+    {
+      "severity": "low",
+      "category": "governance",
+      "title": "Governance is defined in CLAUDE.md, not SOUL.md",
+      "detail": "The Governance score above was measured against CLAUDE.md.",
+      "whyItMatters": "This is a supported location, so nothing is broken. It is worth knowing because every other surface of this tool — harden-soul, the docs, the fix commands — refers to SOUL.md, and a reader looking for the file the score came from would not find it.",
+      "remediation": "hackmyagent scan-soul /Users/sam"
+    }
+  ],
+  "coverage": {
+    "measured": true,
+    "examined": 5,
+    "total": 5,
+    "unit": "surface"
+  }
+}

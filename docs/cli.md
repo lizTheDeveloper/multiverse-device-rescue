@@ -130,6 +130,22 @@ module. Never applies a fix and never prompts.
 | `--json` | Emit structured results to stdout instead of the human report. |
 | `--profile <name>` | Only run the modules the named profile selects. Exits `1` on an unknown or invalid profile. |
 | `--module <name>` | Only run this module. Repeat it to run several. Read-only, same JSON. Exits `1` on an unknown module (the valid names go to stderr), and `2` if combined with `--profile`. The desktop app uses it to re-check one finding after a fix. |
+| `--no-downloads` | Don't download tools a check needs. Today that is one: the AI tools check (`ai_agent_audit`) fetches HackMyAgent from the npm registry the first time it runs. With this flag (or `RESCUE_NO_DOWNLOADS=1`) that check reports "couldn't check" instead; a copy already downloaded still runs, without the network, after it is checked against the committed file list. `rescue export` and `rescue run` take the same flag. |
+
+The AI tools check (`ai_agent_audit`) needs Node.js 18 or newer. The first
+time it runs it downloads HackMyAgent (OpenA2A, Apache-2.0) with
+`npm ci --ignore-scripts` from the lockfile in `vendor/hackmyagent/`, which
+pins every package and its integrity hash, into your user cache folder
+(`~/Library/Caches/ReclaimCity/` on macOS, `$XDG_CACHE_HOME` or
+`~/.cache/ReclaimCity/` on Linux, `%LOCALAPPDATA%\ReclaimCity\` on Windows).
+Before every run, every file in that copy is checked against
+`vendor/hackmyagent/tree.sha256`; a copy that changed is deleted, not run.
+Then it runs only HackMyAgent's `detect` command with `--no-contribute`, with
+its usage reporting off and its settings, telemetry file and temp folder all
+in a temp folder that is deleted afterwards. The check doesn't run (it says
+why) when the scan has administrator rights, or when HackMyAgent's own
+settings (`~/.hackmyagent/config.json`) are on the computer. Delete the cache
+folder at any time; the next scan downloads it again.
 
 The JSON shape is `schema_version` 1:
 
@@ -300,7 +316,7 @@ either way.
 ## `rescue run` — specific modules
 
 ```console
-$ rescue run <module_name> [<module_name> ...] [--yes] [--copilot]
+$ rescue run <module_name> [<module_name> ...] [--yes] [--copilot] [--no-downloads]
 ```
 
 Runs one or more named modules in order. Unknown module names print the full
@@ -310,6 +326,7 @@ list of available names to stderr and exit `1`.
 | --- | --- |
 | `--yes` | Skip confirmation prompts and run each module's `fix()` when its check found issues. Also switches the run mode from `MANUAL` to `CLI`. |
 | `--copilot` | Append an AI plain-language explanation of the findings. |
+| `--no-downloads` | Don't download tools a check needs; see [`rescue scan`](#rescue-scan-read-only-checks). |
 
 Without `--yes`, a module whose check found issues prompts:
 
@@ -331,7 +348,7 @@ next module rather than aborting the run.
 ## `rescue export` — redacted case report
 
 ```console
-$ rescue export [--profile <name>] [--output <dir>] [--stdout]
+$ rescue export [--profile <name>] [--output <dir>] [--stdout] [--no-downloads]
 ```
 
 Runs read-only checks and writes a **rescue case**: a JSON record for tooling
@@ -344,6 +361,7 @@ someone who can help.
 | `--profile <name>` | Only run the modules the named profile selects. Exits `1` on an unknown or invalid profile. |
 | `--output <dir>` | Directory to write into. Default: `~/.rescue/cases`. |
 | `--stdout` | Print the JSON case to stdout instead of writing any files. |
+| `--no-downloads` | Don't download tools a check needs; see [`rescue scan`](#rescue-scan-read-only-checks). |
 
 ```console
 $ rescue export

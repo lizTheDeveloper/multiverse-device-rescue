@@ -13,7 +13,7 @@ overstates its own guarantees is teaching you the wrong habit.
 | --- | --- |
 | Does `rescue --auto` change my system? | No. Zero shipped modules opt in to unattended change. |
 | Does it ever ask for a password, 2FA code, or recovery key? | No. There is no such prompt anywhere in the tool. |
-| Does it send anything anywhere? | Only when you ask: the AI layer when you turn it on, `rescue update` when you run it, and the "who runs this address" lookups after a connection watch you start or for addresses you give `rescue lookup`. Those send only the public addresses: to RIPE NCC, to rdap.org, which redirects your computer to the regional registry that holds each address (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC) to ask it directly, and to reverse DNS through your computer's own resolver. Each service also sees your computer's public IP address, as any website does, and the app's name and version. `rescue watch --no-lookups` turns them off. |
+| Does it send anything anywhere? | Only when you ask: the AI layer when you turn it on, `rescue update` when you run it, and the "who runs this address" lookups after a connection watch you start or for addresses you give `rescue lookup`. Those send only the public addresses: to RIPE NCC, to rdap.org, which redirects your computer to the regional registry that holds each address (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC) to ask it directly, and to reverse DNS through your computer's own resolver. Each service also sees your computer's public IP address, as any website does, and the app's name and version. `rescue watch --no-lookups` turns them off. One download happens during a normal scan: the AI tools check fetches HackMyAgent from the npm registry once, pinned by integrity hash. The registry sees your IP address and npm's own User-Agent (npm and Node.js versions, operating system, processor type); nothing else about your computer is sent. `--no-downloads` on `scan`, `export` or `run` turns it off. |
 | Can an update push new Python code to my machine? | Not through the sanctioned path. Updates carry data files only, and content commits containing anything else are rejected. |
 | Can I read what a check does before running it? | Yes. Every module is one plain Python file in the source tree. |
 | Does it verify it has not been tampered with? | Yes, at every launch, with a SHA-256 manifest — but the check warns and continues rather than blocking. |
@@ -42,6 +42,7 @@ history or page contents, or opens your documents and photos. The
 | `~/.rescue/known_items.json` | `rescue known add` / `remove`, or "It's mine" in the app ("I did this" writes nothing). A scan may also **remove** a mark from this file when the check that reported the item no longer sees it (see below); it never adds one and never touches anything else on the system. |
 | `~/.config/rescue/revoked_signers.json` | `rescue trust revoke` |
 | `~/.local/share/rescue/content/` | `rescue update`, after signature verification |
+| `<user cache>/ReclaimCity/hackmyagent-<version>/` | `rescue scan`, once: the AI tools check's downloaded copy of HackMyAgent (see below) |
 
 Case files are written `0600` where the filesystem supports it, because even a
 redacted case describes a machine's security posture and lands in a home
@@ -304,8 +305,9 @@ address and once to confirm the name that comes back. Only addresses are
 sent, never private ones. Each service also sees your computer's public IP
 address, as any website does, and the app's name and version (in the
 User-Agent, and RIPEstat's `sourceapp`). The registry hosts are listed in
-[What each check runs](commands.md). That is the complete list of
-outbound network activity initiated by the tool itself. (Individual checks read
+[What each check runs](commands.md). The one exception to "only when you
+ask" is the AI tools check's one-time download, described below. That is the
+complete list of outbound network activity initiated by the tool itself. (Individual checks read
 local state; some, like a network speed test, use the network by their nature —
 read the module if you care.)
 
@@ -316,10 +318,104 @@ requires an AI provider" and stops. What is sent is one line per finding —
 `[category/module] (severity) title: description` — and nothing else. See
 [Privacy](privacy.md#what-the-ai-layer-sends) for the full payload.
 
+### The AI tools check downloads one tool
+
+`ai_agent_audit` lists the AI assistants on the computer, the add-ons (MCP
+servers) they can use, and AI settings files holding a secret key. It does
+this with HackMyAgent (OpenA2A, Apache-2.0,
+<https://github.com/opena2a-org/hackmyagent>), which is not bundled:
+
+- **What is fetched.** `npm ci --ignore-scripts --no-audit --no-fund
+  --registry=https://registry.npmjs.org/` against
+  `vendor/hackmyagent/package-lock.json`, which pins HackMyAgent 0.33.2 and
+  every package under it with an integrity hash. npm refuses anything that
+  doesn't match. `--ignore-scripts` means no package's install script runs.
+  The AI runtime HackMyAgent can optionally use (`onnxruntime-node`) is
+  replaced by a two-file local stub that throws if loaded; `detect` never
+  loads it.
+- **Where it goes.** A temp folder beside
+  `<user cache>/ReclaimCity/hackmyagent-0.33.2`, renamed into place only when
+  complete. A failed or partial download is deleted. npm's own cache is a
+  temp folder, deleted afterwards. Later scans reuse the copy after checking
+  its version. Every working folder (the download, npm's cache, the run
+  copy, HackMyAgent's settings and temp folder) is made inside
+  `<user cache>/ReclaimCity/`, never in the shared system temp folder: node
+  looks for `node_modules` in every parent folder of the code it runs, and
+  on a shared computer another account could plant one in `/tmp`. Leftovers
+  of a run that was killed are removed an hour later.
+- **Checked before and after every run.** `vendor/hackmyagent/tree.sha256`
+  lists the sha256 of every file a clean `npm ci` installs (made by
+  `scripts/generate_hackmyagent_manifest.py`). For each run, also with
+  `--no-downloads`, exactly the files on the list are copied from the saved
+  copy into a new private folder, each hashed as it is copied. On macOS and
+  Linux every step of every path is opened without following links,
+  relative to the folder before it, so a link swapped into the saved copy
+  can't make Reclaim City read anything outside it. On Windows each step is
+  checked with `lstat` for links and junctions and compared after opening,
+  a weaker check. A file that is missing, isn't a plain file, can't be read
+  or doesn't match means nothing is run, and the saved copy is deleted; it is
+  downloaded once more if downloads are allowed, and otherwise the check
+  says the copy had changed. HackMyAgent runs from the private copy, which is
+  compared with the list again when it finishes and then deleted.
+- **Changed during a run.** If the private copy changed while HackMyAgent
+  was running, another program may have run in its place with Reclaim City's
+  permissions. The results are thrown away, the saved copy is deleted, and
+  the check reports a warning (`changed_during_run`) that says so and what to
+  do next. So a copy changed between scans isn't run, and one changed during
+  a run is caught afterwards as long as it is left changed. `npm ci --no-bin-links` keeps npm from
+  adding links.
+- **A clean environment.** node and npm get only an allow-listed set of
+  environment variables (`PATH`, `HOME`/`USERPROFILE`, the temp-folder,
+  locale, Windows system and proxy variables, and the ones the check sets).
+  Variables such as `NODE_OPTIONS`, `NODE_PATH` or `npm_config_*` that could
+  make node or npm load other code never reach them.
+- **What runs.** Only `detect <home> --json --depth 0 --no-contribute`, with
+  `OPENA2A_TELEMETRY=off`, and `OPENA2A_HOME`, `XDG_CONFIG_HOME` and the temp
+  folder (`TMPDIR`, `TMP`, `TEMP`) all set to one temp folder deleted
+  afterwards. Its start-up self-check appends to
+  `~/.nanomind/integrity-events.jsonl`, which can't be redirected. Right
+  after the run Reclaim City removes those lines, but only when it is the
+  same file, not a link, and every new line is one of HackMyAgent's
+  self-check events from this run; otherwise it leaves the file alone and
+  says so in the finding. Never `secure`, `--fix`,
+  `attack` or any other command. It reads AI settings files and the list of
+  running programs; it masks any key
+  values it finds, and Reclaim City keeps only the variable name, never the
+  value. See [Privacy](privacy.md#what-leaves-the-machine) for everything it
+  looks at.
+- **When it doesn't run.** If the scan has administrator rights (root, `sudo`,
+  or "Run as administrator"), the check runs neither node nor npm and says
+  so: both, and the saved copy, live in folders any program running as you
+  can change. If HackMyAgent's own settings (`~/.hackmyagent/config.json`)
+  are on the computer, it doesn't run either, because HackMyAgent would move
+  and rewrite them at start.
+- **Off switch.** `rescue scan --no-downloads` or `RESCUE_NO_DOWNLOADS=1`.
+- **What it needs.** Node.js 18 or newer, already installed. Reclaim City
+  never installs Node.js; without it the check reports "couldn't check".
+  `node` and `npm` are looked up only in absolute folders on `PATH` and in
+  the usual install places, never in the current folder. On Windows npm is
+  run as `node npm-cli.js`, not through `npm.cmd` and `cmd.exe`, and npm
+  gets empty `.npmrc` files on every platform.
+
+!!! warning "What the check can't protect against"
+    Your own `node` and `npm` run with the same permissions Reclaim City has,
+    including Full Disk Access on a Mac if you gave the app that. If they are
+    in a folder any program running as you can change (Homebrew, nvm, Volta,
+    `~/.local/bin`), a program running as you could replace them, and the
+    next scan would run the replacement. The file check above covers the
+    saved HackMyAgent copy, not your Node.js. In the same way, a program
+    already running as you could race a single run: swap a file in the
+    private copy after it is checked and put it back before the check that
+    follows the run. Turn the check off with `--no-downloads` and delete the
+    saved copy if that matters to you.
+
+Updating the pinned version is a reviewed change to the lockfile, never
+automatic.
+
 ## Read the source of any check
 
-There is no plugin marketplace and no runtime code download. Every check is one
-file:
+There is no plugin marketplace, and no runtime code download apart from the
+pinned HackMyAgent fetch above. Every check is one file:
 
 ```console
 $ ls modules/security/linux_firewall_check/

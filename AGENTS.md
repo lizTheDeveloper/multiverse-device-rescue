@@ -10,9 +10,15 @@ If the person just wants the app, send them to the download buttons in the
 ## Rules
 
 1. **Look, don't touch.** Use `rescue scan --json`, `rescue export`, and
-   `rescue run <module> < /dev/null`. All of these are read-only (the one
-   exception: a scan removes a "marked as yours" entry from Reclaim City's
-   own list when that item is gone, and says so). Don't pass
+   `rescue run <module> < /dev/null`. All of these are read-only (two
+   exceptions: a scan removes a "marked as yours" entry from Reclaim City's
+   own list when that item is gone, and says so; and the AI tools check,
+   `ai_agent_audit`, downloads a free tool, HackMyAgent, from the npm
+   registry once, into the person's cache folder, and runs it). That check
+   is in a plain `rescue scan` and in the `ai_worm_response` profile. Before
+   the first such run, ask the person whether that download is OK; if they
+   say no, or you can't ask, pass `--no-downloads` (it works on `scan`,
+   `export` and `run`). Don't pass
    `--auto` or `--yes`, because both apply fixes. A fix needs the person to
    agree to that specific change after you've explained it. `rescue known add`
    (marking a finding as "mine") counts as a change too: the person runs it
@@ -57,6 +63,10 @@ uv venv && uv pip install .          # or: python3 -m venv .venv && .venv/bin/pi
 | "Fix up my parent's laptop" | `rescue export --profile home_for_the_holidays --stdout` |
 | "Is there spyware on my iPhone?" (needs a local backup) | ask first, then `rescue run iphone_spyware_check < /dev/null` |
 | Linux machine | `rescue export --profile linux_security_checkup --stdout` |
+
+`rescue scan --json` (no profile) and the `ai_worm_response` profile include
+the AI tools check, which downloads HackMyAgent from npm the first time (see
+rule 1): ask first, or add `--no-downloads`.
 
 `rescue profiles` lists all profiles. `rescue guide <profile>` prints the
 human walkthrough that goes with each one. Share it with the person, a step at
