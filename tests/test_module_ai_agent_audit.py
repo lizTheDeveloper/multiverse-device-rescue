@@ -1208,3 +1208,52 @@ def test_stale_leftovers_of_every_kind_are_cleaned(env, monkeypatch):
         os.utime(parent / name, (0, 0))
     _module(env, FakeRunner(), monkeypatch).check(_profile())
     assert sorted(p.name for p in parent.iterdir()) == ["hackmyagent-0.33.2"]
+
+
+def test_a_link_planted_in_the_run_folder_is_never_written_through(tmp_path):
+    """The write side doesn't follow links either: nothing lands outside the run folder."""
+    import hashlib
+
+    code = _code_module()
+    src = tmp_path / "src"
+    (src / "a").mkdir(parents=True)
+    (src / "a" / "f.js").write_bytes(b"GOOD")
+    (src / "top.js").write_bytes(b"TOP")
+    expected = {"a/f.js": hashlib.sha256(b"GOOD").hexdigest(),
+                "top.js": hashlib.sha256(b"TOP").hexdigest()}
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    victim = tmp_path / "victim.txt"
+    victim.write_text("keep me")
+    for planted in ("dir", "file"):
+        dest = tmp_path / f"dest-{planted}"
+        dest.mkdir()
+        if planted == "dir":
+            os.symlink(outside, dest / "a")       # a folder step swapped for a link
+        else:
+            os.symlink(victim, dest / "top.js")   # a file swapped for a link
+        with pytest.raises(Exception) as err:
+            code.copy_from_manifest(src, dest, expected, Platform.DARWIN)
+        assert type(err.value).__name__ == "_DestinationError"
+        assert list(outside.iterdir()) == []
+        assert victim.read_text() == "keep me"
+    # A clean run folder: folders 0700, files 0600, nothing else.
+    dest = tmp_path / "dest-clean"
+    dest.mkdir()
+    assert code.copy_from_manifest(src, dest, expected, Platform.DARWIN) is True
+    assert stat.S_IMODE((dest / "a").stat().st_mode) == 0o700
+    assert stat.S_IMODE((dest / "a" / "f.js").stat().st_mode) == 0o600
+    assert (dest / "a" / "f.js").read_bytes() == b"GOOD"
+
+
+def test_changed_during_run_text_with_downloads_off(env, monkeypatch):
+    monkeypatch.setenv("RESCUE_NO_DOWNLOADS", "1")
+    _write_install(_install_dir(env))
+
+    def detect(args, cwd, e):
+        Path(args[1]).write_text("// swapped\n")
+        return _result(args, 1, FIXTURE.read_text())
+
+    f = _changed(_module(env, FakeRunner(detect=detect), monkeypatch).check(_profile()))
+    assert "next checkup that's allowed to download" in f.description
+    assert "downloaded next time" not in f.description

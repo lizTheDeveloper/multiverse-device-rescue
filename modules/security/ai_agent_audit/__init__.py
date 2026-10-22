@@ -413,22 +413,57 @@ def _open_checked_windows(path: Path, directory: bool) -> int | None:
     return fd
 
 
+def _create_no_follow(parts: list[str], out_chain: list[tuple[str, int]], root_fd: int) -> int:
+    """Create ``parts`` inside the run copy without following any link planted there.
+
+    Folders are made 0700 and opened O_NOFOLLOW|O_DIRECTORY relative to the
+    one before; the file is created O_EXCL|O_NOFOLLOW, 0600. ``out_chain``
+    keeps the open folders along the current path.
+    """
+    keep = 0
+    while keep < len(out_chain) and keep < len(parts) - 1 and out_chain[keep][0] == parts[keep]:
+        keep += 1
+    for _, open_fd in out_chain[keep:]:
+        os.close(open_fd)
+    del out_chain[keep:]
+    cloexec = getattr(os, "O_CLOEXEC", 0)
+    for part in parts[len(out_chain):-1]:
+        parent_fd = out_chain[-1][1] if out_chain else root_fd
+        try:
+            os.mkdir(part, 0o700, dir_fd=parent_fd)
+        except FileExistsError:
+            pass
+        out_chain.append((part, os.open(part, os.O_RDONLY | os.O_NOFOLLOW | os.O_DIRECTORY | cloexec,
+                                        dir_fd=parent_fd)))
+    parent_fd = out_chain[-1][1] if out_chain else root_fd
+    return os.open(parts[-1], os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | cloexec,
+                   0o600, dir_fd=parent_fd)
+
+
 def copy_from_manifest(install: Path, dest: Path, expected: dict[str, str], platform: Platform) -> bool:
     """Copy exactly the files the manifest names from ``install`` into ``dest``, hashing as it goes.
 
-    No path component of the saved copy is ever followed if it is a link: on
-    POSIX each step is opened with O_NOFOLLOW relative to the folder before it,
-    so nothing outside the saved copy can be read. Returns False when a file is
+    No path component of the saved copy, or of the run copy being written, is
+    ever followed if it is a link: on POSIX each step is opened with O_NOFOLLOW
+    relative to the folder before it, so nothing outside the saved copy can be
+    read and nothing outside ``dest`` can be written. Returns False when a file is
     missing, isn't a plain file, or doesn't match its hash. Raises
     _DestinationError when writing the copy fails.
     """
     windows = platform == Platform.WIN32 or not hasattr(os, "O_NOFOLLOW")
     chain: list[tuple[str, int]] = []  # open folders along the current path (POSIX)
+    out_chain: list[tuple[str, int]] = []  # the same, in the run copy
     root_fd = None
+    out_root_fd = None
     try:
         if not windows:
             root_fd = os.open(install, os.O_RDONLY | os.O_NOFOLLOW | os.O_DIRECTORY
                               | getattr(os, "O_CLOEXEC", 0))
+            try:
+                out_root_fd = os.open(dest, os.O_RDONLY | os.O_NOFOLLOW | os.O_DIRECTORY
+                                      | getattr(os, "O_CLOEXEC", 0))
+            except OSError as exc:
+                raise _DestinationError(str(exc)) from exc
         else:
             _open_checked_windows(install, directory=True)
         for rel in sorted(expected):
@@ -455,11 +490,14 @@ def copy_from_manifest(install: Path, dest: Path, expected: dict[str, str], plat
                                            directory=False)
             assert fd is not None
             digest = hashlib.sha256()
-            target = dest.joinpath(*parts)
             try:
                 try:
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    out = open(target, "xb")
+                    if windows:
+                        target = dest.joinpath(*parts)
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        out = open(target, "xb")
+                    else:
+                        out = os.fdopen(_create_no_follow(parts, out_chain, out_root_fd), "wb")
                 except OSError as exc:
                     raise _DestinationError(str(exc)) from exc
                 with out:
@@ -480,10 +518,11 @@ def copy_from_manifest(install: Path, dest: Path, expected: dict[str, str], plat
     except OSError:
         return False
     finally:
-        for _, open_fd in chain:
+        for _, open_fd in chain + out_chain:
             os.close(open_fd)
-        if root_fd is not None:
-            os.close(root_fd)
+        for open_fd in (root_fd, out_root_fd):
+            if open_fd is not None:
+                os.close(open_fd)
 
 
 def _matches(root: Path, expected: dict[str, str]) -> bool:
@@ -1212,7 +1251,8 @@ class Module(ModuleBase):
                 "of its files changed. That shouldn't happen. It may mean another "
                 "program on this computer swapped in its own code, which would then "
                 "have run with Reclaim City's permissions. We threw its results away "
-                "and deleted the saved copy, so a fresh one is downloaded next time.\n\n"
+                "and deleted the saved copy; a fresh one is downloaded on the next "
+                "checkup that's allowed to download.\n\n"
                 "What to do: Run a full checkup and look at what is set to start "
                 "automatically on this computer (background tasks and login items), "
                 "and at anything you don't recognise. If you're not sure what you're "

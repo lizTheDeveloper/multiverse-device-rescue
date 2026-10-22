@@ -128,8 +128,8 @@ Reclaim City checks HackMyAgent's files again right after it runs. This time
 they had changed while it was running. That shouldn't happen, and it can mean
 another program on this computer swapped in its own code, which would then
 have run with Reclaim City's permissions (on a Mac, that can include Full
-Disk Access). Reclaim City threw the results away and deleted its saved copy,
-so the next checkup downloads a fresh one.
+Disk Access). Reclaim City threw the results away and deleted its saved copy;
+the next checkup that's allowed to download fetches a fresh one.
 
 1. Don't panic, and don't start deleting things. Write down the date and time.
 2. Run a full checkup (without `--no-downloads`). Look closely at what it says
