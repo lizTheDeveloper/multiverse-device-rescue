@@ -191,3 +191,21 @@ test('city: every remote_access_tools finding is held, whatever its code or seve
   assert.strictEqual(split.held.length, 3);
   assert.ok(!JSON.stringify(split.doc).includes('AnyDesk'), 'nothing naming the tool outside the help district');
 });
+
+test('held "several tools" card: names the tools, never a "Couldn’t tell" fact that isn’t about one tool', async () => {
+  const { splitHeld } = await game('held.js');
+  const { renderSide } = await game('views/side-district.js');
+  const { pickDistrict } = await game('district-names.js');
+  const several = { title: 'More than one remote-access tool is on this computer', description: 'AnyDesk and RustDesk are both here.',
+    severity: 'critical', category: 'security', code: `${RA}several_tools`, removal_alert: true,
+    data: { check: 'several_tools', tools: ['AnyDesk', 'RustDesk'] } };
+  const held = splitHeld(scan(mod('remote_access_tools', [tool({}, { running_now: true }), several])), { mode: 'city' }).held;
+  const html = renderSide({ district: pickDistrict(7), held, seen: new Date(2026, 9, 22) }).replace(/<wbr>/g, '');
+  const cards = html.split('<li class="held-item">').slice(1);
+  const card = cards.find((c) => /More than one remote-access tool/.test(c));
+  assert.ok(card, 'the several-tools card is held');
+  // The page says AnyDesk is running; this card must not say "Running now: Couldn't tell".
+  assert.doesNotMatch(card, /<dt>(Added|Last let someone in|Can let someone in without a click|Running now)<\/dt>/);
+  assert.match(card, /<dt>Tools<\/dt><dd><span>AnyDesk, RustDesk<\/span>/);
+  assert.match(card, /<dt>Found on<\/dt>/);
+});

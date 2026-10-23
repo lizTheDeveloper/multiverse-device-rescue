@@ -33,13 +33,22 @@ export function heldNoticeHtml(district) {
 // before "Found on", so each card says its own. No copy button and nothing on
 // the clipboard: monitoring software can read it.
 // `seen`: today (a Date); the block writes it as a plain day.
+const isSeveral = (f) => (f && f.data && f.data.check === 'several_tools') || /\.several_tools$/.test(String((f && f.code) || ''));
+function severalRows(data) {
+  const tools = data && Array.isArray(data.tools) ? data.tools : [];
+  const names = [...new Set(tools.map((t) => String(t == null ? '' : t).trim().slice(0, 80)).filter(Boolean))].slice(0, 6);
+  return names.length ? [{ label: 'Tools', value: names.join(', '), mono: false }] : [];
+}
 export function heldBlockHtml(h, seen = new Date()) {
   const x = h || {};
   const f = x.finding || { module: x.module, title: x.title,
     data: { stalkerware_name: x.name || x.title, location: x.where, detected_as: x.how } };
   const rows = EV.evidenceRows(f, { mode: 'city', held: true, seen });
   if (x.module === 'remote_access_tools' && Array.isArray(rows) && rows.length) {
-    const facts = remoteFacts(f.data, { today: seen }).rows.map((r) => ({ label: r.label, value: r.value, mono: false }));
+    // The engine's "several tools" finding is about the set, not one tool: it names them, and has no added day or
+    // running state of its own (four "Couldn't tell" rows there would read as doubt about a tool the page calls running).
+    const facts = isSeveral(f) ? severalRows(f.data)
+      : remoteFacts(f.data, { today: seen }).rows.map((r) => ({ label: r.label, value: r.value, mono: false }));
     rows.splice(rows.length - 1, 0, ...facts);
   }
   return EV.renderEvidence(rows, { held: true, title: (h && h.title) || 'Write this down' });
