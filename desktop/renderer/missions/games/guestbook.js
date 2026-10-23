@@ -114,13 +114,14 @@ function question(stage, item, ctx) {
 
 // ---- Steps (never a scan value in them: the runner shows them as text, and a name could be anything) ----
 
+// The button opens the network pane (research.js PANE_URLS.network), so the steps say what to do on that page.
 const OFFLINE_STEPS = {
-  darwin: W(['Turn off Wi-Fi: open Control Center (at the top right of the screen) and switch Wi-Fi off.', 'If a network cable is plugged in, unplug it.',
+  darwin: W(['In the Network settings that open, click Wi-Fi, then switch Wi-Fi off.', 'If a network cable is plugged in, unplug it.',
     'Come back here: the questions work without the internet.'],
-  ['Switch the Wi-Fi off in Control Center.', 'If a cable is plugged in, unplug it.', 'Come back here: the questions work offline.']),
-  win32: W(['Turn on Airplane mode: open Quick Settings (the network icon at the bottom right of the screen) and choose Airplane mode.',
+  ['In the settings that open, click Wi-Fi and switch it off.', 'If a cable is plugged in, unplug it.', 'Come back here: the questions work offline.']),
+  win32: W(['In the Network & internet settings that open, turn on Airplane mode.',
     'If a network cable is plugged in, unplug it.', 'Come back here: the questions work without the internet.'],
-  ['Turn on Airplane mode in Quick Settings.', 'If a cable is plugged in, unplug it.', 'Come back here: the questions work offline.']),
+  ['In the settings that open, turn on Airplane mode.', 'If a cable is plugged in, unplug it.', 'Come back here: the questions work offline.']),
 };
 
 const UNATTENDED_STEPS = W(['Open the tool.', 'In its settings, find the option that lets someone connect without you accepting (often called unattended access) and turn it off.',

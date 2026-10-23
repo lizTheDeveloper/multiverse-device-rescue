@@ -410,3 +410,24 @@ test('Not sure: a tool the card says has no way in without a click is never told
     assert.match(game.render(view(game, item, ctx), ctx), /unattended access/, tool);
   }
 });
+
+test('Go offline first: the steps describe the settings page the button opens, on Mac and Windows', async () => {
+  const { C, game, by } = await load();
+  const R = await import(pathToFileURL(path.join(MISSIONS, 'research.js')).href);
+  const rust = by('RustDesk');
+  const PAGE = { darwin: /Network settings/, win32: /Network & internet settings/ };
+  const SWITCH = { darwin: /Wi-Fi/, win32: /Airplane mode/ };
+  for (const platform of ['darwin', 'win32']) {
+    for (const mode of ['standard', 'city']) {
+      const d = game.decisions(rust, ctxOf(C, { mode, platform }));
+      const off = byId(d, 'offline');
+      assert.strictEqual(off.effect.kind, 'settings');
+      assert.strictEqual(off.effect.pane, 'network');
+      assert.ok(R.PANE_URLS.network[platform], `${platform}: the network pane opens`);
+      const steps = off.effect.steps[mode].join(' ');
+      if (mode === 'standard') assert.match(steps, PAGE[platform], `${platform}: names the page that opens`);
+      assert.match(steps, SWITCH[platform], `${platform} ${mode}`);
+      assert.doesNotMatch(steps, /Control Center|Quick Settings/, `${platform} ${mode}: not a different place than the one that opened`);
+    }
+  }
+});
