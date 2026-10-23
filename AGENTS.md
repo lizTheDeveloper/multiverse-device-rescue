@@ -35,7 +35,9 @@ If the person just wants the app, send them to the download buttons in the
 4. **Check before removing stalkerware.** If the person thinks a partner, ex,
    or housemate is monitoring them, removing that software can alert the
    person who installed it. Before suggesting removal, give them the safety
-   note in the README and ask whether removal is safe for them.
+   note in the README and ask whether removal is safe for them. The same
+   goes for any finding with `removal_alert: true`, remote-access tools
+   (TeamViewer, AnyDesk…) included: one may be how someone watches.
 5. **Don't start heavy scans on your own.** `iphone_spyware_check` runs MVT
    over an iPhone backup and can take a long time and a lot of memory. Ask
    first.
@@ -61,6 +63,7 @@ uv venv && uv pip install .          # or: python3 -m venv .venv && .venv/bin/pi
 | "Someone's on my Wi-Fi" / "computer is hot and slow" | `rescue export --profile home_network_intrusion --stdout` |
 | "My identity was stolen" | `rescue export --profile identity_theft_recovery --stdout` |
 | "I installed a bad npm/pip package" / developer machine | `rescue export --profile ai_worm_response --stdout` |
+| "A support caller got onto my computer" / "I let someone in about a refund" | `rescue export --profile digital_security_reset --stdout`; if a `security.remote_access_tools.*` finding has `data.running_now: true`, help them go offline first |
 | "Fix up my parent's laptop" | `rescue export --profile home_for_the_holidays --stdout` |
 | "Is there spyware on my iPhone?" (needs a local backup) | ask first, then `rescue run iphone_spyware_check < /dev/null` |
 | More than one of these at once | repeat the profile: `rescue export --profile digital_security_reset --profile home_network_intrusion --stdout` |
