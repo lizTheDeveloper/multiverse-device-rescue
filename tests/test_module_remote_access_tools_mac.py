@@ -53,6 +53,7 @@ def _module(tmp_path):
     m.MAC_LAUNCHD_DIRS = [daemons, agents]
     m.now = lambda: datetime(2026, 3, 12, 12, 0, 0)
     m.kernel_path = staticmethod(lambda pid: None)  # no real process is ever read
+    m.kernel_name = staticmethod(lambda pid: None)
     return m, apps, daemons
 
 
@@ -186,6 +187,45 @@ def test_not_running_only_when_every_process_could_be_read(tmp_path):
     # A process that has exited since the list was taken is no process at all.
     _kernel(m, {100: "/usr/libexec/logd", 101: MOD.PROCESS_GONE})
     assert _sightings(m, _profile(processes=["logd", "helper"]))["anydesk"].running_now is False
+
+
+def _names(m, names):
+    """The kernel's own name for each pid (proc_name), read when its program path can't be."""
+    m.kernel_name = staticmethod(lambda pid: names.get(pid))
+
+
+def test_a_deleted_program_is_read_by_the_kernels_name(tmp_path):
+    # An app updated while running has no program file left, so proc_pidpath
+    # fails; the kernel still has the name it was started with.
+    m, apps, _ = _module(tmp_path)
+    _app(apps, "AnyDesk.app")
+    _kernel(m, {100: "/usr/libexec/logd"})
+    _names(m, {101: "2.1.301"})
+    assert _sightings(m, _profile(processes=["logd", "2.1.301"]))["anydesk"].running_now is False
+    _names(m, {101: "AnyDesk"})
+    assert _sightings(m, _profile(processes=["logd", "helper"]))["anydesk"].running_now is True
+
+
+def test_a_name_the_kernel_may_have_cut_short_rules_nothing_out(tmp_path):
+    m, apps, _ = _module(tmp_path)
+    _app(apps, "AnyDesk.app")
+    _kernel(m, {100: "/usr/libexec/logd"})
+    _names(m, {101: "x" * MOD.KERNEL_NAME_MAX})
+    assert _sightings(m, _profile(processes=["logd", "helper"]))["anydesk"].running_now is None
+    _names(m, {101: None})
+    assert _sightings(m, _profile(processes=["logd", "helper"]))["anydesk"].running_now is None
+    # The name is only a fallback: a readable path is never second-guessed by it.
+    _kernel(m, {100: "/usr/libexec/logd", 101: "/usr/sbin/cfprefsd"})
+    _names(m, {101: "AnyDesk"})
+    assert _sightings(m, _profile(processes=["logd", "helper"]))["anydesk"].running_now is False
+
+
+def test_the_kernel_name_reader_is_real_and_safe():
+    if sys.platform == "darwin":
+        mine = MOD.Module.kernel_name(os.getpid())
+        assert isinstance(mine, str) and 0 < len(mine) <= MOD.KERNEL_NAME_MAX
+    assert MOD.Module.kernel_name(-1) in (None, MOD.PROCESS_GONE)
+    assert MOD.Module.kernel_name("junk") is None
 
 
 def test_a_command_line_match_still_counts(tmp_path):

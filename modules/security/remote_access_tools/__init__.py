@@ -205,6 +205,29 @@ def _kernel_path(pid) -> str | None:
         return None
 
 
+# proc_name's longest answer (2 * MAXCOMLEN); a name this long may have been cut short.
+KERNEL_NAME_MAX = 32
+
+
+def _kernel_name(pid) -> str | None:
+    """The name the kernel gave a macOS process when it started its program
+    (libproc proc_name: the program file's name, at most KERNEL_NAME_MAX
+    characters). Read when kernel_path can't be, such as a program deleted while
+    it runs. Like the path, a process can't set it. PROCESS_GONE when the
+    process has exited; None when it can't be read."""
+    try:
+        pid = int(pid)
+        lib = ctypes.CDLL(ctypes.util.find_library("proc") or "/usr/lib/libproc.dylib", use_errno=True)
+        buf = ctypes.create_string_buffer(KERNEL_NAME_MAX + 1)
+        ctypes.set_errno(0)
+        n = lib.proc_name(pid, buf, ctypes.c_uint32(len(buf)))
+        if n > 0:
+            return buf.value.decode("utf-8", "surrogateescape")
+        return PROCESS_GONE if ctypes.get_errno() == errno.ESRCH else None
+    except Exception:
+        return None
+
+
 def _running(names: set[str] | None, patterns) -> bool | None:
     if names is None or not patterns:
         return None
@@ -240,6 +263,7 @@ class Module(ModuleBase):
     WINDOWS_HOST = sys.platform == "win32"
     now = staticmethod(lambda: datetime.now())
     kernel_path = staticmethod(_kernel_path)
+    kernel_name = staticmethod(_kernel_name)
     clock = staticmethod(time.monotonic)
 
     # ---------------- check ----------------
@@ -413,8 +437,9 @@ class Module(ModuleBase):
             return None
 
     def _mac_kernel_names(self, profile: SystemProfile) -> tuple[set[str] | None, bool]:
-        """(lowercased program names from the kernel's path of each process,
-        whether every process still running could be read). (None, False)
+        """(lowercased program names from the kernel's path of each process, or
+        its kernel name when the path can't be read; whether every process
+        still running could be read). (None, False)
         without a process list."""
         procs = getattr(profile, "processes", None) or []
         if not procs:
@@ -425,13 +450,20 @@ class Module(ModuleBase):
         for proc in procs:
             if not self._in_budget():
                 return names, False
-            path = self.kernel_path(getattr(proc, "pid", None))
+            pid = getattr(proc, "pid", None)
+            path = self.kernel_path(pid)
             if path == PROCESS_GONE:
                 continue
-            if not isinstance(path, str) or not path.startswith("/"):
-                every = False
+            if isinstance(path, str) and path.startswith("/"):
+                names.add(PurePosixPath(path).name.lower())
                 continue
-            names.add(PurePosixPath(path).name.lower())
+            name = self.kernel_name(pid)
+            if name == PROCESS_GONE:
+                continue
+            if isinstance(name, str) and 0 < len(name) < KERNEL_NAME_MAX:
+                names.add(name.lower())
+            else:
+                every = False
         return names, every
 
     @staticmethod
