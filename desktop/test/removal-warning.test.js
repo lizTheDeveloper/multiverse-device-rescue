@@ -145,6 +145,22 @@ async function cityScreens(fixable = true) {
 
 const LINE_NOTE = /<summary>Removing this can alert whoever installed it\. Read this first\.<\/summary>/;
 const noteOf = (html) => /<details class="finding-card__note">[\s\S]*?<\/details>/.exec(html)[0];
+// Standard mode in the game: behind the line, the install's own help district by name (the harness's citySeed 777),
+// one step away; the hotline and advocate text are in that district, never on a mission screen.
+const PLACE = 'The Roundhouse';
+const PLACE_NOTE = new RegExp(`<p>${PLACE} has a note about this\\. Read it before you remove anything\\.</p>`);
+// The district it leads to: the hotline and the advocate note, in full.
+function assertHelpOneStepAway(frame, click, where) {
+  const before = frame.innerHTML;
+  assert.match(noteOf(before), /data-go="side"/, `${where}: the way to ${PLACE}, in the note`);
+  click({ 'data-go': 'side' });
+  const side = frame.innerHTML;
+  assert.match(side, /id="side-title"[^>]*>THE ROUNDHOUSE</, `${where}: ${PLACE} opens`);
+  assert.match(side, /National Domestic Violence Hotline: 1-800-799-7233/, `${where}: the hotline is there`);
+  assert.match(side, /advocate/i, `${where}: and the advocate note`);
+  click({ 'data-act': 'side-back' });
+  assert.match(frame.innerHTML, /mx-screen/, `${where}: back where they were`);
+}
 
 test('the mission screen, standard mode: the Guest Book quiz carries the line and the note on every step; at Not needed the fix confirm says it too', async () => {
   const { steps, item, html, seen } = await missionScreen('standard');
@@ -157,9 +173,10 @@ test('the mission screen, standard mode: the Guest Book quiz carries the line an
     assert.match(h, /AnyDesk/, `step ${i}`);
     assert.match(h, LINE_NOTE, `step ${i}: the line`);
     const note = noteOf(h);
-    assert.match(note, ALERT, `step ${i}: the full note behind "Read this first"`);
+    assert.match(note, PLACE_NOTE, `step ${i}: behind "Read this first", the help district by name`);
+    assert.match(note, /data-go="side"/, `step ${i}: one step to it`);
     assert.ok(h.indexOf(note) < h.indexOf('mx-decisions'), `step ${i}: the note comes before the decisions`);
-    assert.doesNotMatch(h.replace(note, ''), DV, `step ${i}: no hotline wording on its face`);
+    assert.doesNotMatch(h, DV, `step ${i}: no hotline wording on the screen, the note included`);
   }
   // The removing decision never leads: "Later" first, "Remove it" after it.
   const bar = /<div class="mx-decisions"[\s\S]*?<\/div>/.exec(item)[0];
@@ -197,11 +214,20 @@ test('the mission screen, standard mode, the engine’s real stalkerware finding
   const M = require('./fixtures/monitoring-findings.json');
   const d = { schema_version: 1, platform: 'darwin', modules: [JSON.parse(JSON.stringify(M.stalkerware_scan))] };
   assert.ok(!d.modules[0].findings[0].removal_alert);
-  const { item } = await missionScreen('standard', false, d, []);
+  const { item, frame, click } = await missionScreen('standard', false, d, []);
   assert.match(item, /ITEM 1 OF 1/);
   assert.match(item, /<summary>Removing this can alert whoever installed it\. Read this first\.<\/summary>/);
   const note = /<details class="finding-card__note">[\s\S]*?<\/details>/.exec(item)[0];
-  assert.match(note, /advocate/);
+  assert.match(note, PLACE_NOTE);
+  assert.doesNotMatch(item, DV, 'no hotline wording on the screen');
+  assertHelpOneStepAway(frame, click, 'stalkerware');
+});
+
+test('standard mode, the Guest Book card: the hotline is one step from the card, in the help district', async () => {
+  const { item, frame, click } = await missionScreen('standard', false, null, []);
+  assert.match(item, /AnyDesk/);
+  assert.match(item, LINE_NOTE);
+  assertHelpOneStepAway(frame, click, 'remote tool');
 });
 
 test('a fix with no engine action, standard mode: the Guest Book’s "Remove it" is FixFlow’s module fix, its confirm warns; never in the city (held)', async () => {
@@ -229,7 +255,8 @@ test('no fix at all (the engine’s real finding): "Remove it" carries warning: 
   assert.match(html, LINE_NOTE);
   assert.ok(html.indexOf(noteOf(html)) < html.indexOf(confirm), 'the warning above the confirm');
   assert.doesNotMatch(html, /Uninstall/, 'the steps wait for the confirm');
-  assert.doesNotMatch(html.replace(noteOf(html), ''), DV);
+  assert.doesNotMatch(html, DV);
+  assert.match(noteOf(html), PLACE_NOTE);
   assert.deepStrictEqual(seen, [], 'no fix flow: there is no fix');
   // Read, then on: the removal steps, the warning still above them.
   click({ 'data-act': 'mx-confirm' });

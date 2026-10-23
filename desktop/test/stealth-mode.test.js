@@ -258,8 +258,12 @@ test('standard mode in the city: monitoring software is still said on the map, w
   const html = t.frame.innerHTML;
   assert.match(html, /Stalkerware found: mSpy/);
   assert.match(html, /<details class="finding-card__note"><summary>Removing this can alert whoever installed it\. Read this first\.<\/summary>/);
-  assert.match(html, /talk to an advocate before you remove anything/);
+  // Behind it, the help district by name and the way there; the advocate note and hotline are in it, not on the map.
+  assert.match(html, / has a note about this\. Read it before you remove anything\.<\/p><p><button type="button" class="btn-t" data-go="side">GO THERE ▶<\/button>/);
+  assert.doesNotMatch(html, /advocate|799-7233|88788/);
   assert.doesNotMatch(html, /Don’t remove it yet/);
+  t.click({ 'data-go': 'side' });
+  assert.match(t.frame.innerHTML, /1-800-799-7233/);
 });
 
 test('the briefing on monitoring software: the line and the full note (standard); the hold line, the help and nothing to act on (city)', async () => {

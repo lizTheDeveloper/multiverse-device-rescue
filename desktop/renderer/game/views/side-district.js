@@ -82,7 +82,8 @@ function offlineHtml(held) {
 }
 
 // `seen`: today, for the Found on row.
-export function renderSide({ district, held = [], notice = false, scout = () => '', seen = new Date() }) {
+// `cityNotes`: "What this mode does" and "Something changed?" (city mode's; standard mode opens it from a warning).
+export function renderSide({ district, held = [], notice = false, scout = () => '', seen = new Date(), cityNotes = true }) {
   const v = district.voice;
   const item = (h) => `<li class="held-item">${heldBlockHtml(h, seen)}</li>`;
   const heldHtml = held.length ? `
@@ -107,7 +108,7 @@ export function renderSide({ district, held = [], notice = false, scout = () => 
     <div class="panel"><p class="intel"><b>${esc(LEAVING.text)}</b></p></div>
     <p class="say">${esc(v.bye)}</p>
     <p class="intel">Press Esc to go back to the game.</p>
-    <p class="intel side-notes"><button type="button" class="btn-s" data-act="side-about-mode">WHAT THIS MODE DOES</button>
-      <button type="button" class="btn-s" data-act="side-change">SOMETHING CHANGED?</button></p>
+    ${cityNotes ? `<p class="intel side-notes"><button type="button" class="btn-s" data-act="side-about-mode">WHAT THIS MODE DOES</button>
+      <button type="button" class="btn-s" data-act="side-change">SOMETHING CHANGED?</button></p>` : ''}
   </section>`;
 }

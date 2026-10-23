@@ -71,12 +71,20 @@ test('city mode: the district is on the deck and on the Training Grounds, under 
   assert.match(t.html(), /data-go="side"/, 'before any sweep too');
 });
 
-test('standard mode: no district anywhere, and its routes and Esc do nothing', async () => {
-  const t = await setup({ mode: 'standard' });
-  assert.doesNotMatch(t.html(), /data-go="side"/);
+test('standard mode: no district tile on the deck; a removal warning’s way there opens it, without the city-mode buttons', async () => {
+  const { pickDistrict } = await game('district-names.js');
+  const t = await setup({ mode: 'standard' }, CLEAN);
+  assert.doesNotMatch(t.html(), /data-go="side"/, 'no tile: nothing on the deck points at it');
+  assert.doesNotMatch(t.html(), /ALSO IN TOWN/);
+  // The warning's GO THERE (QuietNotes.lineHtml with the place) is data-go="side".
   t.click({ 'data-go': 'side' });
+  assert.match(t.html(), /side-title/);
+  assert.ok(t.html().includes(pickDistrict(424242).name.toUpperCase()));
+  assert.match(t.html(), /1-800-799-7233/);
+  // "What this mode does" and "Something changed?" are about city mode: not offered here.
+  assert.doesNotMatch(t.html(), /side-about-mode|side-change/);
+  assert.strictEqual(t.press('Escape').prevented, true, 'Esc leaves it');
   assert.doesNotMatch(t.html(), /side-title/);
-  assert.strictEqual(t.press('Escape').prevented, false);
 });
 
 test('monitoring software waits in the district: not on the deck, no mission, no points, nothing saved', async () => {

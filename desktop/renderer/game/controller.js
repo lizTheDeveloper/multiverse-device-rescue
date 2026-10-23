@@ -200,7 +200,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     gapped: new Set(), drillEvidence: new Set(),
     drillBank: [], drillsLoaded: false, sweepDrills: null, drillAnswers: {}, range: null, sweptDoc: null,
     // The generated district. Memory only, like the ops log; nothing about it is stored.
-    sideTicket: 0, sideNotice: false, heldOpen: false,
+    sideTicket: 0, sideNotice: false, sideBack: null, heldOpen: false,
     // Opened from city mode's home (showHome): with no sweep yet, the deck is
     // where the person lands and comes back to, never the Training Grounds.
     homeFirst: false };
@@ -295,6 +295,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // say, and a mode not chosen yet (null), hide the families about someone
   // the person knows until it is known they are safe to show.
   const coverMode = () => hostMode() !== 'standard';
+  // Standard mode: the help district's name for a removal warning's note (QuietNotes.lineHtml), so no hotline
+  // wording is on a card; the district holds it, one step away. City mode keeps its own way there.
+  const helpPlace = () => (hostMode() === 'standard' ? side().name : '');
+  const sideAllowed = () => inCity() || hostMode() === 'standard';
   const drawBank = () => (coverMode() ? s.cityBank : s.bank);
   const viewOf = (p) => toProgress(p, drawBank());
   // A v3 view changed by progress.js or ledger.js: folded into the profile,
@@ -340,10 +344,13 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // (QuietNotes: the one line with "Read this first" behind it). City mode keeps the game's one line.
     safetyNote: (f) => {
       if (coverMode() || !f) return '';
-      const n = briefingNote(win.QuietNotes, hostMode(), f);
+      const place = helpPlace();
+      const n = briefingNote(win.QuietNotes, hostMode(), f, { place });
       if (n.html) return n.html;
       const sn = f.remediation && typeof f.remediation.safety_note === 'string' ? f.remediation.safety_note : '';
-      return sn && win.RescueHost && typeof win.RescueHost.wantsSafety === 'function' && win.RescueHost.wantsSafety(f) ? `<p>${esc(sn)}</p>` : '';
+      if (!sn || !(win.RescueHost && typeof win.RescueHost.wantsSafety === 'function' && win.RescueHost.wantsSafety(f))) return '';
+      // The engine's own note can carry the hotline: with a place, the line and the way there instead.
+      return place ? win.QuietNotes.lineHtml({ note: 'line', full: [] }, esc, { place }) : `<p>${esc(sn)}</p>`;
     },
     rebuild: (doc) => rebuild(doc), docChanged: (doc) => win.RescueHost.docChanged(doc),
     sweeping: () => sweeping(), stopped: () => !!s.stopped, render: () => render(), focusHeading: () => focusHeading(frame),
@@ -663,7 +670,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // Monitoring software the scan found. City mode: the generated district's
     // tile and a notice that name only the place, and the help is in there.
     // Otherwise (standard, or a host that can't say): the map's own note.
-    const held = inCity() ? '' : heldPanelHtml({ held: s.held, mode: hostMode(), Q: win.QuietNotes });
+    const held = inCity() ? '' : heldPanelHtml({ held: s.held, mode: hostMode(), Q: win.QuietNotes, place: helpPlace() });
     // Its district reads as checked, never NOTHING FOUND (views/map.js heldView).
     const heldIn = heldDistrictIds(s.heldCity);
     // City mode has no note above the map: a held district points to the generated one.
@@ -1066,7 +1073,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   function screenHtml() {
     if (s.screen === 'profile') return profileHtml();
     if (s.screen === 'side') {
-      if (inCity()) return renderSide({ district: side(), held: s.held, notice: s.sideNotice, scout, seen: new Date() });
+      if (sideAllowed()) return renderSide({ district: side(), held: s.held, notice: s.sideNotice, scout, seen: new Date(), cityNotes: inCity() });
       s.screen = s.city ? 'map' : noCity();
     }
     if (s.screen === 'range') return rangeHtml();
@@ -1113,7 +1120,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // city: show the checking briefing from the mission we last showed.
     if (s.screen === 'mission' && s.busy && !mission(s.missionId) && s.outcomeMission && s.outcomeMission.id === s.missionId) {
       const m0 = s.outcomeMission;
-      const note = briefingNote(win.QuietNotes, hostMode(), m0.primary);
+      const note = briefingNote(win.QuietNotes, hostMode(), m0.primary, { place: helpPlace() });
       const wantsSafety = win.RescueHost.wantsSafety(m0.primary);
       const { mission: m, cityWarn } = cityBriefing(m0, note, wantsSafety);
       const ev = evidenceOf(m.primary || {}, m.module);
@@ -1126,7 +1133,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       // Monitoring software is held (rebuild), so it shouldn't reach here; if it
       // ever does, the briefing carries the list's own note, and in city mode
       // nothing to act on.
-      const note = briefingNote(win.QuietNotes, hostMode(), m0.primary);
+      const note = briefingNote(win.QuietNotes, hostMode(), m0.primary, { place: helpPlace() });
       const wantsSafety = win.RescueHost.wantsSafety(m0.primary);
       const { mission: m, cityWarn } = cityBriefing(m0, note, wantsSafety);
       const controls = note.kind === 'held' || s.stopped ? ''
@@ -1411,6 +1418,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   }
 
   function openSide() {
+    // Standard mode reaches it from a removal warning: BACK returns there. City mode's way out is always the map.
+    s.sideBack = inCity() || s.screen === 'side' ? null : s.screen;
     s.signal = null; // a Signal or Noise panel left open closes
     s.sideNotice = false;
     s.sideSeen = true;
@@ -1427,6 +1436,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   function leaveSide() {
     s.sideTicket += 1; // a guide still opening says nothing afterwards
     s.sideNotice = false;
+    if (!inCity() && s.sideBack) { s.screen = s.sideBack; s.sideBack = null; render(); return; }
     s.screen = s.city ? 'map' : noCity();
     render();
     const first = s.city && s.city.districts.length ? s.city.districts[0] : null;
@@ -1499,7 +1509,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (s.busy) return;
     if (go) s.linkNotice = '';
     if (desk.click(act, go)) return;
-    if (go === 'side') { if (inCity()) openSide(); return; }
+    if (go === 'side') { if (sideAllowed()) openSide(); return; }
     if (act === 'side-open-guide') { if (s.screen === 'side') openSideGuide(); return; }
     // RE-SWEEP: the same read-only scan as the first one, through app.js, whose
     // gate decides where it lands.

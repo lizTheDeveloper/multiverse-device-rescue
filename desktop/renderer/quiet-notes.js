@@ -305,10 +305,23 @@ const QuietNotes = (function () {
     return `<div class="finding-card__note" role="note">${card.full.map((p) => `<p>${esc(p)}</p>`).join('')}</div>`;
   }
 
+  // Standard mode in the game: behind the line, the install's own help
+  // district by name, one step away (data-go="side"); the hotline and the
+  // advocate note are in full there, never on a card. Without a place (the
+  // list, or no game) the full note stays behind the line.
+  function placeNote(place) {
+    return `${place} has a note about this. Read it before you remove anything.`;
+  }
   // `opts.banner`: the list shows the note once, above the cards (bannerHtml),
   // so the card keeps only the one bold line and a way to that note.
+  // `opts.place`: the help district's name (see placeNote).
   function lineHtml(card, esc, opts = {}) {
     if (!card || card.note !== 'line') return '';
+    const place = typeof opts.place === 'string' ? opts.place.trim() : '';
+    if (place && !opts.banner) {
+      return `<details class="finding-card__note"><summary>${esc(LINE)}</summary><p>${esc(placeNote(place))}</p>`
+        + `<p><button type="button" class="btn-t" data-go="side">GO THERE ▶</button></p></details>`;
+    }
     if (opts.banner) {
       return `<p class="finding-card__note finding-card__note--first" role="note" data-safety-line><strong>${esc(LINE_SHORT)}</strong>`
         + ` <button type="button" class="link-button" data-safety-jump>Read this first</button></p>`;
@@ -363,7 +376,7 @@ const QuietNotes = (function () {
       category: f.category, code: f.code };
   }
 
-  return { MONITORING_MODULES, NOT_DETECTIONS, MONITOR_CAPABLE, canMonitor, hasExplicitNote, isDetection, MARKERS, ALERTS, carriesAlert, fullHtml, LINE, LINE_SHORT, HELD_LINE, HELD_MORE, HELD_HELP, HELD_HELP_TITLE, HELD_AI_NOTE, ACTS, heldDescription, heldPick, heldAsk, isMonitoring, quiet, quietFinding, quietDoc, noteFor, cardText, lineHtml, heldHtml, BANNER_HEAD, bannerNotes, bannerHtml };
+  return { placeNote, MONITORING_MODULES, NOT_DETECTIONS, MONITOR_CAPABLE, canMonitor, hasExplicitNote, isDetection, MARKERS, ALERTS, carriesAlert, fullHtml, LINE, LINE_SHORT, HELD_LINE, HELD_MORE, HELD_HELP, HELD_HELP_TITLE, HELD_AI_NOTE, ACTS, heldDescription, heldPick, heldAsk, isMonitoring, quiet, quietFinding, quietDoc, noteFor, cardText, lineHtml, heldHtml, BANNER_HEAD, bannerNotes, bannerHtml };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

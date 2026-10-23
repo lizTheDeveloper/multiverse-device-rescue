@@ -130,11 +130,12 @@ export function heldOnly(doc, { mode = 'city' } = {}) {
 // behind it. Anything else: nothing, and the briefing is as before.
 // `description` is what a held briefing says the software is, in place of the
 // engine's own text (which says how to remove it).
-export function briefingNote(Q, mode, finding) {
+// `place` (standard mode): the help district's name, behind the line in place of the full note.
+export function briefingNote(Q, mode, finding, { place = '' } = {}) {
   if (!Q || !finding) return { kind: 'none', html: '', description: '' };
   const card = Q.cardText(mode, finding);
   const full = typeof Q.fullHtml === 'function' ? Q.fullHtml(card, esc) : '';
-  return { kind: card.note, html: Q.lineHtml(card, esc) + full + Q.heldHtml(card, esc, { more: false }), description: card.description };
+  return { kind: card.note, html: Q.lineHtml(card, esc, { place }) + full + Q.heldHtml(card, esc, { more: false }), description: card.description };
 }
 
 // The map's note while something is held, so the city always says it and
@@ -144,7 +145,7 @@ export function briefingNote(Q, mode, finding) {
 // 'standard' it names what was found, with the one line. Never stored.
 export const HELD_LABEL = 'Something the checkup found';
 export const HELD_OPEN = 'Read this before you change anything';
-export function heldPanelHtml({ held, mode, Q }) {
+export function heldPanelHtml({ held, mode, Q, place = '' }) {
   if (!Q || !Array.isArray(held) || !held.length) return '';
   const card = Q.cardText(mode, { module: held[0].module });
   const list = '<button type="button" class="btn-t" data-act="list">SEE IT IN THE LIST</button>';
@@ -155,6 +156,6 @@ export function heldPanelHtml({ held, mode, Q }) {
   }
   const titles = held.map((h) => `<li>${esc(h.title || HELD_LABEL)}</li>`).join('');
   return `<div class="panel held" role="note"><div class="label">SOMETHING TO KNOW</div>
-    <ul class="notes">${titles}</ul>${Q.lineHtml(card, esc)}
+    <ul class="notes">${titles}</ul>${Q.lineHtml(card, esc, { place })}
     ${list}</div>`;
 }
