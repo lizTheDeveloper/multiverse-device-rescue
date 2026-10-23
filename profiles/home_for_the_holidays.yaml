@@ -11,6 +11,8 @@ modules:
     - disk_smart_check
     - malware_scan_indicators
     - automatic_updates
+    # TeamViewer, AnyDesk and the like: how most tech-support scams get in.
+    - remote_access_tools
   exclude: []
 module_config:
   disk_space:

@@ -225,7 +225,7 @@ display_name: "Home for the Holidays"
 description: >
   Help a family member get their device cleaned up ...
 modules:
-  include: [disk_space, disk_smart_check, malware_scan_indicators, automatic_updates]
+  include: [disk_space, disk_smart_check, malware_scan_indicators, automatic_updates, remote_access_tools]
   exclude: []
 module_config:
   disk_space:

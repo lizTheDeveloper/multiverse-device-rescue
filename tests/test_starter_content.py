@@ -54,6 +54,7 @@ def test_home_for_the_holidays_profile_matches_real_disk_space_module():
         "disk_smart_check",
         "disk_space",
         "malware_scan_indicators",
+        "remote_access_tools",
     }
 
 

@@ -27,7 +27,7 @@ $ rescue guide home_for_the_holidays --complete 3
 
 ## What the tool does
 
-Four checks — this profile is deliberately light on scanning and heavy on the
+Five checks — this profile is deliberately light on scanning and heavy on the
 checklist.
 
 | Module | What it answers | Platforms |
@@ -36,13 +36,14 @@ checklist.
 | `disk_smart_check` | Is the drive reporting early failure signs | macOS |
 | `malware_scan_indicators` | Known malware indicators on disk | macOS |
 | `automatic_updates` | Are OS and app updates actually turning on | macOS |
+| `remote_access_tools` | Is there a remote-access tool (TeamViewer, AnyDesk…), when was it added, and can it let someone in without a click | macOS, Windows |
 
 `disk_space` is configured at `sensitivity: normal` here — this is a
 maintenance visit, not an investigation, and a wall of warnings would make the
 afternoon worse.
 
-!!! info "Three of the four are macOS-only"
-    On Windows or Linux you get `disk_space` and not much else from the modules.
+!!! info "Three of the five are macOS-only"
+    On Windows you get `disk_space` and `remote_access_tools`; on Linux, `disk_space` only.
     The 13-step guide is entirely platform-independent and is the substance of
     this profile — so the visit still works, you just do the storage-health and
     malware parts with the platform's own tools. If the machine is Linux,
@@ -114,6 +115,11 @@ use this in six months should be the one who set it up.
 ```console
 $ rescue export --profile home_for_the_holidays --output ~/family-laptop
 ```
+
+If it finds a remote-access tool, don't remove it on the spot. Ask when it
+was added and who asked for it: a "support" caller or a refund pop-up is how
+most tech-support scams get in. The app's "Remote access" mission asks those
+questions with them and says what to do for each answer.
 
 A redacted case is a decent "here is what I checked and what I found" record to
 leave alongside the Help Me document — or to compare against next year's visit.

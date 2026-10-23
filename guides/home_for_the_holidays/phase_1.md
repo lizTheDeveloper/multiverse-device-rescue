@@ -9,8 +9,8 @@ estimated_time: "2 hours"
 
 ## Step 1: Run a full device health check
 
-Run the profile's disk-space, storage-health, malware-indicator, and update
-checks to understand the device before making changes.
+Run the profile's disk-space, storage-health, malware-indicator, update, and
+remote-access-tool checks to understand the device before making changes.
 
 ## Step 2: Clear out old temp files and caches
 
@@ -59,6 +59,15 @@ list.
 Uninstall apps that are no longer used, and close out or deactivate
 accounts they don't need anymore — fewer accounts means a smaller attack
 surface.
+
+If the checkup found a remote-access tool (TeamViewer, AnyDesk and others),
+don't remove it yet. Ask them when it was added and who asked them to
+install it: a caller or pop-up offering "support" or a refund is how most
+tech-support scams get in. In the app, the finding opens the "Remote
+access" mission, which asks those questions with them. Outside the app,
+follow the "Check a remote-access tool" walkthrough
+(`guides/remediation/review_remote_access_tools.md`), which says what to do
+for each answer and when removing it isn't safe.
 
 ## Step 11: Set a strong lock screen
 
