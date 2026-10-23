@@ -31,6 +31,12 @@ Supremo, AeroAdmin, Ammyy Admin, Remote Utilities, SimpleHelp, HopToDesk, Beyond
 NinjaOne, Action1, Chrome Remote Desktop, RealVNC, TightVNC, UltraVNC, Parsec, and the three `stalkerware_scan` listed that this list missed: NetSupport Manager, DWAgent, Radmin. Windows Quick Assist is built
 in, so it's reported only while it's running, never from presence (Windows keeps no readable session log for it).
 
+Added 2026-10-23, tools commonly abused in tech-support scams (identifiers from LOLRMM, vendor source code and
+Elastic's detection rules; a field nobody could source is left empty): MeshCentral (MeshAgent), Tactical RMM,
+ToDesk, Sunlogin, AweSun, ISL Online, FleetDeck, N-able Take Control, Syncro, Kaseya VSA, DameWare, Iperius
+Remote, Getscreen.me. Level was left out: its only identifiers (`level.exe`, a service named `Level`) are plain
+words that would match harmless software.
+
 **Evidence per tool** (all read-only, each step time-budgeted, missing evidence says "couldn't tell", never
 "no"):
 

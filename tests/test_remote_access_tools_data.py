@@ -111,3 +111,67 @@ def test_tool_is_frozen():
     t = TOOLS.load_tools()[0]
     with pytest.raises(Exception):
         t.name = "other"
+
+
+# Added from LOLRMM (lolrmm.io), vendor source code and Elastic's detection rules: tools
+# commonly abused in tech-support scams and intrusions.
+SCAM_IDS = {
+    "meshcentral", "tactical_rmm", "todesk", "sunlogin", "awesun", "isl_online", "fleetdeck",
+    "take_control", "syncro", "kaseya_vsa", "dameware", "iperius_remote", "getscreen",
+}
+
+
+def test_scam_tools_are_listed():
+    ids = {t.id for t in TOOLS.load_tools()}
+    assert SCAM_IDS <= ids
+
+
+def test_scam_tools_have_no_logs():
+    by_id = {t.id: t for t in TOOLS.load_tools()}
+    assert all(not by_id[i].logs and not by_id[i].presence_only for i in SCAM_IDS)
+
+
+# Process names are matched exactly against the kernel's program name (and on Windows
+# also without ".exe"); service names are matched as prefixes. A plain word would match
+# harmless software, so none may be one.
+GENERIC_WORDS = {
+    "agent", "service", "services", "svc", "helper", "client", "server", "host", "daemon",
+    "monitor", "update", "updater", "launcher", "setup", "install", "installer", "uninstall",
+    "remote", "support", "desktop", "app", "main", "run", "runner", "tray", "core", "level",
+    "control", "connect", "viewer", "manager", "sync", "screen", "admin", "system", "process",
+    "worker", "watchdog", "node", "python", "java", "electron",
+}
+
+
+def _stem(name: str) -> str:
+    low = name.strip().lower()
+    return low[:-4] if low.endswith(".exe") else low
+
+
+@pytest.mark.parametrize("field", ["mac_processes", "win_processes", "win_services"])
+def test_no_process_or_service_name_is_a_generic_word(field):
+    for t in TOOLS.load_tools():
+        for name in getattr(t, field):
+            stem = _stem(name)
+            assert len(stem) >= 4, (t.id, field, name)
+            assert stem not in GENERIC_WORDS, (t.id, field, name)
+
+
+def test_launchd_prefixes_are_specific():
+    for t in TOOLS.load_tools():
+        for prefix in t.mac_launchd:
+            assert len(prefix.strip(".-_")) >= 6, (t.id, prefix)
+            assert prefix.strip(".-_").lower() not in GENERIC_WORDS, (t.id, prefix)
+
+
+def test_display_name_patterns_are_anchored():
+    for t in TOOLS.load_tools():
+        for pattern in t.win_display_names:
+            assert pattern.startswith("^"), (t.id, pattern)
+            assert len(pattern) >= 6, (t.id, pattern)
+
+
+@pytest.mark.parametrize("name", ["agent.exe", "service.exe", "helper", "Client.exe", "level.exe", "svc.exe"])
+def test_generic_rule_rejects_plain_words(name):
+    stem = _stem(name)
+    assert len(stem) < 4 or stem in GENERIC_WORDS

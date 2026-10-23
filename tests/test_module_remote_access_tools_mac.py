@@ -488,3 +488,30 @@ def test_unattended_is_unknown_when_we_know_no_part_of_it_to_look_for(tmp_path, 
     _app(apps, app)
     s = _sightings(m)[tool_id]
     assert s.lets_in_unattended is None and s.one_off is False
+
+
+# ---------------- tools added from LOLRMM / vendor source (one synthetic sighting each) ----------------
+
+@pytest.mark.parametrize("label,tool_id", [
+    ("meshagent", "meshcentral"),                 # /Library/LaunchDaemons/meshagent.plist
+    ("meshagent-launchagent", "meshcentral"),     # /Library/LaunchAgents/meshagent-launchagent.plist
+    ("tacticalagent", "tactical_rmm"),            # /Library/LaunchDaemons/tacticalagent.plist
+])
+def test_scam_tool_launchd_item_is_unattended(tmp_path, label, tool_id):
+    m, _, daemons = _module(tmp_path)
+    _plist(daemons, label)
+    s = _sightings(m)[tool_id]
+    assert s.lets_in_unattended is True and s.unattended_via == label
+
+
+@pytest.mark.parametrize("process,tool_id", [("meshagent", "meshcentral"), ("tacticalagent", "tactical_rmm")])
+def test_scam_tool_running_process_is_a_sighting(tmp_path, process, tool_id):
+    m, _, _ = _module(tmp_path)
+    s = _sightings(m, _profile(processes=[process]))[tool_id]
+    assert s.running_now is True and s.path is None
+
+
+def test_windows_only_scam_tools_are_never_a_mac_sighting(tmp_path):
+    m, _, _ = _module(tmp_path)
+    got = _sightings(m, _profile(processes=["ToDesk.exe", "AweSun.exe", "getscreen.exe", "AgentMon.exe"]))
+    assert not {"todesk", "awesun", "getscreen", "kaseya_vsa"} & set(got)

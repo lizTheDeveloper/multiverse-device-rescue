@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
-  "last_updated": "2026-10-22",
-  "note": "Remote-access tools: software that lets someone else see and control this computer. Identifiers come from the vendors' own installers; a field left empty is one we don't know, and detection falls back to the others. Windows display names are case-insensitive regexes over the uninstall entry's DisplayName. mac_launchd entries are label prefixes. Only TeamViewer and AnyDesk keep a connection log we read, and only its dates and a count are ever used. Quick Assist is built into Windows, so it is reported only while it is running.",
+  "last_updated": "2026-10-23",
+  "note": "Remote-access tools: software that lets someone else see and control this computer. Identifiers come from the vendors' own installers and source code, or from public detection lists (LOLRMM, Elastic detection rules); a field left empty is one we don't know, and detection falls back to the others. Windows display names are case-insensitive regexes over the uninstall entry's DisplayName. mac_launchd entries are label prefixes. Only TeamViewer and AnyDesk keep a connection log we read, and only its dates and a count are ever used. Quick Assist is built into Windows, so it is reported only while it is running.",
   "tools": [
     {
       "id": "teamviewer",
@@ -699,6 +699,247 @@
       ],
       "win_processes": [
         "rserver3.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "meshcentral",
+      "name": "MeshCentral (MeshAgent)",
+      "maker": "MeshCentral",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [
+        "meshagent"
+      ],
+      "mac_processes": [
+        "meshagent"
+      ],
+      "win_display_names": [
+        "^Mesh Agent\\b"
+      ],
+      "win_services": [
+        "Mesh Agent"
+      ],
+      "win_processes": [
+        "MeshAgent.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "tactical_rmm",
+      "name": "Tactical RMM",
+      "maker": "Amidaware Inc.",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [
+        "tacticalagent"
+      ],
+      "mac_processes": [
+        "tacticalagent"
+      ],
+      "win_display_names": [
+        "^Tactical RMM Agent\\b"
+      ],
+      "win_services": [
+        "tacticalrmm"
+      ],
+      "win_processes": [
+        "tacticalrmm.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "todesk",
+      "name": "ToDesk",
+      "maker": "YouQu Technology",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [],
+      "mac_processes": [],
+      "win_display_names": [],
+      "win_services": [],
+      "win_processes": [
+        "ToDesk.exe",
+        "ToDesk_Service.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "sunlogin",
+      "name": "Sunlogin",
+      "maker": "Oray",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [],
+      "mac_processes": [],
+      "win_display_names": [],
+      "win_services": [],
+      "win_processes": [
+        "OrayRemoteShell.exe",
+        "OrayRemoteService.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "awesun",
+      "name": "AweSun",
+      "maker": "AweRay",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [],
+      "mac_processes": [],
+      "win_display_names": [],
+      "win_services": [],
+      "win_processes": [
+        "AweSun.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "isl_online",
+      "name": "ISL Online (ISL Light)",
+      "maker": "ISL Online",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [],
+      "mac_processes": [],
+      "win_display_names": [],
+      "win_services": [],
+      "win_processes": [
+        "ISLLight.exe",
+        "ISLLightClient.exe",
+        "ISLLightService.exe",
+        "ISLAlwaysOnMonitor.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "fleetdeck",
+      "name": "FleetDeck",
+      "maker": "FleetDeck Inc.",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [],
+      "mac_processes": [],
+      "win_display_names": [],
+      "win_services": [
+        "FleetDeck Agent Service"
+      ],
+      "win_processes": [
+        "fleetdeck_agent_svc.exe",
+        "fleetdeck_agent.exe",
+        "fleetdeck_commander_svc.exe",
+        "fleetdeck_commander_launcher.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "take_control",
+      "name": "N-able Take Control",
+      "maker": "N-able",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [],
+      "mac_processes": [],
+      "win_display_names": [],
+      "win_services": [],
+      "win_processes": [
+        "BASupSrvc.exe",
+        "BASupApp.exe",
+        "BASupAppSrvc.exe",
+        "BASupAppElev.exe",
+        "BASupSrvcUpdate.exe",
+        "BASupTSHelper.exe",
+        "BASupSysInf.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "syncro",
+      "name": "Syncro",
+      "maker": "Servably, Inc.",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [],
+      "mac_processes": [],
+      "win_display_names": [],
+      "win_services": [],
+      "win_processes": [
+        "Syncro.Service.exe",
+        "Syncro.App.Runner.exe",
+        "Syncro.Overmind.Service.exe",
+        "SyncroLive.Agent.exe",
+        "SyncroLive.Agent.Runner.exe",
+        "SyncroLive.Service.exe",
+        "Kabuto.Service.Runner.exe",
+        "Kabuto.App.Runner.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "kaseya_vsa",
+      "name": "Kaseya VSA",
+      "maker": "Kaseya",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [],
+      "mac_processes": [],
+      "win_display_names": [],
+      "win_services": [],
+      "win_processes": [
+        "AgentMon.exe",
+        "KaUsrTsk.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "dameware",
+      "name": "DameWare Mini Remote Control",
+      "maker": "SolarWinds",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [],
+      "mac_processes": [],
+      "win_display_names": [],
+      "win_services": [
+        "DWMRCS"
+      ],
+      "win_processes": [
+        "DWRCS.exe",
+        "DWRCST.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "iperius_remote",
+      "name": "Iperius Remote",
+      "maker": "Enter Srl",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [],
+      "mac_processes": [],
+      "win_display_names": [],
+      "win_services": [],
+      "win_processes": [
+        "IperiusRemote.exe"
+      ],
+      "logs": []
+    },
+    {
+      "id": "getscreen",
+      "name": "Getscreen.me",
+      "maker": "Point B Ltd",
+      "mac_bundle_ids": [],
+      "mac_app_names": [],
+      "mac_launchd": [],
+      "mac_processes": [],
+      "win_display_names": [],
+      "win_services": [
+        "GetscreenSV",
+        "Getscreen.me"
+      ],
+      "win_processes": [
+        "getscreen.exe"
       ],
       "logs": []
     },

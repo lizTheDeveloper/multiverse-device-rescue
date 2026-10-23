@@ -6,6 +6,8 @@ from datetime import date, datetime
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from rescue.command import CommandResult
@@ -331,3 +333,74 @@ def test_unattended_is_unknown_when_we_know_no_service_to_look_for(tmp_path):
     for tool_id in ("zoho_assist", "simplehelp"):
         assert got[tool_id].lets_in_unattended is None, tool_id
         assert got[tool_id].one_off is False
+
+
+# ---------------- tools added from LOLRMM / vendor source (one synthetic sighting each) ----------------
+
+SCAM_PROCESSES = [
+    ("MeshAgent.exe", r"C:\Program Files\Mesh Agent\MeshAgent.exe", "meshcentral"),
+    ("tacticalrmm.exe", r"C:\Program Files\TacticalAgent\tacticalrmm.exe", "tactical_rmm"),
+    ("ToDesk_Service.exe", r"C:\Program Files\ToDesk\ToDesk_Service.exe", "todesk"),
+    ("OrayRemoteService.exe", r"C:\Program Files\Oray\SunLogin\OrayRemoteService.exe", "sunlogin"),
+    ("AweSun.exe", r"C:\Program Files\Oray\AweSun\AweSun.exe", "awesun"),
+    ("ISLLight.exe", r"C:\Program Files (x86)\ISL Online\ISL Light\ISLLight.exe", "isl_online"),
+    ("fleetdeck_agent_svc.exe", r"C:\Program Files (x86)\FleetDeck Agent\fleetdeck_agent_svc.exe", "fleetdeck"),
+    ("BASupSrvc.exe", r"C:\Program Files (x86)\BeAnywhere Support Express\BASupSrvc.exe", "take_control"),
+    ("Syncro.Service.exe", r"C:\Program Files\RepairTech\Syncro\Syncro.Service.exe", "syncro"),
+    ("AgentMon.exe", r"C:\Program Files (x86)\Kaseya\abc\AgentMon.exe", "kaseya_vsa"),
+    ("DWRCS.exe", r"C:\Windows\dwrcs\DWRCS.exe", "dameware"),
+    ("IperiusRemote.exe", r"C:\Program Files\IperiusRemote\IperiusRemote.exe", "iperius_remote"),
+    ("getscreen.exe", r"C:\Program Files\Getscreen.me\getscreen.exe", "getscreen"),
+]
+SCAM_IDS_SEEN = {t[2] for t in SCAM_PROCESSES}
+
+
+@pytest.mark.parametrize("name,path,tool_id", SCAM_PROCESSES)
+def test_scam_tool_running_process_is_a_sighting(tmp_path, name, path, tool_id):
+    m = _module(tmp_path)
+    s = _sightings(m, _fake_reg(services={"Spooler": 2}), _profile([(name, path)]))[tool_id]
+    assert s.running_now is True
+
+
+@pytest.mark.parametrize("service,tool_id", [
+    ("Mesh Agent", "meshcentral"),
+    ("tacticalrmm", "tactical_rmm"),
+    ("FleetDeck Agent Service", "fleetdeck"),
+    ("DWMRCS", "dameware"),
+    ("GetscreenSV", "getscreen"),
+])
+def test_scam_tool_auto_start_service_is_unattended(tmp_path, service, tool_id):
+    m = _module(tmp_path)
+    s = _sightings(m, _fake_reg(services={service: 2, "Spooler": 2}))[tool_id]
+    assert s.lets_in_unattended is True and s.unattended_via == service
+
+
+@pytest.mark.parametrize("display,tool_id", [("Mesh Agent", "meshcentral"), ("Tactical RMM Agent", "tactical_rmm")])
+def test_scam_tool_uninstall_entry_is_a_sighting(tmp_path, display, tool_id):
+    m = _module(tmp_path)
+    fake = _fake_reg(uninstall=_uninstall_block(HKLM, display, display, install_date="20260303"))
+    s = _sightings(m, fake)[tool_id]
+    assert s.added_on == date(2026, 3, 3)
+
+
+def test_scam_tool_download_is_a_sighting(tmp_path):
+    m = _module(tmp_path)
+    todesk = m.HOME / "Downloads" / "ToDesk_Setup.exe"
+    todesk.write_bytes(b"MZ")
+    (m.HOME / "Downloads" / "getscreen-x86.exe").write_bytes(b"MZ")
+    got = _sightings(m, _fake_reg(), _profile([("explorer.exe", "explorer.exe")]))
+    assert got["todesk"].path == str(todesk)
+    # Getscreen.me's service is known and absent, so the download is a one-off. No
+    # ToDesk service name is known, so whether it lets anyone in stays "couldn't tell".
+    assert got["getscreen"].one_off is True
+    assert got["todesk"].lets_in_unattended is None and got["todesk"].one_off is False
+
+
+def test_similar_harmless_names_are_not_scam_tools(tmp_path):
+    # Level's agent is "level.exe" (too plain to look for); Iperius Backup is "Iperius.exe".
+    m = _module(tmp_path)
+    got = _sightings(m, _fake_reg(services={"LevelOneSvc": 2, "MeshNetworkSvc": 2}),
+                     _profile([("level.exe", r"C:\Games\level.exe"), ("Iperius.exe", r"C:\Iperius\Iperius.exe"),
+                               ("agent.exe", r"C:\x\agent.exe")]))
+    assert not SCAM_IDS_SEEN & set(got)
+
