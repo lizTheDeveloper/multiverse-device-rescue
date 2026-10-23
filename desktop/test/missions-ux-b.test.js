@@ -27,13 +27,15 @@ function doc({ part = 'part' } = {}) {
 
 function stub(recheckDocs = []) {
   const listeners = [];
-  const calls = { recheck: [], fixHtml: [], markHtml: [], clicked: [], focused: [] };
-  const el = (name) => ({ name, click() { calls.clicked.push(name); }, focus() { calls.focused.push(name); }, setAttribute() {} });
+  const calls = { recheck: [], fixHtml: [], markHtml: [], clicked: [], focused: [], scrolled: [] };
+  const el = (name) => ({ name, click() { calls.clicked.push(name); }, focus() { calls.focused.push(name); }, setAttribute() {},
+    scrollIntoView(o) { calls.scrolled.push({ name, o }); } });
   const frame = { innerHTML: '', addEventListener: (type, fn) => { if (type === 'click') listeners.push(fn); },
     querySelector: (sel) => {
       if (/data-fix-open/.test(sel) && /data-fix-open/.test(frame.innerHTML)) return el('fix-open');
       if (/data-mark-open/.test(sel) && /data-mark-open/.test(frame.innerHTML)) return el('mark-open');
       if (/mx-act/.test(sel) && /mx-act/.test(frame.innerHTML)) return el('mx-act');
+      if (/mx-guide/.test(sel) && /mx-guide/.test(frame.innerHTML)) return el('mx-guide');
       return null;
     }, querySelectorAll: () => [] };
   const shadow = { activeElement: null, getElementById: () => frame, addEventListener: () => {} };
@@ -407,4 +409,35 @@ test('unpaid result: no award, no keepAnswer, no bonus', async () => {
       assert.strictEqual(Object.keys(p.kept).length, 1);
     }
   }
+});
+
+
+// --- steps that open under the sticky decision bar ---
+
+test('steps a decision opens are scrolled into view once, not on every redraw (any game: the shared mission desk)', async () => {
+  const FX = require('./fixtures/missions/guestbook-items.json');
+  const rust = FX.findings.filter((x) => x.data.tool === 'RustDesk').map(({ module, ...x }) => x);
+  const all = async () => (await import('../renderer/missions/games/index.js')).loadGames();
+  const t = await setup(scan(mod('remote_access_tools', rust)), { games: all });
+  t.click({ 'data-act': 'investigate-next' });
+  if (/PRACTICE FIRST/.test(t.html())) t.click({ 'data-act': 'mx-know' });
+  assert.doesNotMatch(t.html(), /mx-guide/);
+  assert.strictEqual(t.calls.scrolled.length, 0, 'nothing opened yet');
+  t.click({ 'data-act': 'mx-decide:offline' });
+  await tick(); await tick();
+  assert.match(t.html(), /class="panel mx-guide"/, 'the offline steps are on screen');
+  const first = t.calls.scrolled.filter((x) => x.name === 'mx-guide');
+  assert.strictEqual(first.length, 1, 'scrolled to once');
+  assert.strictEqual(first[0].o && first[0].o.block, 'nearest');
+  // (The decision drew twice: once at once, once after Settings opened. One scroll.)
+  // Removal: the steps open after the warning's confirm, and are brought into view then.
+  t.click({ 'data-act': 'mx-decide:continue' });
+  t.click({ 'data-act': 'mx-decide:installed' });
+  t.click({ 'data-act': 'mx-decide:nouse' });
+  t.click({ 'data-act': 'mx-decide:remove' });
+  assert.match(t.html(), /data-act="mx-confirm"/, 'the warning’s confirm first');
+  t.click({ 'data-act': 'mx-confirm' });
+  await tick(); await tick();
+  assert.match(t.html(), /Drag it from Applications to the Trash/);
+  assert.strictEqual(t.calls.scrolled.filter((x) => x.name === 'mx-guide').length, 2, 'the removal steps are brought into view');
 });

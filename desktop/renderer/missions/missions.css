@@ -20,6 +20,8 @@
 .mx-evidence > summary { cursor: pointer; }
 .mx-links ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 14px; }
 .mx-link-text { font-family: var(--font-mono); font-size: 13px; color: var(--offwhite); overflow-wrap: anywhere; }
+/* Opened steps are scrolled to (missions-city.js afterRender): clear the sticky .mx-bar below them. */
+.mx-guide { scroll-margin-bottom: 140px; }
 .mx-guide ol { margin: 6px 0 0; padding-left: 20px; }
 .mx-guide li { margin: 4px 0; overflow-wrap: anywhere; }
 .mx-guide .mx-guide-head { margin: 10px 0 0; }

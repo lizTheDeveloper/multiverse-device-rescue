@@ -45,7 +45,7 @@ const SETTING_SCHEME = /^(?:x-apple\.systempreferences:|ms-settings:)/;
 export function createMissionDesk(deps) {
   // `done`: fixes and marks made from a mission this session, each with its
   // Undo (UX audit P1-5). `undoing`: the one whose Undo is running.
-  const d = { reg: null, missions: [], run: null, runs: new Map(), answered: new Map(), odd: new Set(), notice: '', act: null,
+  const d = { reveal: false, reg: null, missions: [], run: null, runs: new Map(), answered: new Map(), odd: new Set(), notice: '', act: null,
     busy: false, doc: null, unfinished: new Set(), paidSummary: new Set(), done: [], doneSeq: 0, undoing: null, laterKeys: new Set() };
   const mode = () => (deps.mode() === 'standard' ? 'standard' : 'city');
   const table = () => buildTable(ownGames(d.reg));
@@ -210,7 +210,14 @@ export function createMissionDesk(deps) {
   }
   // After the screen is drawn: open the act's confirm and move focus to it.
   function afterRender(root) {
-    if (!d.act || !d.act.open || !root || typeof root.querySelector !== 'function') return;
+    if (!root || typeof root.querySelector !== 'function') return;
+    // Steps a decision just opened sit below the card, where the sticky decision bar covers them: bring them into
+    // view once (an instant jump, no animation; the guide's scroll-margin keeps it clear of the bar).
+    if (d.reveal) {
+      const guide = root.querySelector('.mx-guide');
+      if (guide) { d.reveal = false; if (typeof guide.scrollIntoView === 'function') guide.scrollIntoView({ block: 'nearest' }); }
+    }
+    if (!d.act || !d.act.open) return;
     const fix = d.act.kind === 'fix';
     const btn = root.querySelector(fix ? '.mx-act [data-fix-open]' : '.mx-act [data-mark-open]');
     if (btn && typeof btn.click === 'function') btn.click();
@@ -609,6 +616,7 @@ export function createMissionDesk(deps) {
     if (d.busy) return true;
     d.notice = '';
     const before = d.run.results.slice();
+    const guideBefore = d.run.guide;
     if (act.startsWith('mx-decide:')) {
       const r = Run.choose(d.run, act.slice(10), game, ctx);
       d.run = r.run;
@@ -669,6 +677,8 @@ export function createMissionDesk(deps) {
       if (next && open(next.id)) { deps.render(); deps.focusHeading(); return true; }
       deps.setScreen('map');
     } else return false;
+    const g = d.run && d.run.guide;
+    d.reveal = !!(g && g !== guideBefore && ((g.steps && g.steps.length) || (g.checklist && g.checklist.length)));
     keepRun();
     deps.render();
     return true;
