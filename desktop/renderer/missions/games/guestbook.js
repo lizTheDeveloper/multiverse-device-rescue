@@ -101,8 +101,11 @@ function question(stage, item, ctx) {
     case 'scam': return W('This looks like a tech-support scam. Do these steps now, in order.', 'This looks like a con. Do these steps now, in order.');
     case 'known': return W('Someone you know set it up. Don’t remove it yet: removing it can tell whoever set it up.',
       'Someone you know set it up. Leave it for now: clearing it out can tell them.');
-    case 'unsure': return W('Not sure is fine. For now, turn off unattended access and look at its connection list.',
-      'Not sure is fine. For now, lock its side door and read its guest list.');
+    // The card already says "Found no way for it to let someone in without you": don't then ask to turn that off.
+    case 'unsure': return dataOf(item).lets_in_unattended === false
+      ? W('Not sure is fine. For now, look at its connection list.', 'Not sure is fine. For now, read its guest list.')
+      : W('Not sure is fine. For now, turn off unattended access and look at its connection list.',
+        'Not sure is fine. For now, lock its side door and read its guest list.');
     case 'several': return W('More than one remote-access tool is on this computer. Scammers often install a second one to get back in.',
       'More than one guest has a key to this post. A con often leaves a second key to get back in.');
     default: return W('', '');
@@ -200,7 +203,10 @@ export function decisions(item, ctx) {
     // R13: nothing here pays or is kept, and nothing removes it.
     case 'known': return [{ id: 'talk', label: W('Talk to someone first', 'Talk to someone first'), effect: { kind: 'closer', unpaid: true, steps: KNOWN_STEPS } },
       later({ unpaid: true })];
-    case 'unsure': return [turnOff(), { id: 'connections', label: W('Check its connections', 'Read its guest list'), effect: { kind: 'closer', steps: CONNECTIONS_STEPS } }, later()];
+    case 'unsure': {
+      const connections = { id: 'connections', label: W('Check its connections', 'Read its guest list'), effect: { kind: 'closer', steps: CONNECTIONS_STEPS } };
+      return dataOf(item).lets_in_unattended === false ? [connections, later()] : [turnOff(), connections, later()];
+    }
     case 'several': return [{ id: 'closer', label: W('Look at each', 'Check each guest'), effect: { kind: 'closer', steps: SEVERAL_STEPS } },
       { id: 'did', label: W('Check again', 'Sweep again'), effect: { kind: 'recheck', module: MODULE } }, later()];
     default: return [later(), { id: 'did', label: W('Check again', 'Sweep again'), effect: { kind: 'recheck', module: MODULE } }];

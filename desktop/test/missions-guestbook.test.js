@@ -389,3 +389,24 @@ test('a tool that is running now is the first card of its mission, before worse 
   assert.strictEqual(gb.items[0].finding.data.tool, 'RustDesk', 'the running tool leads, though AnyDesk is critical');
   assert.strictEqual(gb.items.filter((i) => i.finding.data.running_now === true).length, 1);
 });
+
+test('Not sure: a tool the card says has no way in without a click is never told to turn that off', async () => {
+  const { C, game, by } = await load();
+  const rust = by('RustDesk');
+  assert.strictEqual(rust.finding.data.lets_in_unattended, false);
+  for (const mode of ['standard', 'city']) {
+    const ctx = ctxOf(C, { mode, answers: answersFor(rust, 'unsure') });
+    const d = game.decisions(rust, ctx);
+    assert.ok(!ids(d).includes('unattended'), `${mode}: ${ids(d)}`);
+    assert.ok(ids(d).includes('connections'));
+    const html = game.render(view(game, rust, ctx), ctx);
+    assert.doesNotMatch(html, /unattended access|side door/i, mode);
+  }
+  // Can, or couldn't tell: the step stays.
+  for (const tool of ['AnyDesk', 'TeamViewer']) {
+    const item = by(tool);
+    const ctx = ctxOf(C, { answers: answersFor(item, 'unsure') });
+    assert.ok(ids(game.decisions(item, ctx)).includes('unattended'), tool);
+    assert.match(game.render(view(game, item, ctx), ctx), /unattended access/, tool);
+  }
+});
