@@ -459,7 +459,9 @@ const Evidence = (function () {
     // How long the check was allowed to run: the engine's budget, not evidence (P2-11).
     'time_budget_s',
     // The engine's own certainty ("medium"): a word for code, not evidence (P2-4).
-    'confidence']);
+    'confidence',
+    // remote_access_tools' internal names: the tool's id and the kind used for "mark as mine".
+    'tool_id', 'known_item_kind']);
   const skipKey = (key) => SKIP.has(key) || /_type$/.test(key) || /^check_/.test(key);
   // A unit at the end of a key ("swap_used_mb", "latency_ms"): the label
   // without it, the value with it (P2-11: never "Swap used mb 3935.38").
@@ -487,7 +489,13 @@ const Evidence = (function () {
     servers: 'DNS servers', dns_servers: 'DNS servers', providers: 'Provider', provider: 'Provider',
     profile_ids: 'Profile id', gateway_ip: 'Router', service: 'Service', kind: 'Kind',
     free_pct_str: 'Free', fv_enabled: 'FileVault on', mvt_bin: 'MVT program',
+    // remote_access_tools, in the Guest Book card's words (missions/remote-facts.js).
+    added_on: 'Added', last_incoming: 'Last let someone in', incoming_count: 'Times let in',
+    lets_in_unattended: 'Lets someone in without a click', unattended_via: 'Starts on its own as', running_now: 'Running now',
+    one_off: 'One-off download', tools: 'Tools',
   };
+  // Days under keys the date pattern below doesn't catch.
+  const DAY_KEYS = new Set(['added_on', 'last_incoming']);
   // A value written for code ("pipe_to_shell") in words ("pipe to shell").
   const CODE_WORD = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/;
   const MONO_KEYS = new Set(['pid', 'port', 'ports', 'ip', 'hostname', 'dest', 'remote', 'label', 'process',
@@ -514,7 +522,7 @@ const Evidence = (function () {
       if (typeof v === 'string' && CODE_WORD.test(v) && !MONO_KEYS.has(key)) { rows.push(row(label, v.replace(/_/g, ' '))); continue; }
       if (/_sha256$|^sha256$|_hash$|^hash$/.test(key) && typeof v === 'string') rows.push(hashRow(hashLabel(key), v));
       else if (/_bytes$/.test(key) && typeof v === 'number') rows.push(row(label, bytes(v)));
-      else if (/(^|_)(date|at|time|since|seen)$/.test(key) && typeof v === 'string') rows.push(row(label, plainDay(v)));
+      else if ((DAY_KEYS.has(key) || /(^|_)(date|at|time|since|seen)$/.test(key)) && typeof v === 'string') rows.push(row(label, plainDay(v)));
       else if (key === 'cpu_percent') rows.push(row(label, `${v}%`));
       else if (typeof v === 'string' && looksLikePath(v)) rows.push(pathRow(label, v));
       else if (isScalar(v)) rows.push(row(label, fmtScalar(v), { mono: MONO_KEYS.has(key) }));

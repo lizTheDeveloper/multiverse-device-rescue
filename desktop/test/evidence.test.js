@@ -532,3 +532,25 @@ test('P3: city mode never names a check with a watching word', () => {
   assert.strictEqual(E.cityCheckName('Resource monitor', 'resource_monitor'), 'Resource check');
   assert.strictEqual(E.cityCheckName('Monitor', 'x'), 'Safety sweep');
 });
+
+test('a remote-access tool’s evidence: no internal ids or kinds, plain labels, dates as days', () => {
+  const finding = { module: 'remote_access_tools', severity: 'critical', title: 'AnyDesk can let someone control this computer',
+    code: 'security.remote_access_tools.unattended_recent',
+    data: { check: 'unattended_recent', tool: 'AnyDesk', tool_id: 'anydesk', path: '/Applications/AnyDesk.app', added_on: '2026-03-03',
+      lets_in_unattended: true, unattended_via: 'com.philandro.anydesk.service', running_now: false, last_incoming: '2026-03-12',
+      incoming_count: 4, one_off: false, known_item_kind: 'remote_tool' } };
+  const rows = E.evidenceRows(finding, { mode: 'standard' });
+  const ls = labels(rows);
+  for (const internal of ['Tool id', 'Known item kind', 'One off']) assert.ok(!ls.includes(internal), `${internal}: ${ls}`);
+  const val = (l) => (rows.find((r) => r.label === l) || {}).value;
+  assert.strictEqual(val('Tool'), 'AnyDesk');
+  assert.strictEqual(val('Added'), '3 Mar 2026');
+  assert.strictEqual(val('Last let someone in'), '12 Mar 2026');
+  assert.strictEqual(val('Times let in'), '4');
+  assert.strictEqual(val('Lets someone in without a click'), 'yes');
+  assert.strictEqual(val('Running now'), 'no');
+  assert.ok(ls.includes('Starts on its own as'), ls.join(', '));
+  // A one-off download says so in words.
+  const once = E.evidenceRows({ ...finding, data: { ...finding.data, one_off: true } }, { mode: 'standard' });
+  assert.strictEqual((once.find((r) => r.label === 'One-off download') || {}).value, 'yes');
+});
