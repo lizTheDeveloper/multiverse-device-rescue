@@ -313,7 +313,9 @@ export function groupMissions(doc, { mode = 'standard', table = DEFAULT_TABLE, o
   }
   // Worst first, then alerting or fixable, then by what the type is about
   // (IMPORTANCE), never type-major by table order; a type's parts stay in order.
-  missions.sort((a, b) => (RANK[b.severity] - RANK[a.severity]) || (leadsMission(b) - leadsMission(a))
+  // A remote-access tool running now leads them all (its first card says to go offline): someone may be watching.
+  const watchingMission = (m) => (m.items.some((i) => watching(i)) ? 1 : 0);
+  missions.sort((a, b) => (watchingMission(b) - watchingMission(a)) || (RANK[b.severity] - RANK[a.severity]) || (leadsMission(b) - leadsMission(a))
     || (importance(a.type) - importance(b.type))
     || ((ORDER_OF_DISTRICT.get(a.district) ?? 99) - (ORDER_OF_DISTRICT.get(b.district) ?? 99)) || (a.part - b.part));
   const notes = [...shownAsNotes, ...list.info.filter((i) => !promoted.has(i.key)).map(dress)];

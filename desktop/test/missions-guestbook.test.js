@@ -431,3 +431,20 @@ test('Go offline first: the steps describe the settings page the button opens, o
     }
   }
 });
+
+test('standard mode: a mission with a tool running now comes before every other mission, even critical ones', async () => {
+  const T = await import(pathToFileURL(path.join(MISSIONS, 'types.js')).href);
+  const rust = JSON.parse(fs.readFileSync(FIXTURE, 'utf8')).findings.filter((x) => x.data.tool === 'RustDesk').map(({ module, ...x }) => x);
+  const agent = { title: 'Odd agent', description: 'Odd agent.', severity: 'critical', category: 'security', code: 'security.launch_agent_audit.unsigned',
+    removal_alert: true, data: { plist: '/Library/LaunchAgents/com.example.a.plist' } };
+  const m = (name, findings) => ({ name, category: 'security', status: 'ok', error: null, supported: true, findings });
+  const doc = { schema_version: 1, platform: 'darwin', modules: [m('launch_agent_audit', [agent]), m('remote_access_tools', rust)] };
+  const ms = T.groupMissions(doc, { mode: 'standard' }).filter((x) => !x.notes);
+  assert.strictEqual(ms[0].type, 'guestbook', ms.map((x) => `${x.type}:${x.severity}`).join(', '));
+  // Not running: severity decides, as before.
+  const still = rust.map((x) => ({ ...x, data: { ...x.data, running_now: false } }));
+  const calm = T.groupMissions({ ...doc, modules: [m('launch_agent_audit', [agent]), m('remote_access_tools', still)] }, { mode: 'standard' }).filter((x) => !x.notes);
+  assert.notStrictEqual(calm[0].type, 'guestbook');
+  // City mode holds remote tools: no Remote access mission at all.
+  assert.ok(!T.groupMissions(doc, { mode: 'city' }).some((x) => x.type === 'guestbook'));
+});
