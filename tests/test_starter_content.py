@@ -33,6 +33,13 @@ def test_digital_security_reset_does_not_claim_nonexistent_automation():
     assert "human-led" in desc
 
 
+def test_digital_security_reset_runs_the_monitoring_checks():
+    # "I think someone is watching me" and city mode's home run this profile.
+    profile = discover_profiles(PROFILES_DIR)["digital_security_reset"]
+    for name in ("stalkerware_scan", "keylogger_indicators", "remote_access_tools"):
+        assert name in profile.include_modules
+
+
 def test_home_for_the_holidays_profile_fields():
     profiles = discover_profiles(PROFILES_DIR)
     profile = profiles["home_for_the_holidays"]

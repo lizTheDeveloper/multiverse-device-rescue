@@ -35,6 +35,9 @@ modules:
     - scheduled_tasks_audit
     - keylogger_indicators
     - privacy_permissions_audit
+    # Known stalkerware, employee-monitoring and parental-control products by
+    # name. "I think someone is watching me" and city mode run this profile.
+    - stalkerware_scan
     # The device-side half of the account-recovery phases: what is still
     # logged in. The account-side work remains human-led in the guide;
     # teaching passwords and two-step sign-in is left to Reclaim City.
