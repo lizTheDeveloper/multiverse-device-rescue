@@ -140,6 +140,7 @@ nav:
   - Trust:
       - Trust and safety: trust-and-safety.md
       - Privacy: privacy.md
+      - Partner surveillance coverage: research/partner-surveillance-coverage.md
   - Contributing:
       - Contributing: contributing.md
       - Writing a module: writing-a-module.md
