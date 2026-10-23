@@ -248,6 +248,10 @@ function withAlert(item) {
   return { ...item, removal_alert: isAlertingItem(item) };
 }
 const leads = (item) => (item.removal_alert || item.findings.some(isFixable) ? 1 : 0);
+// A remote-access tool that is running now may be showing this screen to someone: its card (whose first step is
+// "go offline") comes before every other item of its mission, whatever their severity.
+const watching = (item) => (item.findings.some((f) => f && f.data && f.data.running_now === true)
+  && (item.seen_in || []).includes('remote_access_tools') ? 1 : 0);
 
 // The district of a check: its module's category, as findings-to-city places it.
 function districtOfItem(item, cats) {
@@ -303,7 +307,7 @@ export function groupMissions(doc, { mode = 'standard', table = DEFAULT_TABLE, o
   for (const g of groups.values()) {
     const items = g.type === 'keyring' ? keysOf(perApp(g.items), perKey) : g.items;
     const sorted = items.map((it, i) => ({ it, i }))
-      .sort((a, b) => (RANK[b.it.severity] - RANK[a.it.severity]) || (leads(b.it) - leads(a.it)) || (a.i - b.i)).map((x) => x.it);
+      .sort((a, b) => (watching(b.it) - watching(a.it)) || (RANK[b.it.severity] - RANK[a.it.severity]) || (leads(b.it) - leads(a.it)) || (a.i - b.i)).map((x) => x.it);
     const parts = partsOf(sorted, MAX_ITEMS);
     parts.forEach((part, n) => missions.push(mission(g.type, g.district, part, n + 1, parts.length, false)));
   }

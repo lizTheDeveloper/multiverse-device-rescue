@@ -378,3 +378,14 @@ test('summary says what was decided, and that an unpaid answer earns nothing on 
   assert.match(s, /no points/i);
   assert.doesNotMatch(game.summary([], ctxOf(C)), /no points/i);
 });
+
+test('a tool that is running now is the first card of its mission, before worse ones (nothing else shows while someone may watch)', async () => {
+  const T = await import(pathToFileURL(path.join(MISSIONS, 'types.js')).href);
+  const findings = JSON.parse(fs.readFileSync(FIXTURE, 'utf8')).findings.map(({ module, ...f }) => f);
+  const doc = { schema_version: 1, platform: 'darwin', modules: [
+    { name: 'remote_access_tools', category: 'security', status: 'ok', error: null, supported: true, findings }] };
+  const gb = T.groupMissions(doc, { mode: 'standard' }).find((m) => m.type === 'guestbook');
+  assert.ok(gb, 'a Remote access mission');
+  assert.strictEqual(gb.items[0].finding.data.tool, 'RustDesk', 'the running tool leads, though AnyDesk is critical');
+  assert.strictEqual(gb.items.filter((i) => i.finding.data.running_now === true).length, 1);
+});
