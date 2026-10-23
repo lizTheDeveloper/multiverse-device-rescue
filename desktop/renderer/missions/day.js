@@ -5,7 +5,9 @@
 // Guest Book and the help district both use it.
 //
 //   isoDay(v) -> { y, m, d } | null       null for anything that isn't a real calendar day
-//   dayWords(v, { today }) -> string      '' when isoDay(v) is null; `today`: a Date or ISO day (default now)
+//   dayWords(v, { today, year }) -> string  '' when isoDay(v) is null; `today`: a Date or ISO day (default now);
+//                                           `year: true` always says the year (a record copied onto paper)
+//   localIso(date) -> 'YYYY-MM-DD'          a Date's own local day, for dayWords (no UTC shift)
 
 const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})(?:$|[T ])/;
 
@@ -26,9 +28,15 @@ function yearOf(today) {
   return t ? t.y : new Date().getFullYear();
 }
 
-export function dayWords(v, { today } = {}) {
+export function localIso(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const two = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}`;
+}
+
+export function dayWords(v, { today, year = false } = {}) {
   const p = isoDay(v);
   if (!p) return '';
-  const opts = p.y === yearOf(today) ? { month: 'long', day: 'numeric' } : { month: 'long', day: 'numeric', year: 'numeric' };
+  const opts = !year && p.y === yearOf(today) ? { month: 'long', day: 'numeric' } : { month: 'long', day: 'numeric', year: 'numeric' };
   return new Date(p.y, p.m - 1, p.d).toLocaleDateString(undefined, opts);
 }

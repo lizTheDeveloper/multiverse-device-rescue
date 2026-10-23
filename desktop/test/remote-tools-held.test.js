@@ -112,7 +112,7 @@ test('running now: offline line comes first', async () => {
   assert.match(ad, /<dt>Can let someone in without a click<\/dt><dd><span>Yes<\/span>/);
   assert.match(ad, /<dt>Running now<\/dt><dd><span>Yes<\/span>/);
   assert.ok(ad.indexOf('<dt>Added</dt>') < ad.indexOf('<dt>Found on</dt>'));
-  assert.match(ad, /<dt>Found on<\/dt><dd><span>22 Oct 2026<\/span>/);
+  assert.match(ad, /<dt>Found on<\/dt><dd><span>October 22, 2026<\/span>/);
   assert.doesNotMatch(html, /held-facts/, 'no facts floating outside a card');
   // Several running: all named, joined in words; city words stay safe.
   const two = splitHeld(scan(mod('remote_access_tools', [tool({}, { running_now: true }), tool({}, { tool: 'RustDesk', path: '/Applications/RustDesk.app', running_now: true })])), { mode: 'city' }).held;
@@ -208,4 +208,22 @@ test('held "several tools" card: names the tools, never a "Couldn’t tell" fact
   assert.doesNotMatch(card, /<dt>(Added|Last let someone in|Can let someone in without a click|Running now)<\/dt>/);
   assert.match(card, /<dt>Tools<\/dt><dd><span>AnyDesk, RustDesk<\/span>/);
   assert.match(card, /<dt>Found on<\/dt>/);
+});
+
+test('help district: every date on the held cards is in one style, with its year (it may be copied onto paper)', async () => {
+  const { splitHeld } = await game('held.js');
+  const { renderSide } = await game('views/side-district.js');
+  const { pickDistrict } = await game('district-names.js');
+  const REAL = require('./fixtures/monitoring-findings.json');
+  const stalker = JSON.parse(JSON.stringify(REAL.stalkerware_scan || REAL[Object.keys(REAL)[0]]));
+  const held = splitHeld(scan(mod('remote_access_tools', [tool(), tool({ title: 'Zoho Assist can let someone control this computer' },
+    { tool: 'Zoho Assist', path: '/Users/example/Downloads/ZohoAssist.app', added_on: '2025-11-20', last_incoming: null, incoming_count: 0 })]),
+  stalker), { mode: 'city' }).held;
+  const html = renderSide({ district: pickDistrict(3), held, seen: new Date(2026, 9, 22) }).replace(/<wbr>/g, '');
+  const cell = (label) => [...html.matchAll(new RegExp(`<dt>${label}</dt><dd><span>([^<]*)</span>`, 'g'))].map((x) => x[1]);
+  assert.deepStrictEqual(cell('Added'), ['March 3, 2026', 'November 20, 2025']);
+  assert.deepStrictEqual(cell('Last let someone in'), ['March 12, 2026 (4 times)', 'No one, by its connection list']);
+  const found = cell('Found on');
+  assert.ok(found.length >= 3, 'every held card has its day');
+  for (const f of found) assert.strictEqual(f, 'October 22, 2026');
 });

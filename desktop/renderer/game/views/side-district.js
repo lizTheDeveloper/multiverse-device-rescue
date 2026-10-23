@@ -3,6 +3,7 @@ import { FIRST_STEPS, HELP, OPEN_NOTE, SIX_ROSES, LEAVING, HELD } from '../side-
 // The list's evidence block (a plain script, not an ES module).
 import * as evidenceModule from '../../evidence.js';
 import { remoteFacts } from '../../missions/remote-facts.js';
+import { dayWords, localIso } from '../../missions/day.js';
 
 // In the page the script sets window.Evidence; in Node (tests) it is CommonJS.
 const EV = globalThis.Evidence || evidenceModule.default;
@@ -48,9 +49,12 @@ export function heldBlockHtml(h, seen = new Date()) {
     // The engine's "several tools" finding is about the set, not one tool: it names them, and has no added day or
     // running state of its own (four "Couldn't tell" rows there would read as doubt about a tool the page calls running).
     const facts = isSeveral(f) ? severalRows(f.data)
-      : remoteFacts(f.data, { today: seen }).rows.map((r) => ({ label: r.label, value: r.value, mono: false }));
+      : remoteFacts(f.data, { today: seen, year: true }).rows.map((r) => ({ label: r.label, value: r.value, mono: false }));
     rows.splice(rows.length - 1, 0, ...facts);
   }
+  // One date style on every held card (day.js, with the year: it may be copied onto paper), Found on included.
+  const day = dayWords(seen instanceof Date ? localIso(seen) : seen, { year: true });
+  if (day && Array.isArray(rows)) for (const r of rows) if (r && r.label === 'Found on') { r.value = day; r.copy = day; }
   return EV.renderEvidence(rows, { held: true, title: (h && h.title) || 'Write this down' });
 }
 
