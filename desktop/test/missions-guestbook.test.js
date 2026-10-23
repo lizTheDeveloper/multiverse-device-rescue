@@ -448,3 +448,13 @@ test('standard mode: a mission with a tool running now comes before every other 
   // City mode holds remote tools: no Remote access mission at all.
   assert.ok(!T.groupMissions(doc, { mode: 'city' }).some((x) => x.type === 'guestbook'));
 });
+
+test('the card doesn’t repeat the mission screen’s own "Item 1 of 4"', async () => {
+  const { C, game, by } = await load();
+  const item = by('AnyDesk');
+  for (const mode of ['standard', 'city']) {
+    const ctx = ctxOf(C, { mode });
+    const html = game.render(view(game, item, ctx, { index: 0, total: 4 }), ctx);
+    assert.doesNotMatch(html, /\b1 of 4\b/, mode);
+  }
+});

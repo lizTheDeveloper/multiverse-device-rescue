@@ -274,7 +274,6 @@ export function render(view, ctx) {
   const parts = [];
   parts.push(`<article class="gb-card gb-stage-${stage}${v.practice ? ' gb-practice' : ''}">`);
   parts.push(`<header class="gb-head"><span class="gb-chip">${e(say(W('Remote access', 'Guest book'), c))}</span>`
-    + (v.total > 1 ? `<span class="gb-count">${e(`${(v.index || 0) + 1} of ${v.total}`)}</span>` : '')
     + `<h3 class="gb-title">${e(title)}</h3></header>`);
   if (v.step && v.step.say) parts.push(`<aside class="gb-step" role="note">${e(say(v.step.say, c))}</aside>`);
   if (several) {
