@@ -37,6 +37,7 @@ const SETTING_SCHEME = /^(?:x-apple\.systempreferences:|ms-settings:)/;
  *   getProfile(), keepProfile(p), bank(), commitAward(result) -> points, logEntry(kind, text), now(),
  *   evidenceRows(finding, mode), renderEvidence(rows, module, gameCopy) (the controller's clipboard rule),
  *   safetyNote(finding) -> HTML (standard mode: the list's safety note for it, or ''),
+ *   helpPlace() -> the help district's name in standard mode ('' otherwise),
  *   rebuild(doc), docChanged(doc), sweeping(), stopped(), render(), focusHeading(), watchedOpts(),
  *   openConcept(concept) -> boolean, deck() -> the ledger's deck, setScreen(name), modulesCoveredBy(markIds),
  *   onGames(registry)?, loadMissionGames?
@@ -83,7 +84,9 @@ export function createMissionDesk(deps) {
 
   function ctxFor(m, extra = {}) {
     const md = mode();
-    return { mode: md, practice: false, platform: deps.platform(), districtName: deps.districtName(m ? m.district : null),
+    // helpPlace (standard mode): the help district's name, for a game's own steps that would name the helpline.
+    const helpPlace = md === 'standard' && typeof deps.helpPlace === 'function' ? String(deps.helpPlace() || '') : '';
+    return { mode: md, practice: false, platform: deps.platform(), districtName: deps.districtName(m ? m.district : null), helpPlace,
       esc: (s) => esc(visible(s)), visible, evidenceRows: (f, o = {}) => deps.evidenceRows(f, (o && o.mode) || md),
       resolve: (l) => resolveLink(l, { mode: md, platform: deps.platform() }), notes: m && m.notes ? notesProgress(m) : undefined, ...extra };
   }

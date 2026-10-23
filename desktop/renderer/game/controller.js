@@ -342,6 +342,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     renderEvidence: (rows, module, gameCopy) => EV.renderEvidence(rows, { copy: evidenceOpts(module).copy && gameCopy !== false }),
     // Standard mode: the list's safety note for a finding, as the safety-question answer has it
     // (QuietNotes: the one line with "Read this first" behind it). City mode keeps the game's one line.
+    helpPlace: () => helpPlace(),
     safetyNote: (f) => {
       if (coverMode() || !f) return '';
       const place = helpPlace();

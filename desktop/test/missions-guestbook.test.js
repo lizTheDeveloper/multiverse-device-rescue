@@ -113,10 +113,18 @@ test('known outcome: every effect unpaid, no fix, no removing decision', async (
       assert.ok(!d.some((x) => x.effect.kind === 'fix' || x.effect.kind === 'recheck' || x.effect.warning === true), 'no removal offered');
       const steps = d.flatMap((x) => (x.effect.steps ? x.effect.steps[mode] : [])).join(' ');
       if (mode === 'standard') {
+        // No help district to point at (no game): the helpline as before.
         assert.match(steps, /advocate/);
         assert.match(steps, /1-800-799-7233/);
         assert.match(steps, /88788/);
         assert.match(steps, /dates/);
+        // In the game: the help district by name instead, where the helpline is in full; never the number here.
+        const inGame = game.decisions(item, ctxOf(C, { mode, helpPlace: 'The Roundhouse', answers: answersFor(item, 'known') }))
+          .flatMap((x) => (x.effect.steps ? x.effect.steps[mode] : [])).join(' ');
+        assert.match(inGame, /The Roundhouse has a note about this, with who can help\. Read it before you remove anything\./);
+        assert.doesNotMatch(inGame, /advocate|799-7233|88788|helpline/i);
+        assert.match(inGame, /Removing it can tell whoever set it up/);
+        assert.match(inGame, /dates/);
       } else assert.deepStrictEqual(C.checkCityWords(steps), []);
     }
   }

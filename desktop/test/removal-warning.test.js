@@ -274,3 +274,12 @@ test('FixFlow’s own warnings: the advocate line only when watched outside the 
   assert.doesNotMatch(city, CITY_FORBIDDEN);
   assert.ok(city.includes(`${FixFlow.CITY_WARNING}</strong> Stop by The &lt;Old&gt; Mill before you change it.`));
 });
+
+test('standard mode, the Guest Book’s "Someone I know": its steps point at the help district; no hotline on the screen, no removal', async () => {
+  const { html, frame, click } = await missionScreen('standard', false, null, ['helped', 'knows', 'talk']);
+  assert.match(html, /The Roundhouse has a note about this, with who can help\. Read it before you remove anything\./);
+  assert.match(html, LINE_NOTE, 'the warning line is still there');
+  assert.doesNotMatch(html, DV);
+  assert.doesNotMatch(html, /mx-decide:remove|data-fix-/);
+  assertHelpOneStepAway(frame, click, 'known outcome');
+});

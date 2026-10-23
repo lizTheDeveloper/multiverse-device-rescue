@@ -153,7 +153,9 @@ const SCAM_STEPS = W([
   'Report it: the search below finds where.',
 ]);
 
-// Standard mode only names the helpline; city mode never reaches this outcome (held), and its words stay safe.
+// Standard mode in the game (ctx.helpPlace: the help district's name) points there, where the helpline and the
+// advocate note are in full; with no district (no game) it names the helpline. City mode never reaches this
+// outcome (held), and its words stay safe.
 const KNOWN_STEPS = W([
   'Removing it can tell whoever set it up. Talk to an advocate before you remove it.',
   'In the US, a free, private helpline: call 1-800-799-7233, or text START to 88788.',
@@ -162,6 +164,15 @@ const KNOWN_STEPS = W([
   'Clearing it out can tell whoever set it up. Talk to someone you trust first.',
   'Write down the dates on this card, on paper or on another device.',
 ]);
+function knownSteps(ctx) {
+  const place = ctx && typeof ctx.helpPlace === 'string' ? clip(ctx.helpPlace) : '';
+  if (!place) return KNOWN_STEPS;
+  return W([
+    'Removing it can tell whoever set it up. Don’t remove it yet.',
+    `${place} has a note about this, with who can help. Read it before you remove anything.`,
+    'Write down the dates on this card, on paper or on another device.',
+  ], KNOWN_STEPS.city);
+}
 
 const SEVERAL_STEPS = W(['Each tool has its own card in this mission: answer the questions on each one.',
   'After you remove one, run the check again: it looks for the others too.'],
@@ -202,7 +213,7 @@ export function decisions(item, ctx) {
     case 'scam': return c.closer === true ? [later(), remove(item, c), recheck()]
       : [{ id: 'closer', label: W('Do these now', 'Do these now'), effect: { kind: 'closer', steps: SCAM_STEPS } }, later(), remove(item, c)];
     // R13: nothing here pays or is kept, and nothing removes it.
-    case 'known': return [{ id: 'talk', label: W('Talk to someone first', 'Talk to someone first'), effect: { kind: 'closer', unpaid: true, steps: KNOWN_STEPS } },
+    case 'known': return [{ id: 'talk', label: W('Talk to someone first', 'Talk to someone first'), effect: { kind: 'closer', unpaid: true, steps: knownSteps(c) } },
       later({ unpaid: true })];
     case 'unsure': {
       const connections = { id: 'connections', label: W('Check its connections', 'Read its guest list'), effect: { kind: 'closer', steps: CONNECTIONS_STEPS } };
