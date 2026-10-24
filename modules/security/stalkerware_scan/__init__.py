@@ -108,7 +108,7 @@ _HOW_TO_TELL_WORK = (
     "If this is a work computer and you aren't worried, it's most likely there for work; "
     "your IT department can tell you."
 )
-_HOW_TO_TELL_CHILD = "If this computer is a child's and a parent set it up, it's most likely that."
+_HOW_TO_TELL_CHILD = "If a parent set it up on a child's computer and only that parent gets its reports, it's most likely that."
 
 _STALKERWARE_CONTEXT = (
     "This product is sold for watching another person without their "

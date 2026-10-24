@@ -10,7 +10,7 @@ const PURPOSE_EMPLOYEE = "It's made for an employer recording activity on work c
 const PURPOSE_PARENTAL = "It's made for a parent watching a child's messages, browsing and screen time.";
 const WORRIED = "If you're worried someone is watching you, treat it as monitoring software someone put here without asking: don't remove it yet, and write down what was found and when.";
 const WORK = "If this is a work computer and you aren't worried, it's most likely there for work; your IT department can tell you.";
-const CHILD = "If this computer is a child's and a parent set it up, it's most likely that.";
+const CHILD = "If a parent set it up on a child's computer and only that parent gets its reports, it's most likely that.";
 
 const rows = (purpose) => REAL.filter((r) => r.module === 'stalkerware_scan' && r.description.includes(purpose));
 const finding = (r) => ({ module: r.module, code: r.code, title: 'x', severity: 'warning', description: r.description });

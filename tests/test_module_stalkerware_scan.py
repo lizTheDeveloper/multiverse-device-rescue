@@ -254,7 +254,7 @@ def test_parental_control_says_what_it_is_for_and_how_to_tell():
         assert sentence in text
     assert "a parent watching a child's messages, browsing and screen time" in ns._PURPOSE_PARENTAL
     assert ns._HOW_TO_TELL_CHILD == (
-        "If this computer is a child's and a parent set it up, it's most likely that."
+        "If a parent set it up on a child's computer and only that parent gets its reports, it's most likely that."
     )
     assert ns._HOW_TO_TELL_WORK not in text
 

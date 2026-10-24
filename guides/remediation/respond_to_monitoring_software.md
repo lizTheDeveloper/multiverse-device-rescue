@@ -31,8 +31,8 @@ messages, browsing and screen time. To tell which this is: if you're worried
 someone is watching you, treat it as monitoring software someone put here
 without asking: don't remove it yet, and write down what was found and when.
 If this is a work computer and you aren't worried, it's most likely there for
-work; your IT department can tell you. If this computer is a child's and a
-parent set it up, it's most likely that. Work software on your own computer
+work; your IT department can tell you. If a parent set it up on a child's
+computer and only that parent gets its reports, it's most likely that. Work software on your own computer
 is worth asking about: what it records, when, and who sees it. The rules
 differ from place to place; a workers' rights group or legal aid can tell you
 what's allowed where you live.
