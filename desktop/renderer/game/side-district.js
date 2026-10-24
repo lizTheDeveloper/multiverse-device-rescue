@@ -31,6 +31,13 @@ export const HELP = [
   { id: 'hotline', name: 'National Domestic Violence Hotline', source: SIX,
     text: 'National Domestic Violence Hotline: 1-800-799-7233. Text “START” to 88788.',
     quotes: ['National Domestic Violence Hotline: 1-800-799-7233', 'Text "START" to 88788'] },
+  // Tech abuse comes through more than one door: "work" monitoring on a person's own computer can be exploitation too.
+  { id: 'trafficking', name: 'National Human Trafficking Hotline', source: ENGINE,
+    text: 'National Human Trafficking Hotline: 1-888-373-7888, or text 233733.',
+    quotes: ['National Human Trafficking Hotline', '1-888-373-7888, or text 233733'] },
+  { id: 'workers', name: 'A workers’ rights group or legal aid', source: RESPOND,
+    text: 'A workers’ rights group or legal aid can tell you what’s allowed where you live.',
+    quotes: ["A workers' rights group or legal aid can tell you what's allowed where you live"] },
   { id: 'techsafety', name: 'TechSafety.org', source: SIX, url: 'https://techsafety.org',
     text: 'TechSafety.org - Tech abuse resources', quotes: ['TechSafety.org - Tech abuse resources'] },
   { id: 'safety-net', name: 'NNEDV Safety Net', source: SIX, url: 'https://nnedv.org/safetynet',

@@ -21,8 +21,10 @@ const QuietNotes = (function () {
   // sentences come out; every other sentence (keep the evidence, don't delete
   // it, change passwords from another device, back up and reinstall) stays.
   // Generic words like "partner" alone don't count, and neither does a bare
-  // "DV": under /i it matched the flag in `codesign -dv`.
-  const MARKERS = /799-7233|88788|\btext\s+START\b|\badvocates?\b|domestic\s+violence|\bDV\s+Hotline\b|\bpartner,\s+(?:an\s+)?ex\b|\bex-partner\b|\bhousemates?\b|\babuser\b/i;
+  // "DV": under /i it matched the flag in `codesign -dv`. The US National
+  // Human Trafficking Hotline (its number, its text code, the word) is the
+  // same: it lives in the help district, never on a standard-mode screen.
+  const MARKERS = /799-7233|88788|\btext\s+START\b|\badvocates?\b|domestic\s+violence|\bDV\s+Hotline\b|\bpartner,\s+(?:an\s+)?ex\b|\bex-partner\b|\bhousemates?\b|\babuser\b|373-7888|\b233733\b|\btrafficking\b/i;
   const LINE = 'Removing this can alert whoever installed it. Read this first.';
   // The same warning, on its face, before a card's fix and mark buttons and in the fix confirm.
   const LINE_SHORT = 'Removing this can alert whoever installed it.';

@@ -321,3 +321,23 @@ def test_remote_access_text_keeps_its_honest_uses_paragraph():
     mod = _get_module()
     f = _desc(mod, _make_profile(installed=["TeamViewer Host"], platform=Platform.LINUX))
     assert "Apps like this have honest uses" in f.description
+
+
+def test_safety_note_adds_trafficking_and_workers_help_and_keeps_the_dv_hotline():
+    ns = _namespace(_get_module())
+    note = ns._SAFETY_WARNING
+    assert "National Domestic Violence Hotline, 1-800-799-7233" in note
+    assert "National Human Trafficking Hotline" in note
+    assert "1-888-373-7888, or text 233733" in note
+    assert "workers' rights group or legal aid" in note
+
+
+def test_work_monitoring_fix_guidance_asks_who_sees_it_and_never_says_illegal():
+    mod = _get_module()
+    result = _check(mod, _make_profile(processes=[_process("Teramind Agent")]))
+    fix = mod.fix(result, Mode.CLI)
+    text = fix.actions[0].description
+    assert "what it records, when, and who sees it" in text
+    assert "workers' rights group or legal aid" in text
+    assert "1-888-373-7888" in text
+    assert "illegal" not in text.lower()

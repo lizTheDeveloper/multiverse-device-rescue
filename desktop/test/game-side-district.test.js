@@ -89,7 +89,7 @@ test('it holds what the spec lists, and nothing tells the person how long anythi
   const c = await load('side-district.js');
   const { TIME_WORDS } = await load('training.js');
   assert.deepStrictEqual(c.FIRST_STEPS.map((x) => x.id), ['record', 'phone', 'code-words', 'freedom-email', 'evidence-first']);
-  assert.deepStrictEqual(c.HELP.map((x) => x.id), ['911', 'hotline', 'techsafety', 'safety-net', 'womenslaw', 'ceta']);
+  assert.deepStrictEqual(c.HELP.map((x) => x.id), ['911', 'hotline', 'trafficking', 'workers', 'techsafety', 'safety-net', 'womenslaw', 'ceta']);
   assert.strictEqual(c.SIX_ROSES.url, 'https://themultiverse.school/x/six-roses');
   assert.strictEqual(c.LEAVING.text, 'Leaving is the most dangerous time. Plan carefully with DV advocates.');
   assert.strictEqual(c.HELD.heading.text, 'Don’t remove it yet. Talk to an advocate first.');

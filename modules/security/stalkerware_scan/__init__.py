@@ -77,6 +77,10 @@ _SAFETY_WARNING = (
     "safely.\n\n"
     "  US: National Domestic Violence Hotline, 1-800-799-7233, or text START "
     "to 88788 (thehotline.org)\n"
+    "  US: National Human Trafficking Hotline, "
+    "1-888-373-7888, or text 233733 (when the same people control your "
+    "work and where you live)\n"
+    "  A workers' rights group or legal aid, about monitoring put on your own computer for work\n"
     "  US: NNEDV Safety Net, techsafety.org — specialists in "
     "technology-facilitated abuse\n"
     "  UK: National Domestic Abuse Helpline, 0808 2000 247; tech abuse support "
@@ -260,7 +264,13 @@ class Module(ModuleBase):
                             "keep personal accounts off this machine.\n"
                             "- On a personal computer nobody told you about, someone "
                             "set it up to watch what you do. Treat it the same way as "
-                            "any other monitoring software."
+                            "any other monitoring software.\n"
+                            "- Work software on your own computer is worth asking about: "
+                            "what it records, when, and who sees it. The rules depend on "
+                            "where you live; a workers' rights group or legal aid can tell "
+                            "you what's allowed. If the same people control your work and "
+                            "where you live, the US National Human Trafficking Hotline can "
+                            "help: 1-888-373-7888, or text 233733."
                         ),
                         risk_level=RiskLevel.SAFE,
                         kind=ActionKind.GUIDANCE,

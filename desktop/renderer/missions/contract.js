@@ -81,7 +81,7 @@ export const MAX_LABEL_WORDS = 4;
 export const REMOVING_KINDS = new Set(['fix']);
 
 // Words that must never appear in city-mode output outside the help district (stealth).
-export const CITY_FORBIDDEN = /partner|stalk|abuse|violence|advocate|hotline|799-7233|88788|domestic|spyware|stalkerware|monitoring software|\bspy\b/i;
+export const CITY_FORBIDDEN = /partner|stalk|abuse|violence|advocate|hotline|799-7233|88788|domestic|spyware|stalkerware|monitoring software|\bspy\b|traffick|373-7888|233733/i;
 
 // Scan values a hostile program could plant. Every game must render these escaped and inert.
 export const HOSTILE = [
