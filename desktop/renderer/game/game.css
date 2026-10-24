@@ -432,7 +432,9 @@ h2[tabindex="-1"]:focus, h2[tabindex="-1"]:focus-visible { outline: none; }
 .pr-page * { color: #000; background: transparent; text-shadow: none; }
 .pr-head { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 15px; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 16px; }
 .pr-head b { font-size: 17px; }
-.pr-head .pr-fp, .pr-mono, .pr-fp-full { font-family: ui-monospace, Menlo, Consolas, monospace; }
+.pr-head .pr-fp, .pr-mono, .pr-url, .pr-fp-full { font-family: ui-monospace, Menlo, Consolas, monospace; }
+.pr-page p { margin: 0 0 12px; }
+.pr-url { font-size: 16px; overflow-wrap: anywhere; }
 .pr-title { font-size: 28px; margin: 0 0 6px; }
 .pr-kind { font-size: 20px; margin: 0 0 14px; font-weight: 600; }
 .pr-rows { display: grid; grid-template-columns: minmax(8em, 34%) 1fr; gap: 8px 14px; margin: 0; }

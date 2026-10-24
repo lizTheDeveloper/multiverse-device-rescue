@@ -103,8 +103,9 @@ function rowsOf(module, f, doc, held) {
     const have = new Set(rows.map(([l]) => l));
     const skip = new Set(['Check', 'When', 'Seen', 'Command', 'Commands', 'Made by', 'Where', 'Name']);
     for (const r of EV.evidenceRows({ ...f, module }, { mode: 'standard', held: false, checkName: checkName(module, doc), commands: [], fullPaths: true })) {
-      if (!r || have.has(r.label) || skip.has(r.label) || r.tech) continue;
-      rows.push([String(r.label), String(r.copy || r.value)]);
+      const value = String(r && (r.copy || r.value));
+      if (!r || have.has(r.label) || skip.has(r.label) || r.tech || value === rows[0][1]) continue;
+      rows.push([String(r.label), value]);
       have.add(r.label);
     }
   }
@@ -207,12 +208,12 @@ function introHtml(record) {
   return `<h2 class="pr-title">How to use these pages</h2>
     <p class="pr-lead">Take a photo of each page with your phone. Make sure the top line is in the picture. If someone may look through your phone, keep the photos somewhere they can’t reach.</p>
     <p>${esc(`This record has ${n} ${n === 1 ? 'page' : 'pages'} of what the checkup found, then a page of what it couldn’t check. Use Next to go through them.`)}</p>
-    <section class="pr-help"><h3>Who can help</h3><ul>${HELP.map((h) => `<li>${esc(h.text)}${h.url ? ` <code class="pr-mono">${esc(h.url)}</code>` : ''}</li>`).join('')}</ul>
+    <section class="pr-help"><h3>Who can help</h3><ul>${HELP.map((h) => `<li>${esc(h.text)}${h.url ? ` <code class="pr-url">${esc(h.url)}</code>` : ''}</li>`).join('')}</ul>
       <p>${esc(OPEN_NOTE.text)}</p></section>`;
 }
 
 function findingHtml(f) {
-  const rows = f.rows.map(([l, v]) => `<dt>${esc(l)}</dt><dd>${l === 'Where' && looksLikePath(v)
+  const rows = f.rows.map(([l, v]) => `<dt>${esc(l)}</dt><dd>${looksLikePath(v)
     ? `<code class="pr-mono">${esc(v)}</code>` : esc(v)}</dd>`).join('');
   return `<h2 class="pr-title">${esc(f.what)}</h2><p class="pr-kind">${esc(f.kind)}</p><dl class="pr-rows">${rows}</dl>`
     + (f.said ? `<p class="pr-said">${esc(`You said: ${f.said}`)}</p>` : '');

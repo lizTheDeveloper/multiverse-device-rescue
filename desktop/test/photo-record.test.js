@@ -215,3 +215,18 @@ test('hostile values stay inert on every page', async () => {
     });
   }
 });
+
+test('a finding page doesn’t repeat its Where under another label, and every path is in the monospace face', async () => {
+  const P = await load();
+  const agent = { title: 'Odd agent', description: 'd', severity: 'critical', category: 'security', code: 'security.launch_agent_audit.unsigned',
+    data: { plist: '/Library/LaunchAgents/com.example.qa.plist', program: '/opt/example/bin/run' } };
+  const r = P.buildRecord(ctx({ doc: { schema_version: 1, platform: 'darwin', modules: [mod('launch_agent_audit', [agent])] } }));
+  const f = r.findings[0];
+  const values = f.rows.map(([, v]) => v);
+  assert.strictEqual(values.filter((v) => v === '/Library/LaunchAgents/com.example.qa.plist').length, 1, JSON.stringify(f.rows));
+  assert.ok(values.includes('/opt/example/bin/run'), 'other paths stay');
+  const html = P.renderRecordPage({ record: r, fp: 'b'.repeat(64), index: 1 });
+  assert.match(html, /<code class="pr-mono">\/opt\/example\/bin\/run<\/code>/);
+  // The help district's addresses wrap as words, not letter by letter.
+  assert.match(P.renderRecordPage({ record: r, fp: 'b'.repeat(64), index: 0 }), /<code class="pr-url">https:\/\/techsafety\.org<\/code>/);
+});
