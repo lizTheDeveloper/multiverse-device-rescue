@@ -64,7 +64,8 @@ them, because the log is a Merkle tree with signed heads, as Certificate Transpa
    returns only the time of the first claim.
 4. **Views need the passkey** registered at the claim, or a share link the owner made (below). Each view is
    logged before the box is sent.
-5. **Delete is real.** The owner can delete the box; the server destroys it and logs a tombstone. The log keeps
+5. **Delete is real.** The owner can delete the box; the server destroys it and logs a tombstone (see "Unknown"
+   below: the platform keeps restore points for 30 days). The log keeps
    the fingerprint, so "a record existed" survives, but nothing readable does.
 6. **Unclaimed records expire** and are destroyed after a set period (a retention choice for the review).
 7. **Not just our word on time.** The log's signed head is periodically anchored with an independent timestamp
@@ -104,8 +105,9 @@ can be revoked. The advocate's views appear in the owner's access log.
    the log entry, the independent timestamp)? Is a printed verification page useful?
 5. **Abuse of the service:** encrypted storage can be misused. Is a 100 KB cap on structured facts (no images,
    no files) enough, and what else is expected of us?
-6. **Partners:** should this live with an advocacy organization (an existing evidence-documentation service)
-   instead of with Reclaim City? Research on existing services and APIs is below.
+6. **Partners:** should this live with an advocacy organization instead of with Reclaim City? None of the
+   evidence services found accepts records from another app (see below), so a partner would need to host it or
+   take it over.
 7. **Jurisdiction:** does anything change for users outside the US?
 
 ## Not in this proposal
@@ -115,5 +117,50 @@ checks; device identifiers such as MAC addresses (reported by the app itself, ea
 
 ## Existing services and APIs
 
-Research in progress; this section will list what can be used off the shelf (timestamp authorities, transparency
-log software, Cloudflare building blocks, evidence-vault services) and what would have to be built.
+Checked 2026-10-23. Nothing runs this whole system for us, and no evidence vault accepts encrypted records from
+another app: NNEDV's DocuSAFE shut down on 2023-10-01; VictimsVoice, Kulpa (UK), ARC (Australia), ProofMode,
+eyeWitness to Atrocities and Truepic either have no public API or do something else (proving a photo came from a
+camera). Most of the hard parts exist, though.
+
+**Use off the shelf**
+
+- **The log: Cloudflare's Azul** (github.com/cloudflare/azul, BSD-3, Rust on Workers). Built for exactly this
+  shape: one sequencer Durable Object per log, tiles and checkpoints in R2. Its `generic_log_worker` is a tiled
+  Merkle log that isn't tied to certificates, and `@cloudflare/tlog-tiles-wasm` / `@cloudflare/signed-note-wasm`
+  (npm 0.3.0) can be called from a JavaScript Worker. Its README warns it depends on Durable Objects handling one
+  request at a time, which is also what claim-once relies on.
+- **The formats: C2SP** (tlog-tiles, tlog-checkpoint, signed-note, tlog-cosignature, tlog-witness), so any
+  outside tool can check our log.
+- **Independent time:** anchor each signed tree head (not each record, so no person's fingerprint goes to a third
+  party) with **Sigstore's timestamp service** (RFC 3161; the only one found that a browser can call directly,
+  tokens about 1.2 KB), **FreeTSA** as a backup called from the Worker, and **OpenTimestamps** (anchored in
+  Bitcoin; checking it trusts no one; the proof completes after a few hours).
+- **Witnesses:** witness-network.org (experimental) and Google's witnesses (not yet in production). Azul's
+  `mirror_worker` can be a witness, but it only counts if someone independent runs it.
+- **Claim-once: Durable Objects with SQLite.** One request at a time per object, replies held until the write is
+  on disk, and `transactionSync()` rolls back on any error: "check unclaimed, mark claimed, append to the log" in
+  one block can't be won twice. One object per record keeps each person's record separate. A 100 KB record fits
+  in a Durable Object row, so R2 is optional for the boxes.
+- **Passkeys: SimpleWebAuthn** (MIT), which lists Cloudflare Workers as supported; to be tested there.
+
+**Build ourselves**
+
+The escrow Worker (upload, claim-once burn, passkey binding, access-log entries written into the log), the
+verification page the photo record points to, and the rules above as code.
+
+**Don't use**
+
+Sigstore Rekor or Sigsum for each record: every entry needs a signing key and is public forever, so a key reused
+across one person's records would link them.
+
+**Unknown, to settle before building**
+
+1. **Deleting may not be immediate.** Durable Objects can be restored to any point in the last 30 days, so a
+   deleted or burned record may be recoverable by the operator (or under a legal demand) for up to 30 days. The
+   boxes are still encrypted with a key the server never has, but rule 5 should say "destroyed, and
+   unrecoverable after 30 days" unless Cloudflare offers a way around it. This belongs in question 1 above.
+2. Whether witness-network.org will list a log like this, and on what criteria.
+3. The real limits and terms of Sigstore's and FreeTSA's free public services.
+4. Whether Azul's generic log is meant for outside use (actively developed, but its own CT logs are described as
+   test logs).
+5. Cloudflare's view on hosting end-to-end-encrypted user content: its terms say nothing specific.
