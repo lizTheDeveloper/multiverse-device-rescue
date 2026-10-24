@@ -133,11 +133,14 @@ export function heldOnly(doc, { mode = 'city' } = {}) {
 // `description` is what a held briefing says the software is, in place of the
 // engine's own text (which says how to remove it).
 // `place` (standard mode): the help district's name, behind the line in place of the full note.
-export function briefingNote(Q, mode, finding, { place = '' } = {}) {
-  if (!Q || !finding) return { kind: 'none', html: '', description: '' };
+// `answers`: the card's answers so far; a remote-access tool that may be running gets no GO THERE until
+// "I'm offline now" is one of them (QuietNotes.goThereWaits). `go` in the result: whether a way there may show.
+export function briefingNote(Q, mode, finding, { place = '', answers = [] } = {}) {
+  if (!Q || !finding) return { kind: 'none', html: '', description: '', go: true };
   const card = Q.cardText(mode, finding);
   const full = typeof Q.fullHtml === 'function' ? Q.fullHtml(card, esc) : '';
-  return { kind: card.note, html: Q.lineHtml(card, esc, { place }) + full + Q.heldHtml(card, esc, { more: false }), description: card.description };
+  const go = !(typeof Q.goThereWaits === 'function' && Q.goThereWaits(finding, { answers }));
+  return { kind: card.note, go, html: Q.lineHtml(card, esc, { place, go }) + full + Q.heldHtml(card, esc, { more: false }), description: card.description };
 }
 
 // The map's note while something is held, so the city always says it and

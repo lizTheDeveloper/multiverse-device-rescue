@@ -73,6 +73,12 @@ clicking yes", "Last let someone in: 12 March (4 times)", "Running now", "Made b
 
 **If it's running now**, the first line says so and offers one step before anything else: disconnect the
 internet (link intent to the network pane), so nobody can watch the rest. The quiz waits.
+Until the person taps "I'm offline now", nothing on the card's screen leads to the help district: the removal
+warning stays, with the district's name ("<Place> has a note about this. Read it before you remove anything."),
+but its GO THERE button waits, because the district is full of hotline wording someone watching the screen
+would see. "Couldn't tell" if it's running counts as running (GO THERE never shows on that card, which has no
+offline step), and so does the several-tools card; only a tool the check saw not running shows GO THERE at once
+(`QuietNotes.goThereWaits`).
 
 **The questions** (one at a time, each 2–3 answers; the date is filled in from `added_on`):
 

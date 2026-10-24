@@ -36,7 +36,7 @@ const SETTING_SCHEME = /^(?:x-apple\.systempreferences:|ms-settings:)/;
  *   win, mode() -> 'standard'|'city', platform(), districtName(id), place() -> help district name (city) or '',
  *   getProfile(), keepProfile(p), bank(), commitAward(result) -> points, logEntry(kind, text), now(),
  *   evidenceRows(finding, mode), renderEvidence(rows, module, gameCopy) (the controller's clipboard rule),
- *   safetyNote(finding) -> HTML (standard mode: the list's safety note for it, or ''),
+ *   safetyNote(finding, { answers }) -> HTML (standard mode: the list's safety note for it, or ''; `answers`: the item's so far),
  *   helpPlace() -> the help district's name in standard mode ('' otherwise),
  *   rebuild(doc), docChanged(doc), sweeping(), stopped(), render(), focusHeading(), watchedOpts(),
  *   openConcept(concept) -> boolean, deck() -> the ledger's deck, setScreen(name), modulesCoveredBy(markIds),
@@ -571,12 +571,18 @@ export function createMissionDesk(deps) {
     const next = unfinishedMissions().find((x) => x.id !== m.id) || null;
     // Standard mode: the list's own safety note for the item (the first of its findings that has one).
     let safetyHtml = '';
+    const answers = Array.isArray(ctx.answers) ? ctx.answers : [];
     if (item && !practice && typeof deps.safetyNote === 'function') {
-      for (const f of [item.finding, ...(item.findings || [])]) { try { safetyHtml = deps.safetyNote(f) || ''; } catch (_) { safetyHtml = ''; } if (safetyHtml) break; }
+      for (const f of [item.finding, ...(item.findings || [])]) { try { safetyHtml = deps.safetyNote(f, { answers }) || ''; } catch (_) { safetyHtml = ''; } if (safetyHtml) break; }
     }
+    // A remote-access tool that may be running now: no way to the help district on its screen until "I'm offline
+    // now" (QuietNotes.goThereWaits). Unknown, or no QuietNotes: it waits.
+    const Q = deps.win && deps.win.QuietNotes;
+    const goThere = !(item && [item.finding, ...(item.findings || [])].some((f) => f && (!Q || typeof Q.goThereWaits !== 'function'
+      ? (f.module === 'remote_access_tools') : Q.goThereWaits(f, { answers }))));
     // This mission's fixes and marks, each with its Undo.
     const doneHere = doneHtml(d.done.filter((e) => e.missionId === m.id || run.results.some((r) => r.key === e.key)));
-    return renderMissionScreen({ mission: m, run, view: pv, mode: mode(), districtName: deps.districtName(m.district), cardHtml: card, safetyHtml, doneHtml: doneHere,
+    return renderMissionScreen({ mission: m, run, view: pv, mode: mode(), districtName: deps.districtName(m.district), cardHtml: card, safetyHtml, goThere, doneHtml: doneHere,
       evidenceHtml: evidence, research, actHtml: d.act ? d.act.html : '', notice: d.notice, summaryHtml: summary, points,
       nextMission: next, place: deps.place(), busy: d.busy, canPractice: !!(game.practice && game.practice.script && game.practice.script.length) });
   }

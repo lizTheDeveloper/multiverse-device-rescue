@@ -317,18 +317,37 @@ const QuietNotes = (function () {
   // `opts.banner`: the list shows the note once, above the cards (bannerHtml),
   // so the card keeps only the one bold line and a way to that note.
   // `opts.place`: the help district's name (see placeNote).
+  // `opts.go: false`: the warning and the place's name, but no GO THERE (goThereWaits).
   function lineHtml(card, esc, opts = {}) {
     if (!card || card.note !== 'line') return '';
     const place = typeof opts.place === 'string' ? opts.place.trim() : '';
     if (place && !opts.banner) {
       return `<details class="finding-card__note"><summary>${esc(LINE)}</summary><p>${esc(placeNote(place))}</p>`
-        + `<p><button type="button" class="btn-t" data-go="side">GO THERE ▶</button></p></details>`;
+        + `${opts.go === false ? '' : '<p><button type="button" class="btn-t" data-go="side">GO THERE ▶</button></p>'}</details>`;
     }
     if (opts.banner) {
       return `<p class="finding-card__note finding-card__note--first" role="note" data-safety-line><strong>${esc(LINE_SHORT)}</strong>`
         + ` <button type="button" class="link-button" data-safety-jump>Read this first</button></p>`;
     }
     return `<details class="finding-card__note"><summary>${esc(LINE)}</summary>${card.full.map((p) => `<p>${esc(p)}</p>`).join('')}</details>`;
+  }
+
+  // A remote-access tool that is running now may be showing this screen to
+  // someone, live. The help district is hotline and advocate wording, so on
+  // that tool's card nothing leads there (no GO THERE) until the person says
+  // they're offline: the Guest Book's "I'm offline now" (answer OFFLINE_ANSWER)
+  // among the card's answers. "Couldn't tell" if it's running counts as
+  // running, and so does the several-tools card, which can't say which of them
+  // is. Only a tool the check saw not running shows GO THERE straight away.
+  // The removal warning itself never changes. `answers`: the card's answers so far.
+  const REMOTE_TOOLS = 'remote_access_tools';
+  const OFFLINE_ANSWER = 'continue';
+  function goThereWaits(finding, { answers } = {}) {
+    const f = finding || {};
+    if (f.module !== REMOTE_TOOLS && !String(f.code || '').startsWith(`security.${REMOTE_TOOLS}.`)) return false;
+    if (Array.isArray(answers) && answers.includes(OFFLINE_ANSWER)) return false;
+    const d = f.data && typeof f.data === 'object' ? f.data : {};
+    return !(d.running_now === false && d.check !== 'several_tools' && !String(f.code || '').endsWith('.several_tools'));
   }
 
   // Standard mode's list: the removal warning once, above the cards, when any
@@ -378,7 +397,7 @@ const QuietNotes = (function () {
       category: f.category, code: f.code };
   }
 
-  return { placeNote, MONITORING_MODULES, NOT_DETECTIONS, MONITOR_CAPABLE, canMonitor, hasExplicitNote, isDetection, MARKERS, ALERTS, carriesAlert, fullHtml, LINE, LINE_SHORT, HELD_LINE, HELD_MORE, HELD_HELP, HELD_HELP_TITLE, HELD_AI_NOTE, ACTS, heldDescription, heldPick, heldAsk, isMonitoring, quiet, quietFinding, quietDoc, noteFor, cardText, lineHtml, heldHtml, BANNER_HEAD, bannerNotes, bannerHtml };
+  return { placeNote, goThereWaits, OFFLINE_ANSWER, MONITORING_MODULES, NOT_DETECTIONS, MONITOR_CAPABLE, canMonitor, hasExplicitNote, isDetection, MARKERS, ALERTS, carriesAlert, fullHtml, LINE, LINE_SHORT, HELD_LINE, HELD_MORE, HELD_HELP, HELD_HELP_TITLE, HELD_AI_NOTE, ACTS, heldDescription, heldPick, heldAsk, isMonitoring, quiet, quietFinding, quietDoc, noteFor, cardText, lineHtml, heldHtml, BANNER_HEAD, bannerNotes, bannerHtml };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

@@ -19,9 +19,10 @@ export const SWEEP_STOPPED = 'This sweep stopped before its report was done, so 
 // the hotline lives there, never in a mission.
 // `modules`: the scan's check ids, so steps never show one raw.
 export const CITY_WARN = 'Removing this can alert whoever installed it.';
-export function cityWarnHtml(place) {
+// `go: false` (QuietNotes.goThereWaits): the warning and the place's name, but no way there yet.
+export function cityWarnHtml(place, { go = true } = {}) {
   return `<div class="panel safety" role="note"><p class="intel"><b>${esc(CITY_WARN)}</b> ${esc(`Stop by ${place} before you change it.`)}
-    <button type="button" class="btn-t" data-go="side">GO THERE ▶</button></p></div>`;
+    ${go ? '<button type="button" class="btn-t" data-go="side">GO THERE ▶</button>' : ''}</p></div>`;
 }
 // A finding's prose, cut down to what the evidence block doesn't say: the
 // first sentence (`why`), the first paragraph (`lead`, used only when there
@@ -87,7 +88,7 @@ export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, 
     : `${text.lead ? descriptionHtml(text.lead) : ''}${evidenceHtml}`;
   const also = m.findings.length > 1
     ? `<div class="panel"><div class="label">ALSO REPORTED AS</div><ul class="notes">${m.findings.slice(1).map((f) => `<li>${esc(f.title)}</li>`).join('')}</ul></div>` : '';
-  const safety = cityWarn ? cityWarnHtml(cityWarn.place)
+  const safety = cityWarn ? cityWarnHtml(cityWarn.place, { go: cityWarn.go !== false })
     : note && note.html ? `<div class="panel safety">${note.html}</div>`
     : wantsSafety && m.safetyNote ? `<div class="panel safety" role="note">${esc(m.safetyNote)}</div>` : '';
   const actions = held ? '' : busy

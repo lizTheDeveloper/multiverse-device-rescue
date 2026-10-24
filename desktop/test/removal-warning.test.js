@@ -283,3 +283,92 @@ test('standard mode, the Guest Book’s "Someone I know": its steps point at the
   assert.doesNotMatch(html, /mx-decide:remove|data-fix-/);
   assertHelpOneStepAway(frame, click, 'known outcome');
 });
+
+// A remote-access tool that is running now may be showing this screen to someone, live. Its card keeps the
+// removal warning and the help district's name, but nothing that leads there (no GO THERE) until the person taps
+// "I'm offline now" on that card. "Couldn't tell" counts as running (QuietNotes.goThereWaits).
+function runningDoc(running) {
+  const d = doc();
+  const f = d.modules[0].findings[0];
+  f.data = { ...f.data, running_now: running };
+  if (running === true) f.code = 'security.remote_access_tools.running_now';
+  return d;
+}
+const noGo = (h, where) => {
+  assert.match(h, LINE_NOTE, `${where}: the line`);
+  assert.match(noteOf(h), PLACE_NOTE, `${where}: the help district's name and the warning sentence`);
+  assert.doesNotMatch(h, /data-go="side"|GO THERE/, `${where}: nothing on the screen leads to the help district`);
+  assert.doesNotMatch(h, DV, `${where}`);
+};
+
+test('a running remote tool: no GO THERE until "I’m offline now"; then it’s there, and BACK hides it again', async () => {
+  const { item, frame, click } = await missionScreen('standard', true, runningDoc(true), []);
+  assert.match(item, /gb-stage-offline/);
+  assert.match(item, /I’m offline now/);
+  noGo(item, 'the offline step');
+  click({ 'data-act': 'mx-decide:offline' });
+  noGo(frame.innerHTML, 'after Go offline first');
+  click({ 'data-act': 'mx-decide:continue' });
+  assert.match(frame.innerHTML, /How did this get here\?/);
+  assert.match(noteOf(frame.innerHTML), /<p><button type="button" class="btn-t" data-go="side">GO THERE ▶<\/button><\/p>/);
+  assertHelpOneStepAway(frame, click, 'after I’m offline now');
+  click({ 'data-act': 'mx-unask' });
+  assert.match(frame.innerHTML, /gb-stage-offline/);
+  noGo(frame.innerHTML, 'back at the offline step');
+});
+
+test('a remote tool the check couldn’t tell is running: no GO THERE on any step (couldn’t tell never means no)', async () => {
+  for (const running of [null, undefined]) {
+    const { steps, item } = await missionScreen('standard', true, runningDoc(running), GUESTBOOK_REMOVE);
+    assert.strictEqual(steps.length, 2);
+    for (const [i, h] of [...steps, item].entries()) noGo(h, `${running}: step ${i}`);
+  }
+});
+
+test('a remote tool that isn’t running: GO THERE straight away', async () => {
+  const { item, frame, click } = await missionScreen('standard', true, runningDoc(false), []);
+  assert.match(item, /How did this get here\?/);
+  assert.match(noteOf(item), /data-go="side">GO THERE ▶/);
+  assertHelpOneStepAway(frame, click, 'not running');
+});
+
+test('goThereWaits: only remote-access tools that may be running; other monitoring and warned findings are unaffected', async () => {
+  const tool = (data, code = 'security.remote_access_tools.tool_found') => ({ module: 'remote_access_tools', code, removal_alert: true, data: { check: 'tool_found', ...data } });
+  assert.strictEqual(Q.goThereWaits(tool({ running_now: true })), true);
+  assert.strictEqual(Q.goThereWaits(tool({ running_now: null })), true);
+  assert.strictEqual(Q.goThereWaits(tool({})), true);
+  assert.strictEqual(Q.goThereWaits(tool({ running_now: false })), false);
+  assert.strictEqual(Q.goThereWaits(tool({ running_now: true }), { answers: [Q.OFFLINE_ANSWER] }), false);
+  assert.strictEqual(Q.goThereWaits(tool({ running_now: true }), { answers: ['installed'] }), true);
+  assert.strictEqual(Q.goThereWaits({ module: 'remote_access_tools', code: 'security.remote_access_tools.several_tools', data: { check: 'several_tools', tools: ['A', 'B'] } }), true,
+    'the several-tools card can’t say which of them is running');
+  assert.strictEqual(Q.goThereWaits({ code: 'security.remote_access_tools.running_now', data: { running_now: true } }), true, 'by code, without a module');
+  // The Guest Book's "I'm offline now" is the answer it waits for.
+  const gb = await import('../renderer/missions/games/guestbook.js');
+  const offline = gb.decisions({ finding: tool({ running_now: true }) }, {}).find((x) => x.label.standard === 'I’m offline now');
+  assert.strictEqual(offline && offline.id, Q.OFFLINE_ANSWER);
+  // Other findings: monitoring software, a sharing setting with the engine's own warning. GO THERE as before.
+  const { briefingNote } = await import('../renderer/game/held.js');
+  const others = [
+    { module: 'stalkerware_scan', code: 'security.stalkerware_scan.monitoring_software_found', severity: 'critical', data: { stalkerware_name: 'ExampleWatch', running_now: true } },
+    { module: 'sharing_services', code: 'security.sharing_services.screen_sharing', severity: 'warning', removal_alert: true, remediation: { safety_note: 'Turning it off can alert them.' }, data: { running_now: true } },
+    { module: 'keylogger_indicators', code: 'security.keylogger_indicators.suspicious', severity: 'warning', data: {} },
+  ];
+  for (const f of others) {
+    assert.strictEqual(Q.goThereWaits(f), false, f.module);
+    const n = briefingNote(Q, 'standard', f, { place: PLACE });
+    assert.strictEqual(n.go, true, f.module);
+    assert.match(n.html, /data-go="side">GO THERE ▶/, f.module);
+  }
+  const running = briefingNote(Q, 'standard', tool({ running_now: true }), { place: PLACE });
+  assert.strictEqual(running.go, false);
+  assert.match(running.html, PLACE_NOTE);
+  assert.doesNotMatch(running.html, /data-go="side"|GO THERE/);
+  assert.match(briefingNote(Q, 'standard', tool({ running_now: true }), { place: PLACE, answers: ['continue'] }).html, /data-go="side"/);
+  // City mode's one line (a mission or briefing there, if a remote tool ever reaches one): the same rule.
+  const { cityWarnHtml } = await import('../renderer/game/views/briefing.js');
+  assert.match(cityWarnHtml(PLACE), /data-go="side"/);
+  const hidden = cityWarnHtml(PLACE, { go: false });
+  assert.match(hidden, /Removing this can alert whoever installed it\.<\/b> Stop by The Roundhouse before you change it\./);
+  assert.doesNotMatch(hidden, /data-go="side"|GO THERE/);
+});

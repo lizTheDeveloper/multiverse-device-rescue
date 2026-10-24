@@ -66,10 +66,11 @@ function linksHtml(links, mode) {
 // `safetyHtml` (standard mode): the list's safety note for the item, already
 // built by QuietNotes (the one line, "Read this first", the note behind it).
 // It replaces the bare line; city mode keeps its one line and the way to help.
-function warningHtml(warning, mode, place, safetyHtml = '') {
+// `go: false`: a remote-access tool that may be running now (QuietNotes.goThereWaits), so no GO THERE yet.
+function warningHtml(warning, mode, place, safetyHtml = '', go = true) {
   if (mode !== 'city' && safetyHtml) return `<div class="panel safety mx-warning" role="note">${safetyHtml}</div>`;
   if (!warning) return '';
-  if (mode === 'city' && place) return cityWarnHtml(place);
+  if (mode === 'city' && place) return cityWarnHtml(place, { go });
   return `<div class="panel safety mx-warning" role="note"><p class="intel"><b>${esc(warning)}</b></p></div>`;
 }
 
@@ -100,7 +101,8 @@ const decisionButtons = (decisions, mode, act, disabled = false) => `<div class=
 
 /*
  * renderMissionScreen({ mission, run, view, mode, districtName, cardHtml, safetyHtml, evidenceHtml, research, actHtml,
- *   notice, summaryHtml, points, nextMission, place, busy, canPractice, doneHtml })
+ *   notice, summaryHtml, points, nextMission, place, busy, canPractice, doneHtml, goThere })
+ *   goThere: false hides the warning's GO THERE (a remote-access tool that may be running now)
  * `doneHtml`: this mission's fixes and marks, each with its Undo (missions-city.js).
  * `actHtml`: a fix or mark flow at its confirm; it sits in the decision bar,
  * where the decision was made. Its own Cancel (data-act="mx-cancel") is the
@@ -108,7 +110,7 @@ const decisionButtons = (decisions, mode, act, disabled = false) => `<div class=
  */
 export function renderMissionScreen(o) {
   const { mission: m, run, view = {}, mode = 'standard', districtName = '', cardHtml = '', evidenceHtml = '', research = {}, safetyHtml = '',
-    actHtml = '', notice = '', summaryHtml = '', points = 0, nextMission = null, place = '', busy = false, canPractice = true, doneHtml = '' } = o;
+    actHtml = '', notice = '', summaryHtml = '', points = 0, nextMission = null, place = '', busy = false, canPractice = true, doneHtml = '', goThere = true } = o;
   const title = words(m.title, mode);
   const part = partLabel(m);
   const head = `
@@ -151,7 +153,7 @@ export function renderMissionScreen(o) {
     return `<section class="mx-screen mx-practicing">${head}
       <div class="panel mx-practice-banner"><div class="label">PRACTICE · ${esc(view.index + 1)} OF ${esc(view.total)} · MADE UP, NOT ON YOUR COMPUTER</div>
         ${sayHtml}</div>
-      ${warningHtml(view.warning, mode, place)}
+      ${warningHtml(view.warning, mode, place, '', goThere)}
       <div class="mx-card">${cardHtml}</div>
       <div class="mx-bar">${a ? feedback : moves}
       <button type="button" class="btn-t" data-act="mx-practice-leave">LEAVE PRACTICE</button></div></section>`;
@@ -187,7 +189,7 @@ export function renderMissionScreen(o) {
   return `<section class="mx-screen">${head}
     <div class="row mx-progress"><span class="mx-where"><span class="label">${esc(mode === 'city' ? 'TARGET' : 'ITEM')} ${esc(view.index + 1)} OF ${esc(view.total)}</span>${sev}</span>${practiceBtn}</div>
     ${said}${checking}${doneHtml ? `<div class="panel mx-done-panel">${doneHtml}</div>` : ''}
-    ${warningHtml(view.warning, mode, place, safetyHtml)}
+    ${warningHtml(view.warning, mode, place, safetyHtml, goThere)}
     <div class="mx-card">${cardHtml}</div>
     ${unfinished}${guideHtml(view.guide, mode)}
     ${view.closer || research.open ? evidenceHtml : `<details class="mx-evidence"><summary class="label">${esc(mode === 'city' ? 'WHAT THE SWEEP SAW' : 'WHAT THE CHECK SAW')}</summary>${evidenceHtml}</details>`}

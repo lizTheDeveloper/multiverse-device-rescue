@@ -346,15 +346,16 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // Standard mode: the list's safety note for a finding, as the safety-question answer has it
     // (QuietNotes: the one line with "Read this first" behind it). City mode keeps the game's one line.
     helpPlace: () => helpPlace(),
-    safetyNote: (f) => {
+    // `answers`: the item's answers so far, so a running remote-access tool's GO THERE waits for "I'm offline now".
+    safetyNote: (f, { answers = [] } = {}) => {
       if (coverMode() || !f) return '';
       const place = helpPlace();
-      const n = briefingNote(win.QuietNotes, hostMode(), f, { place });
+      const n = briefingNote(win.QuietNotes, hostMode(), f, { place, answers });
       if (n.html) return n.html;
       const sn = f.remediation && typeof f.remediation.safety_note === 'string' ? f.remediation.safety_note : '';
       if (!sn || !(win.RescueHost && typeof win.RescueHost.wantsSafety === 'function' && win.RescueHost.wantsSafety(f))) return '';
       // The engine's own note can carry the hotline: with a place, the line and the way there instead.
-      return place ? win.QuietNotes.lineHtml({ note: 'line', full: [] }, esc, { place }) : `<p>${esc(sn)}</p>`;
+      return place ? win.QuietNotes.lineHtml({ note: 'line', full: [] }, esc, { place, go: n.go }) : `<p>${esc(sn)}</p>`;
     },
     rebuild: (doc) => rebuild(doc), docChanged: (doc) => win.RescueHost.docChanged(doc),
     sweeping: () => sweeping(), stopped: () => !!s.stopped, render: () => render(), focusHeading: () => focusHeading(frame),
@@ -1270,13 +1271,15 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const Q = win.QuietNotes;
     if (!inCity() || !Q || note.kind === 'held') return { mission: m, cityWarn: null };
     const warn = note.kind === 'full' || (wantsSafety && !!m.safetyNote);
+    // A briefing has no "I'm offline now": a remote-access tool that may be running gets no GO THERE here.
+    const go = note.go !== false;
     const sentences = (t) => String(t || '').split(/(?<=[.!?])\s+/);
     const desc = Q.quiet(m.description);
     const description = warn && Q.ALERTS
       ? desc.split(/\n\s*\n/).map((p) => sentences(p).filter((x) => !Q.ALERTS.test(x)).join(' ')).filter((p) => p.trim()).join('\n\n')
       : desc;
     const steps = (m.steps || []).map((x) => (x && typeof x === 'object' ? { ...x, title: Q.quiet(x.title), body: Q.quiet(x.body) } : x));
-    return { mission: { ...m, description, steps, safetyNote: null }, cityWarn: warn ? { place: side().name } : null };
+    return { mission: { ...m, description, steps, safetyNote: null }, cityWarn: warn ? { place: side().name, go } : null };
   }
 
   // A save or read problem, said once, calmly, until dismissed (or, for a
