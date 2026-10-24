@@ -554,3 +554,17 @@ test('a remote-access tool’s evidence: no internal ids or kinds, plain labels,
   const once = E.evidenceRows({ ...finding, data: { ...finding.data, one_off: true } }, { mode: 'standard' });
   assert.strictEqual((once.find((r) => r.label === 'One-off download') || {}).value, 'yes');
 });
+
+test('fullPaths: every path whole, as the scan wrote it (the photo record); the default still shortens', () => {
+  const long = '/Users/someone/Library/Application Support/Some Vendor With A Long Name/Agents/helper-agent-binary-name/bin/run';
+  const f = { module: 'launch_agent_audit', severity: 'warning', title: 'A task', data: { label: 'com.example.task', program: long, plist: `${long}.plist`, apps: [long, '/Applications/Two.app'] } };
+  const all = (rows) => rows.map((r) => r.value).join('\n');
+  const full = all(E.evidenceRows(f, { mode: 'standard', fullPaths: true }));
+  assert.ok(full.includes(long), full);
+  assert.ok(full.includes(`${long}.plist`));
+  assert.doesNotMatch(full, /~\/|…/, 'no ~ and no …');
+  const held = all(E.evidenceRows({ module: 'stalkerware_scan', title: 'x', data: { stalkerware_name: 'X', location: long } }, { mode: 'city', held: true, fullPaths: true }));
+  assert.ok(held.includes(long), held);
+  // The default is unchanged, and the flag doesn't stick.
+  assert.match(all(E.evidenceRows(f, { mode: 'standard' })), /~\/|…/);
+});

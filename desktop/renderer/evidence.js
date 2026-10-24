@@ -54,8 +54,13 @@ const Evidence = (function () {
   const isScalar = (v) => v == null || ['string', 'number', 'boolean'].includes(typeof v);
   const clip = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}\u2026` : s);
 
+  // evidenceRows' `fullPaths` (the photo record): every path and value whole, as the scan wrote it. Set only
+  // for the length of one synchronous evidenceRows call.
+  let FULL = false;
+
   /** "/Users/ann/x" -> "~/x"; also /home/<name>, /var/root and C:\Users\<name>. */
   function homeRelative(text) {
+    if (FULL) return String(text == null ? '' : text);
     return String(text == null ? '' : text)
       .replace(/(^|[\s'"=:(])\/(?:Users|home)\/(?!Shared(?:\/|$))[^/\s'"]+(?=\/|$|[\s'"])/g, '$1~')
       .replace(/(^|[\s'"=:(])[A-Za-z]:\\Users\\[^\\\s'"]+(?=\\|$|[\s'"])/g, '$1~');
@@ -70,6 +75,7 @@ const Evidence = (function () {
    * falls back to its start and end.
    */
   function shortPath(p, max = MAX_PATH_SHOWN) {
+    if (FULL) return String(p == null ? '' : p);
     const s = homeRelative(p);
     if (s.length <= max) return s;
     const sep = s.includes('\\') && !s.includes('/') ? '\\' : '/';
@@ -146,7 +152,7 @@ const Evidence = (function () {
    * visible on its own, so only this file's own line breaks remain.
    */
   function row(label, value, { mono = false, copy, tech = false } = {}) {
-    const shown = clip(VT.visible(value == null ? '' : value), MAX_VALUE);
+    const shown = clip(VT.visible(value == null ? '' : value), FULL ? MAX_COPY : MAX_VALUE);
     const whole = Array.isArray(copy) ? copy.map(VT.visible).join('\n') : VT.visible(copy == null ? (value == null ? '' : value) : copy);
     const full = clip(whole, MAX_COPY);
     return { label: VT.visible(label), value: shown, mono, copy: full, ...(tech ? { tech: true } : {}) };
@@ -611,6 +617,7 @@ const Evidence = (function () {
   // ---- the rows ----------------------------------------------------------------
 
   /**
+   * opts.fullPaths: every path and value whole (no ~, no …, no clipping): the photo record.
    * opts.mode: 'city' | 'standard'. opts.held: true for a held monitoring
    * finding (default in city: any finding of a monitoring check). opts.checkName:
    * the check's name for people (else finding.check_name, else its id in
@@ -624,6 +631,11 @@ const Evidence = (function () {
    * these rows instead of it; see replacesDescription).
    */
   function evidenceRows(finding, opts = {}) {
+    const was = FULL;
+    FULL = isObj(opts) && opts.fullPaths === true;
+    try { return evidenceRowsOf(finding, opts); } finally { FULL = was; }
+  }
+  function evidenceRowsOf(finding, opts) {
     const f = isObj(finding) ? finding : {};
     const o = isObj(opts) ? opts : {};
     const held = o.mode === 'city' && (typeof o.held === 'boolean' ? o.held : MONITORING_MODULES.has(f.module));
