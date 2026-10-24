@@ -1458,6 +1458,11 @@ if (typeof document !== 'undefined') {
     // While the list renders (standard mode): each card's QuietNotes text, for the one warning banner.
     let safetyCards = null;
     let nextCardKey = 0;
+    // Workplace and parental tools (DualUse): this checkup's answers, in memory
+    // only (never stored, exported or copied), and which categories already had
+    // their question on a card during this render.
+    let dualUseAnswers = {};
+    let dualUseAsked = new Set();
 
     const FDA_URL = 'x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles';
 
@@ -1509,6 +1514,12 @@ if (typeof document !== 'undefined') {
         : EvidenceRule.replacesDescription(finding) ? { why: '', todo: '' }
           : cardProse(card.description, finding, { steps: steps.length, alertShown: warned });
       const lesson = held ? '' : lessonFor(finding);
+      // Standard mode: one question per category, on its first card; then the
+      // answer's framing on every card of it. Never in a copy or an ask.
+      const dualCat = held ? null : DualUse.categoryOf(finding);
+      const dualAsk = !!dualCat && !dualUseAsked.has(dualCat);
+      if (dualAsk) dualUseAsked.add(dualCat);
+      const dualUse = held ? '' : DualUse.blockHtml(mode, finding, dualUseAnswers, { ask: dualAsk }, escapeHtml);
       // "Ask about this" sends what the card shows: the evidence first, then the why.
       const askFinding = Object.assign({}, finding, {
         description: [rows.length ? `Evidence:\n${EvidenceRule.evidenceText(rows)}` : '', prose.why || card.description || ''].filter(Boolean).join('\n\n'),
@@ -1521,6 +1532,7 @@ if (typeof document !== 'undefined') {
               <div class="evidence-slot" data-evidence-slot>${evidence}</div>
               ${prose.why || lesson ? `<p class="finding-card__why">${escapeHtml(prose.why)}${lesson ? `${prose.why ? ' ' : ''}<button type="button" class="link-button finding-card__lesson" data-lesson-link="${lesson}">What does this mean?</button>` : ''}</p>` : ''}
               ${prose.todo ? `<p class="finding-card__todo"><strong>What to do:</strong> ${escapeHtml(prose.todo)}</p>` : ''}
+              ${dualUse}
               ${QuietNotes.lineHtml(card, escapeHtml, { banner: !!safetyCards })}${QuietNotes.fullHtml(card, escapeHtml)}${QuietNotes.heldHtml(card, escapeHtml)}
               ${held ? '' : SettingPanes.findingButtonHtml(finding, currentPlatform())}
               ${held ? '' : RouterLink.findingLinkHtml(finding, routerCtx)}
@@ -1705,6 +1717,7 @@ if (typeof document !== 'undefined') {
       cardPicks = new Map();
       cardFindings = new Map();
       nextCardKey = 0;
+      dualUseAsked = new Set();
       routerCtx = RouterLink.contextFrom(doc, browserName);
       const groupsEl = document.getElementById('results-groups');
       const wasOpen = partial ? openDetailsIn(groupsEl) : new Set();
@@ -1997,6 +2010,8 @@ if (typeof document !== 'undefined') {
       resetProgress();
       fdaNeeded = false;
       stoppedDoc = null;
+      // A new checkup asks the workplace and parental questions again (DualUse).
+      dualUseAnswers = {};
       let resolvedStopped = null;
       if (permissionsContent) renderScanTips(permissionsContent, detectOS(lastKnownPlatform));
       partialScan = partialScanState();
@@ -2124,6 +2139,22 @@ if (typeof document !== 'undefined') {
       const more = banner && typeof banner.querySelector === 'function' ? banner.querySelector('[data-safety-details]') : null;
       if (more) more.open = true;
       if (banner && typeof banner.focus === 'function') banner.focus();
+    });
+    // The workplace and parental question (DualUse): the answer only changes
+    // what these cards say for this checkup; nothing is stored or acted on.
+    resultsRoot.addEventListener('click', (event) => {
+      const pickBtn = event.target.closest && event.target.closest('[data-dual-use]');
+      const undoBtn = !pickBtn && event.target.closest && event.target.closest('[data-dual-use-undo]');
+      if (!pickBtn && !undoBtn) return;
+      if (pickBtn) {
+        const parsed = DualUse.parse(pickBtn.getAttribute('data-dual-use'));
+        if (!parsed) return;
+        dualUseAnswers = DualUse.setAnswer(dualUseAnswers, parsed[0], parsed[1]);
+      } else {
+        dualUseAnswers = DualUse.setAnswer(dualUseAnswers, undoBtn.getAttribute('data-dual-use-undo'), null);
+      }
+      const shown = currentResultsDoc();
+      if (shown) renderResults(shown);
     });
     // "What does this mean?": opens the one place it is taught, at that part.
     resultsRoot.addEventListener('click', (event) => {

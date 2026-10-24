@@ -1048,6 +1048,17 @@ h3 {
   color: var(--text);
 }
 
+/* Workplace and parental tools: the one question, then what the answer means (dual-use.js). */
+.finding-card__dual-use {
+  margin-top: 0.55rem;
+}
+.finding-card__dual-use p {
+  margin: 0.3rem 0;
+}
+.finding-card__dual-use .btn {
+  margin: 0 0.4rem 0.3rem 0;
+}
+
 .finding-card > p + p {
   margin-top: 0.55rem;
 }
