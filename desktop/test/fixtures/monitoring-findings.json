@@ -13,7 +13,7 @@
   "findings": [
    {
     "title": "FlexiSPY is on this computer (installed application)",
-    "description": "Covert monitoring software that captures messages, calls, location, and ambient audio, and is marketed explicitly for monitoring partners.\n\nFound as installed application: /Applications/FlexiSPY.app.\n\nThis product is sold for watching another person without their knowledge. If nobody told you it was here, someone installed it to watch what you do on this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: Don't remove it yet. Write down its name, where it was found and today's date, and make a safety plan first.",
+    "description": "Covert monitoring software that captures messages, calls, location, and ambient audio, and is marketed explicitly for monitoring another adult.\n\nFound as installed application: /Applications/FlexiSPY.app.\n\nThis product is sold for watching another person without their knowledge. If nobody told you it was here, someone installed it to watch what you do on this computer.\n\nRemoving it can alert whoever installed it. If you think that's someone close to you, talk to an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: Don't remove it yet. Write down its name, where it was found and today's date, and make a safety plan first.",
     "severity": "critical",
     "category": "security",
     "data": {

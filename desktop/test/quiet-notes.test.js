@@ -320,3 +320,15 @@ test('round 3: the removal warning is a safety control: an explicit note always 
   // Monitoring software itself always keeps it.
   assert.strictEqual(Q.noteFor('standard', { module: 'stalkerware_scan', code: 'security.stalkerware_scan.found', severity: 'critical' }), 'line');
 });
+
+// Standard mode keeps a monitoring card's description, quieted only of hotline and advocate sentences: the engine's
+// own words must carry no relationship word (a product is "marketed explicitly for monitoring another adult").
+test('standard mode, every real monitoring description: no partner, ex, abuser or stalker words on the card', () => {
+  const REAL = require('./fixtures/monitoring-descriptions.json');
+  const WORDS = /partner|\bex\b|\bexes\b|abuser|\bstalker\b|housemate/i;
+  assert.ok(REAL.some((r) => /monitoring another adult/.test(r.description)), 'the reworded product description is in the fixture');
+  for (const r of REAL) {
+    const card = Q.cardText('standard', { module: r.module, code: r.code, severity: 'critical', description: r.description });
+    assert.doesNotMatch(card.description, WORDS, `${r.code}: ${card.description}`);
+  }
+});

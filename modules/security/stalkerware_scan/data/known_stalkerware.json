@@ -9,7 +9,7 @@
       "category": "stalkerware",
       "severity": "critical",
       "platforms": ["darwin", "win32", "linux"],
-      "description": "Covert monitoring software that captures messages, calls, location, and ambient audio, and is marketed explicitly for monitoring partners."
+      "description": "Covert monitoring software that captures messages, calls, location, and ambient audio, and is marketed explicitly for monitoring another adult."
     },
     {
       "pattern": "mspy",
@@ -33,7 +33,7 @@
       "category": "stalkerware",
       "severity": "critical",
       "platforms": ["darwin", "win32"],
-      "description": "Covert monitoring service marketed for tracking partners and family members."
+      "description": "Covert monitoring service marketed for tracking other adults and family members."
     },
     {
       "pattern": "umobix",
@@ -65,7 +65,7 @@
       "category": "stalkerware",
       "severity": "critical",
       "platforms": ["darwin", "win32"],
-      "description": "Covert monitoring suite advertised for partner and employee surveillance."
+      "description": "Covert monitoring suite advertised for watching another adult or an employee."
     },
     {
       "pattern": "ikeymonitor",

@@ -268,6 +268,19 @@ def test_how_to_tell_avoids_relationship_words():
         assert not words.search(s), s
 
 
+def test_known_product_descriptions_avoid_relationship_words():
+    # A product's description is the first sentence of its card in standard mode, where QuietNotes keeps it:
+    # "monitoring another adult", never partner, ex, abuser or stalker.
+    import re
+    words = re.compile(r"partner|\bex\b|\bexes\b|abuser|\bstalker\b|housemate|spouse", re.I)
+    data = json.loads((Path(__file__).resolve().parent.parent / "modules" / "security" / "stalkerware_scan" / "data"
+                       / "known_stalkerware.json").read_text(encoding="utf-8"))
+    entries = [e for v in data.values() if isinstance(v, list) for e in v if isinstance(e, dict)]
+    assert entries
+    for e in entries:
+        assert not words.search(e.get("description", "")), e.get("name")
+
+
 def test_dual_use_findings_keep_the_removal_warning_sentence():
     mod = _get_module()
     for proc in ("Qustodio", "Teramind Agent"):
