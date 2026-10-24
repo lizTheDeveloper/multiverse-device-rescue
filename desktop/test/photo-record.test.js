@@ -72,7 +72,8 @@ test('offered in exactly the four cases', async () => {
 
 test('contents: held findings, warning and critical findings, the couldn’t-check list; info left out unless held', async () => {
   const P = await load();
-  const r = P.buildRecord(ctx());
+  const raw = P.buildRecord(ctx());
+  const r = P.recordView(raw);
   const whats = r.findings.map((f) => f.what);
   assert.deepStrictEqual(whats.slice(0, 3).sort(), ['DeskTool', 'ExampleWatch', 'HelpDesk'], 'held first, the info-level tool too');
   assert.ok(whats.includes('Screen Sharing is on'), 'a warning from another check');
@@ -80,7 +81,21 @@ test('contents: held findings, warning and critical findings, the couldn’t-che
   assert.deepStrictEqual(r.not_checked.map((x) => x.why), ['Couldn’t run', 'Couldn’t run', 'Didn’t finish']);
   assert.strictEqual(r.not_checked.length, 3);
   assert.strictEqual(r.computer, 'MacBook Pro (Mac16,1), macOS 26.1 (25B78)');
-  assert.strictEqual(r.scanned_at, AT);
+  // The record itself (what the fingerprint covers) holds raw values only: never the page's words.
+  assert.strictEqual(raw.scanned_at, AT);
+  assert.deepStrictEqual(raw.computer, { platform: 'darwin', model_name: 'MacBook Pro', model: 'Mac16,1', os_version: '26.1', build: '25B78' });
+  assert.deepStrictEqual(raw.not_checked.map((x) => x.why), ['couldnt_run', 'couldnt_run', 'unfinished']);
+  const rawWatch = raw.findings.find((f) => f.module === 'stalkerware_scan');
+  assert.strictEqual(rawWatch.kind, 'parental_control');
+  assert.strictEqual(rawWatch.data.location, LONG);
+  assert.deepStrictEqual(rawWatch.made_by, [{ subject: LONG, name: 'Example Family Co', verified: false }]);
+  assert.strictEqual(rawWatch.said, null);
+  const rawDesk = raw.findings.find((f) => f.data.tool === 'DeskTool');
+  assert.strictEqual(rawDesk.kind, 'remote_access_tool');
+  assert.strictEqual(rawDesk.data.added_on, '2026-03-03', 'the engine’s own ISO day, not "March 3, 2026"');
+  assert.strictEqual(rawDesk.data.running_now, false);
+  assert.strictEqual(raw.findings.find((f) => f.data.tool === 'HelpDesk').data.running_now, null, '"Couldn’t tell" is null in the record');
+  assert.doesNotMatch(P.canonicalJson(raw), /Couldn’t tell|March|October|Remote-access tool|Parental control product|Found by/);
   const watch = r.findings.find((f) => f.what === 'ExampleWatch');
   assert.strictEqual(watch.kind, 'Parental control product');
   const row = (f, l) => (f.rows.find((x) => x[0] === l) || [])[1];
@@ -101,22 +116,35 @@ test('contents: held findings, warning and critical findings, the couldn’t-che
 
 test('"You said": the dual-use answer that led to the record is in it', async () => {
   const P = await load();
-  const r = P.buildRecord(ctx({ dualUse: { parental_control: 'someone' } }));
+  const raw = P.buildRecord(ctx({ dualUse: { parental_control: 'someone' } }));
+  assert.strictEqual(raw.findings.find((f) => f.module === 'stalkerware_scan').said, 'parental_control:someone', 'the answer as its key');
+  const r = P.recordView(raw);
   assert.strictEqual(r.findings.find((f) => f.what === 'ExampleWatch').said, 'someone else gets its reports');
-  const html = P.renderRecordPage({ record: r, fp: 'a'.repeat(64), index: P.recordPages(r).findIndex((p) => p.finding && p.finding.what === 'ExampleWatch') });
+  const html = P.renderRecordPage({ record: raw, fp: 'a'.repeat(64), index: P.recordPages(raw).findIndex((p) => p.finding && p.finding.what === 'ExampleWatch') });
   assert.match(text(html), /You said: someone else gets its reports/);
   const work = { ...WATCH, data: { ...WATCH.data, stalkerware_category: 'employee_monitoring' } };
-  const r2 = P.buildRecord(ctx({ doc: { ...doc(), modules: [mod('stalkerware_scan', [work])] }, dualUse: { employee_monitoring: 'mine' } }));
+  const r2 = P.recordView(P.buildRecord(ctx({ doc: { ...doc(), modules: [mod('stalkerware_scan', [work])] }, dualUse: { employee_monitoring: 'mine' } })));
   assert.strictEqual(r2.findings[0].said, 'it’s your computer');
   assert.strictEqual(r2.findings[0].kind, 'Employee monitoring product');
-  assert.strictEqual(P.buildRecord(ctx()).findings.find((f) => f.what === 'ExampleWatch').said, undefined, 'no answer, no line');
+  assert.strictEqual(P.recordView(P.buildRecord(ctx())).findings.find((f) => f.what === 'ExampleWatch').said, '', 'no answer, no line');
 });
 
-// The fixed synthetic record and its canonical form: pinned, so a change to either is seen.
-const FIXED = { version: 1, scanned_at: '2026-10-23T16:17:00.000Z', computer: 'MacBook Pro (Mac16,1), macOS 26.1 (25B78)',
-  findings: [{ what: 'ExampleWatch', kind: 'Parental control product', rows: [['Where', '/Applications/ExampleWatch.app'], ['Added', 'Couldn’t tell']], said: 'someone else gets its reports' }],
-  not_checked: [{ check: 'Firewall', why: 'Couldn’t run' }] };
-const FIXED_JSON = '{"version":1,"computer":"MacBook Pro (Mac16,1), macOS 26.1 (25B78)","findings":[{"kind":"Parental control product","rows":[["Where","/Applications/ExampleWatch.app"],["Added","Couldn’t tell"]],"said":"someone else gets its reports","what":"ExampleWatch"}],"not_checked":[{"check":"Firewall","why":"Couldn’t run"}],"scanned_at":"2026-10-23T16:17:00.000Z"}';
+// The fixed synthetic record and its canonical form: pinned, so a change to either is seen. Raw values only
+// (docs/superpowers/specs/2026-10-23-photo-record-design.md, "The fingerprint").
+const FIXED = { version: 1, scanned_at: '2026-10-23T16:17:00.000Z',
+  computer: { platform: 'darwin', model_name: 'MacBook Pro', model: 'Mac16,1', os_version: '26.1', build: '25B78' },
+  findings: [{ module: 'stalkerware_scan', check_name: null, code: 'security.stalkerware_scan.monitoring_software_found', severity: 'critical',
+    kind: 'parental_control', title: 'ExampleWatch is on this computer',
+    data: { check: 'monitoring_software_found', stalkerware_name: 'ExampleWatch', stalkerware_category: 'parental_control',
+      location: '/Applications/ExampleWatch.app', added_on: '2026-03-03', running_now: null },
+    made_by: [{ subject: '/Applications/ExampleWatch.app', name: 'Example Family Co', verified: false }], said: 'parental_control:someone' }],
+  not_checked: [{ module: 'firewall_audit', check_name: 'Firewall', why: 'couldnt_run' }] };
+const FIXED_JSON = '{"version":1,"computer":{"build":"25B78","model":"Mac16,1","model_name":"MacBook Pro","os_version":"26.1","platform":"darwin"},'
+  + '"findings":[{"check_name":null,"code":"security.stalkerware_scan.monitoring_software_found","data":{"added_on":"2026-03-03","check":"monitoring_software_found",'
+  + '"location":"/Applications/ExampleWatch.app","running_now":null,"stalkerware_category":"parental_control","stalkerware_name":"ExampleWatch"},'
+  + '"kind":"parental_control","made_by":[{"name":"Example Family Co","subject":"/Applications/ExampleWatch.app","verified":false}],'
+  + '"module":"stalkerware_scan","said":"parental_control:someone","severity":"critical","title":"ExampleWatch is on this computer"}],'
+  + '"not_checked":[{"check_name":"Firewall","module":"firewall_audit","why":"couldnt_run"}],"scanned_at":"2026-10-23T16:17:00.000Z"}';
 const FIXED_SHA = crypto.createHash('sha256').update(FIXED_JSON, 'utf8').digest('hex');
 
 test('the fingerprint: SHA-256 of the canonical JSON (version first, keys sorted, no whitespace), pinned', async () => {
@@ -132,10 +160,10 @@ test('the fingerprint: SHA-256 of the canonical JSON (version first, keys sorted
   assert.strictEqual(await P.fingerprint(built), await P.fingerprint(P.buildRecord(ctx())));
   const moved = P.buildRecord(ctx({ scanAt: '2026-10-23T16:18:00.000Z' }));
   assert.notStrictEqual(await P.fingerprint(moved), await P.fingerprint(built));
-  const edited = JSON.parse(JSON.stringify(FIXED)); edited.findings[0].rows[0][1] += 'x';
+  const edited = JSON.parse(JSON.stringify(FIXED)); edited.findings[0].data.location += 'x';
   assert.notStrictEqual(await P.fingerprint(edited), fp);
 });
-const PINNED = '800862bf3a53fb79f9cb863fa5b8bff1f58ec9ff91af49756cc0aa9b98088860';
+const PINNED = 'ee35c2170b5a5dd357ae9237c14b5a6b4281c41948fa0e62eeae87f09fd124bf';
 
 test('no network: nothing is fetched or sent to build, fingerprint or draw the record', async () => {
   const P = await load();
@@ -189,7 +217,7 @@ test('every page: the header, date, computer, page count and the same short fing
   for (const line of P.fullPrintLines(fp)) assert.ok(last.includes(line), line);
   assert.match(text(last), /If anything in this record changes, this number changes\. It shows the pages belong together and haven’t been edited since the checkup made them\. It doesn’t prove what the checkup found is true\./);
   assert.match(text(last), /A clear checkup lowers the odds of a problem; it doesn’t rule one out\./);
-  for (const n of r.not_checked) assert.ok(text(last).includes(n.check), n.check);
+  for (const n of P.recordView(r).not_checked) assert.ok(text(last).includes(n.check), n.check);
   // A finding page: its facts, full path, wrapped in a monospace face.
   const wi = pages.findIndex((p) => p.finding && p.finding.what === 'ExampleWatch');
   const w = P.renderRecordPage({ record: r, fp, index: wi });
@@ -221,7 +249,7 @@ test('a finding page doesn’t repeat its Where under another label, and every p
   const agent = { title: 'Odd agent', description: 'd', severity: 'critical', category: 'security', code: 'security.launch_agent_audit.unsigned',
     data: { plist: '/Library/LaunchAgents/com.example.qa.plist', program: '/opt/example/bin/run' } };
   const r = P.buildRecord(ctx({ doc: { schema_version: 1, platform: 'darwin', modules: [mod('launch_agent_audit', [agent])] } }));
-  const f = r.findings[0];
+  const f = P.recordView(r).findings[0];
   const values = f.rows.map(([, v]) => v);
   assert.strictEqual(values.filter((v) => v === '/Library/LaunchAgents/com.example.qa.plist').length, 1, JSON.stringify(f.rows));
   assert.ok(values.includes('/opt/example/bin/run'), 'other paths stay');
@@ -229,4 +257,24 @@ test('a finding page doesn’t repeat its Where under another label, and every p
   assert.match(html, /<code class="pr-mono">\/opt\/example\/bin\/run<\/code>/);
   // The help district's addresses wrap as words, not letter by letter.
   assert.match(P.renderRecordPage({ record: r, fp: 'b'.repeat(64), index: 0 }), /<code class="pr-url">https:\/\/techsafety\.org<\/code>/);
+});
+
+
+test('the same scan gives the same fingerprint in any language and time zone; only the pages’ words change', () => {
+  const { execFileSync } = require('child_process');
+  const script = `
+    require(${JSON.stringify(path.join(__dirname, '..', 'renderer', 'not-checked.js'))});
+    require(${JSON.stringify(path.join(__dirname, '..', 'renderer', 'evidence.js'))});
+    const T = { doc: () => (${JSON.stringify(doc())}), AT: ${JSON.stringify(AT)} };
+    import(${JSON.stringify(pathToFileURL(path.join(__dirname, '..', 'renderer', 'game', 'photo-record.js')).href)}).then(async (P) => {
+      const r = P.buildRecord({ doc: T.doc(), scanAt: T.AT, dualUse: { parental_control: 'someone' } });
+      const fp = await P.fingerprint(r);
+      const page = P.renderRecordPage({ record: r, fp, index: 2 });
+      process.stdout.write(JSON.stringify({ fp, head: /<header[\\s\\S]*?<\\/header>/.exec(page)[0], body: page }));
+    });`;
+  const run = (env) => JSON.parse(execFileSync(process.execPath, ['-e', script], { env: { ...process.env, ...env, NODE_TEST_CONTEXT: '' } }).toString());
+  const us = run({ LC_ALL: 'en_US.UTF-8', LANG: 'en_US.UTF-8', TZ: 'America/Los_Angeles' });
+  const de = run({ LC_ALL: 'de_DE.UTF-8', LANG: 'de_DE.UTF-8', TZ: 'Asia/Tokyo' });
+  assert.notStrictEqual(us.head, de.head, 'the two runs really did show the date differently');
+  assert.strictEqual(us.fp, de.fp);
 });

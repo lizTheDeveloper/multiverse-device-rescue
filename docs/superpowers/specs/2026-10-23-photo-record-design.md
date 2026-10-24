@@ -67,9 +67,49 @@ says "Couldn't tell", never "no".
 
 ## The fingerprint
 
-The record has one fingerprint: the SHA-256 of its canonical form (the facts on its pages as JSON with sorted
-keys, UTF-8, no whitespace, a `version` field first), computed on this computer with Web Crypto. Nothing is sent
-anywhere to make it.
+The record has one fingerprint: the SHA-256 of its canonical form, computed on this computer with Web Crypto.
+Nothing is sent anywhere to make it.
+
+**The canonical form** holds raw values only, never the pages' words, so the same scan gives the same fingerprint
+whatever the computer's language or time zone. The pages are made from it in the computer's language and are not
+hashed. It is one JSON object:
+
+```jsonc
+{
+  "version": 1,
+  "scanned_at": "2026-10-23T16:17:00.000Z",      // when the checkup finished: ISO 8601, UTC, milliseconds; null if unknown
+  "computer": {                                  // null for anything the scan didn't report
+    "platform": "darwin",                        // the scan's own `platform`
+    "model_name": "MacBook Pro", "model": "Mac16,1", "os_version": "26.1", "build": "25B78"
+                                                 // macos_version_support's version_info finding: model_name, model, version, build
+  },
+  "findings": [                                  // held findings first, in scan order; then critical, then warning, as the list merges them
+    {
+      "module": "stalkerware_scan",              // the check's id
+      "check_name": null,                        // the check's `check_name` from the scan, or null
+      "code": "security.stalkerware_scan.monitoring_software_found",   // or null
+      "severity": "critical",                    // critical | warning | info (info only for held findings)
+      "kind": "parental_control",                // parental_control | employee_monitoring | monitoring_product | keyboard_access |
+                                                 // phone_backup | remote_access_tool | remote_access_tools | program | finding
+      "title": "…",                              // the finding's own title, as the scan wrote it
+      "data": { },                               // the finding's `data` exactly as the scan reported it: raw paths, ISO
+                                                 // dates, booleans, and null where the check couldn't tell
+      "made_by": [ { "subject": "…", "name": "…", "verified": false } ],  // verified: true | false | null
+      "said": "parental_control:someone"         // the person's answer as "<category>:<answer id>" (dual-use.js), or null
+    }
+  ],
+  "not_checked": [                               // checks that didn't run or didn't finish
+    { "module": "firewall_audit", "check_name": "Firewall", "why": "couldnt_run" }
+                                                 // why: couldnt_run | not_reached | not_started | unfinished
+  ]
+}
+```
+
+It is serialized with `version` first and every other key, at every level, in sorted (UTF-16 code unit) order;
+arrays keep their order; no whitespace; strings and numbers as JavaScript's `JSON.stringify` writes them (no
+Unicode normalization, non-ASCII characters as themselves); then encoded as UTF-8 and hashed with SHA-256, written
+as 64 lowercase hex characters. A verifier with the scan JSON, the scan's time and the person's answers can
+rebuild it. `desktop/test/photo-record.test.js` pins a fixed synthetic record, its canonical text and its hash.
 
 - **Every page header** shows the short form: the first 16 hex characters in groups of four (`3F9A 0C21 77DE
   B410`).

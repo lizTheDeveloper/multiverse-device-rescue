@@ -4,7 +4,8 @@
 // the record's canonical JSON, made on this computer with Web Crypto, ties the pages together.
 //
 //   offerRecord({ mode, situation, doc, dualUse }) -> boolean     the four cases in the spec
-//   buildRecord({ doc, scanAt, dualUse }) -> record               { version, scanned_at, computer, findings, not_checked }
+//   buildRecord({ doc, scanAt, dualUse }) -> record               raw values only: what the fingerprint covers
+//   recordView(record) -> the pages' words (the computer's language; never hashed)
 //   canonicalJson(record) -> string                               version first, every other key sorted, no whitespace
 //   fingerprint(record, subtle?) -> Promise<hex>                  64 lowercase hex
 //   shortPrint(hex) / fullPrintLines(hex)                         'AAAA BBBB CCCC DDDD' / four such lines of the whole
@@ -45,20 +46,90 @@ export function offerRecord({ mode, situation, doc, dualUse } = {}) {
 }
 
 // ---- What's in it ----
+//
+// The record is raw values only (the fingerprint covers it; see the spec's "The fingerprint"): the scan's ISO time,
+// the engine's own data for each finding, booleans as true / false / null (null: couldn't tell), kinds and answers
+// as stable keys. The pages' words, in the computer's language, are made from it by recordView and never hashed.
 
-const KIND = { parental_control: 'Parental control product', employee_monitoring: 'Employee monitoring product' };
-function kindOf(module, f, held) {
+function kindKey(module, f, held) {
   const d = isObj(f.data) ? f.data : {};
-  if (module === REMOTE_TOOLS) return d.check === 'several_tools' ? 'Remote-access tools' : 'Remote-access tool';
-  if (module === 'stalkerware_scan') return KIND[d.stalkerware_category] || 'Monitoring product';
-  if (module === 'keylogger_indicators') return 'Program with keyboard access';
-  if (module === 'mvt_spyware_scan') return 'Finding in a phone backup';
-  if (held) return 'Program';
-  return f.severity === 'critical' ? 'Critical finding' : 'Warning finding';
+  if (module === REMOTE_TOOLS) return d.check === 'several_tools' ? 'remote_access_tools' : 'remote_access_tool';
+  if (module === 'stalkerware_scan') return d.stalkerware_category === 'parental_control' || d.stalkerware_category === 'employee_monitoring'
+    ? d.stalkerware_category : 'monitoring_product';
+  if (module === 'keylogger_indicators') return 'keyboard_access';
+  if (module === 'mvt_spyware_scan') return 'phone_backup';
+  return held ? 'program' : 'finding';
+}
+const nul = (v) => (v === undefined ? null : v);
+// JSON values only (the engine's data is JSON already; this drops anything that isn't).
+const plain = (v) => (v === undefined ? null : JSON.parse(JSON.stringify(v)));
+
+function rawFinding(module, f, doc, held, answers) {
+  const d = isObj(f.data) ? f.data : {};
+  const cat = d.stalkerware_category;
+  const answer = typeof cat === 'string' && answers[cat] && SAID[cat] && SAID[cat][answers[cat]] ? `${cat}:${answers[cat]}` : null;
+  const mod = (doc && Array.isArray(doc.modules) ? doc.modules : []).find((m) => m && m.name === module);
+  return {
+    module, check_name: mod && typeof mod.check_name === 'string' && mod.check_name ? mod.check_name : null,
+    code: nul(f.code), severity: nul(f.severity), kind: kindKey(module, f, held), title: typeof f.title === 'string' ? f.title : null,
+    data: plain(d),
+    made_by: (Array.isArray(f.made_by) ? f.made_by.filter(isObj) : [])
+      .map((m) => ({ subject: nul(m.subject), name: nul(m.name), verified: m.verified === true ? true : m.verified === false ? false : null })),
+    said: answer,
+  };
 }
 
+function rawComputer(doc) {
+  const out = { platform: nul(doc && doc.platform), model_name: null, model: null, os_version: null, build: null };
+  for (const m of (doc && Array.isArray(doc.modules) ? doc.modules : [])) {
+    for (const f of (m && Array.isArray(m.findings) ? m.findings : [])) {
+      const d = f && isObj(f.data) ? f.data : null;
+      if (!d || d.check !== 'version_info') continue;
+      return { ...out, model_name: nul(d.model_name), model: nul(d.model), os_version: nul(d.version), build: nul(d.build) };
+    }
+  }
+  return out;
+}
+
+function rawNotChecked(doc) {
+  const parts = NC.notCheckedParts(doc);
+  const names = new Map((doc && Array.isArray(doc.modules) ? doc.modules : []).filter(Boolean)
+    .map((m) => [m.name, typeof m.check_name === 'string' && m.check_name ? m.check_name : null]));
+  const out = [];
+  const add = (list, why) => { for (const x of list || []) out.push({ module: x.name, check_name: names.get(x.name) || null, why }); };
+  add(parts.couldntRun, 'couldnt_run');
+  add(parts.notReached, 'not_reached');
+  add(parts.notStarted, 'not_started');
+  add(parts.unfinished, 'unfinished');
+  return out;
+}
+
+export function buildRecord({ doc, scanAt, dualUse } = {}) {
+  const answers = isObj(dualUse) ? dualUse : {};
+  const split = splitHeld(doc, { mode: 'city' });
+  const findings = split.held.map((h) => rawFinding(h.module, h.finding || {}, doc, true, answers));
+  // Every warning and critical finding from the other checks (info left out: an inventory would bury the evidence).
+  const list = NC.displayItems(split.doc, { mode: 'standard' });
+  for (const item of [...list.critical, ...list.warning]) {
+    const f = item.finding || {};
+    const module = f.module || (item.seen_in || [])[0] || '';
+    findings.push(rawFinding(module, { ...f, severity: item.severity || f.severity }, doc, false, answers));
+  }
+  const t = new Date(String(scanAt || ''));
+  return { version: RECORD_VERSION, scanned_at: Number.isNaN(t.getTime()) ? null : t.toISOString(), computer: rawComputer(doc),
+    findings, not_checked: rawNotChecked(doc) };
+}
+
+// ---- What the pages say (the computer's language; never hashed) ----
+
+const KIND_WORDS = { parental_control: 'Parental control product', employee_monitoring: 'Employee monitoring product',
+  monitoring_product: 'Monitoring product', keyboard_access: 'Program with keyboard access', phone_backup: 'Finding in a phone backup',
+  remote_access_tool: 'Remote-access tool', remote_access_tools: 'Remote-access tools', program: 'Program' };
+const kindWords = (rf) => KIND_WORDS[rf.kind] || (rf.severity === 'critical' ? 'Critical finding' : 'Warning finding');
+const WHY_WORDS = { couldnt_run: 'Couldn’t run', not_reached: 'Not reached', not_started: 'Not started', unfinished: 'Didn’t finish' };
+
 // A check's name as the city may say it (never a watching word).
-const checkName = (module, doc) => EV.cityCheckName(EV.checkLabel(module, doc), module);
+const checkName = (module, name) => EV.cityCheckName(name || EV.checkLabel(module, null), module);
 
 const day = (v) => (typeof v === 'string' ? (dayWords(v, { year: true }) || str(v)) : '');
 const first = (d, keys) => { for (const k of keys) if (d[k] != null && d[k] !== '') return d[k]; return null; };
@@ -70,25 +141,26 @@ function whereOf(d) {
   const apps = Array.isArray(d.apps) ? d.apps.filter((x) => typeof x === 'string' && x.trim()) : [];
   return apps.length ? apps.join(', ') : COULDNT;
 }
-function makerOf(f) {
-  const mb = Array.isArray(f.made_by) ? f.made_by.filter(isObj) : [];
-  const out = mb.map((m) => `${str(m.name) || 'Unknown maker'} (${m.verified === true ? 'verified' : 'not verified'})`)
+function makerOf(rf) {
+  const out = rf.made_by.map((m) => `${str(m.name) || 'Unknown maker'} (${m.verified === true ? 'verified' : 'not verified'})`)
     .filter((x, i, a) => a.indexOf(x) === i);
   return out.length ? out.join('; ') : COULDNT;
 }
-function howOf(module, f, doc) {
-  const d = isObj(f.data) ? f.data : {};
-  const by = `the check “${checkName(module, doc)}”`;
+function howOf(rf) {
+  const d = isObj(rf.data) ? rf.data : {};
+  const by = `the check “${checkName(rf.module, rf.check_name)}”`;
   if (str(d.detected_as)) return `Found as ${str(d.detected_as)}, by ${by}`;
-  if (module === 'keylogger_indicators') return `Has keyboard access, found by ${by}`;
+  if (rf.module === 'keylogger_indicators') return `Has keyboard access, found by ${by}`;
   return `Found by ${by}`;
 }
+const HELD_KINDS = new Set(Object.keys(KIND_WORDS));
 
 // The facts on one finding's page, as [label, value] pairs. Missing evidence says "Couldn't tell", never "no".
-function rowsOf(module, f, doc, held) {
-  const d = isObj(f.data) ? f.data : {};
+function rowsOf(rf) {
+  const d = isObj(rf.data) ? rf.data : {};
+  const held = HELD_KINDS.has(rf.kind);
   const rows = [['Where', whereOf(d)]];
-  if (module === REMOTE_TOOLS && d.check !== 'several_tools') {
+  if (rf.kind === 'remote_access_tool') {
     const r = Object.fromEntries(remoteFacts(d, { year: true }).rows.map((x) => [x.label, x.value]));
     rows.push(['Added', r.Added], ['Last let someone in', r['Last let someone in']],
       ['Can let someone in without a click', r['Can let someone in without a click']], ['Running now', r['Running now']]);
@@ -97,12 +169,13 @@ function rowsOf(module, f, doc, held) {
       ['Last used', day(first(d, ['last_used', 'last_seen', 'last_run', 'last_opened'])) || COULDNT],
       ['Running now', yesNo(first(d, ['running_now', 'running', 'is_running']))]);
   }
-  rows.push(['Made by', makerOf(f)], ['How the check knows', howOf(module, f, doc)]);
+  rows.push(['Made by', makerOf(rf)], ['How the check knows', howOf(rf)]);
   if (!held) {
     // The rest of what its evidence card shows, every path whole.
     const have = new Set(rows.map(([l]) => l));
     const skip = new Set(['Check', 'When', 'Seen', 'Command', 'Commands', 'Made by', 'Where', 'Name']);
-    for (const r of EV.evidenceRows({ ...f, module }, { mode: 'standard', held: false, checkName: checkName(module, doc), commands: [], fullPaths: true })) {
+    const f = { module: rf.module, title: rf.title, severity: rf.severity, code: rf.code, data: d };
+    for (const r of EV.evidenceRows(f, { mode: 'standard', held: false, checkName: checkName(rf.module, rf.check_name), commands: [], fullPaths: true })) {
       const value = String(r && (r.copy || r.value));
       if (!r || have.has(r.label) || skip.has(r.label) || r.tech || value === rows[0][1]) continue;
       rows.push([String(r.label), value]);
@@ -112,60 +185,39 @@ function rowsOf(module, f, doc, held) {
   return rows.map(([l, v]) => [l, v == null || v === '' ? COULDNT : String(v)]);
 }
 
-function computerOf(doc) {
-  for (const m of (doc && Array.isArray(doc.modules) ? doc.modules : [])) {
-    for (const f of (m && Array.isArray(m.findings) ? m.findings : [])) {
-      const d = f && isObj(f.data) ? f.data : null;
-      if (!d || d.check !== 'version_info') continue;
-      const model = [str(d.model_name), str(d.model) ? `(${str(d.model)})` : ''].filter(Boolean).join(' ');
-      const system = str(d.version) ? `macOS ${str(d.version)}${str(d.build) ? ` (${str(d.build)})` : ''}` : '';
-      const out = [model, system].filter(Boolean).join(', ');
-      if (out) return out;
-    }
+function whatOf(rf) {
+  const d = isObj(rf.data) ? rf.data : {};
+  if (rf.kind === 'remote_access_tools' && Array.isArray(d.tools)) {
+    const names = d.tools.filter((x) => typeof x === 'string' && x.trim()).join(', ');
+    if (names) return names;
   }
-  const p = doc && doc.platform;
-  if (p === 'darwin') return 'A Mac (model and system version: couldn’t tell)';
-  if (p === 'win32') return 'A Windows PC (model and system version: couldn’t tell)';
+  if (HELD_KINDS.has(rf.kind)) return heldEvidence({ data: d, made_by: rf.made_by }, rf.module).name || str(rf.title) || COULDNT;
+  return str(rf.title) || COULDNT;
+}
+
+function computerWords(c) {
+  const x = isObj(c) ? c : {};
+  const model = [str(x.model_name), str(x.model) ? `(${str(x.model)})` : ''].filter(Boolean).join(' ');
+  const system = str(x.os_version) ? `macOS ${str(x.os_version)}${str(x.build) ? ` (${str(x.build)})` : ''}` : '';
+  const out = [model, system].filter(Boolean).join(', ');
+  if (out) return out;
+  if (x.platform === 'darwin') return 'A Mac (model and system version: couldn’t tell)';
+  if (x.platform === 'win32') return 'A Windows PC (model and system version: couldn’t tell)';
   return COULDNT;
 }
 
-function notCheckedOf(doc) {
-  const parts = NC.notCheckedParts(doc);
-  const out = [];
-  const add = (list, why) => { for (const x of list || []) out.push({ check: checkName(x.name, doc), why }); };
-  add(parts.couldntRun, 'Couldn’t run');
-  add(parts.notReached, 'Not reached');
-  add(parts.notStarted, 'Not started');
-  add(parts.unfinished, 'Didn’t finish');
-  return out;
-}
-
-export function buildRecord({ doc, scanAt, dualUse } = {}) {
-  const answers = isObj(dualUse) ? dualUse : {};
-  const split = splitHeld(doc, { mode: 'city' });
-  const findings = [];
-  const said = (f) => {
-    const cat = f && isObj(f.data) ? f.data.stalkerware_category : null;
-    return cat && SAID[cat] && SAID[cat][answers[cat]] ? SAID[cat][answers[cat]] : undefined;
+// The record in the pages' words: { when, computer, findings: [{ what, kind, rows, said }], not_checked: [{ check, why }] }.
+export function recordView(record) {
+  const r = isObj(record) ? record : {};
+  return {
+    when: scanWhen(r.scanned_at),
+    computer: computerWords(r.computer),
+    findings: (Array.isArray(r.findings) ? r.findings : []).map((rf) => {
+      const [cat, ans] = typeof rf.said === 'string' ? rf.said.split(':') : [];
+      return { what: whatOf(rf), kind: kindWords(rf), rows: rowsOf(rf), said: (SAID[cat] && SAID[cat][ans]) || '' };
+    }),
+    not_checked: (Array.isArray(r.not_checked) ? r.not_checked : []).map((x) => ({ check: checkName(x.module, x.check_name), why: WHY_WORDS[x.why] || COULDNT })),
   };
-  for (const h of split.held) {
-    const f = h.finding || {};
-    const d = isObj(f.data) ? f.data : {};
-    const what = (d.check === 'several_tools' && Array.isArray(d.tools) ? d.tools.filter((x) => typeof x === 'string').join(', ') : '')
-      || heldEvidence(f, h.module).name || str(f.title) || COULDNT;
-    const entry = { what, kind: kindOf(h.module, f, true), rows: rowsOf(h.module, f, doc, true) };
-    const s = said(f);
-    if (s) entry.said = s;
-    findings.push(entry);
-  }
-  // Every warning and critical finding from the other checks (info left out: an inventory would bury the evidence).
-  const list = NC.displayItems(split.doc, { mode: 'standard' });
-  for (const item of [...list.critical, ...list.warning]) {
-    const f = item.finding || {};
-    const module = f.module || (item.seen_in || [])[0] || '';
-    findings.push({ what: str(f.title) || COULDNT, kind: kindOf(module, { ...f, severity: item.severity || f.severity }, false), rows: rowsOf(module, f, doc, false) });
-  }
-  return { version: RECORD_VERSION, scanned_at: String(scanAt || ''), computer: computerOf(doc), findings, not_checked: notCheckedOf(doc) };
 }
 
 // ---- The fingerprint ----
@@ -192,7 +244,7 @@ export const fullPrintLines = (hex) => (String(hex || '').toUpperCase().match(/.
 // ---- The pages ----
 
 export function recordPages(record) {
-  const fs = record && Array.isArray(record.findings) ? record.findings : [];
+  const fs = recordView(record).findings;
   return [{ kind: 'intro' }, ...fs.map((finding) => ({ kind: 'finding', finding })), { kind: 'end' }];
 }
 
@@ -231,12 +283,13 @@ function endHtml(record, fp) {
 }
 
 export function renderRecordPage({ record, fp = '', index = 0 } = {}) {
+  const view = recordView(record);
   const pages = recordPages(record);
   const i = Math.max(0, Math.min(pages.length - 1, Number(index) || 0));
   const p = pages[i];
-  const head = `<header class="pr-head"><b>Checkup record</b><span>${esc(scanWhen(record.scanned_at))}</span><span>${esc(record.computer)}</span>`
+  const head = `<header class="pr-head"><b>Checkup record</b><span>${esc(view.when)}</span><span>${esc(view.computer)}</span>`
     + `<span>${esc(`Page ${i + 1} of ${pages.length}`)}</span><span class="pr-fp">${esc(shortPrint(fp))}</span></header>`;
-  const body = p.kind === 'intro' ? introHtml(record) : p.kind === 'end' ? endHtml(record, fp) : findingHtml(p.finding);
+  const body = p.kind === 'intro' ? introHtml(view) : p.kind === 'end' ? endHtml(view, fp) : findingHtml(p.finding);
   const nav = `<nav class="pr-nav" aria-label="Record pages">${i > 0 ? '<button type="button" class="btn-s" data-act="record-back">◀ BACK</button>' : ''}`
     + `${i < pages.length - 1 ? '<button type="button" class="btn-p" data-act="record-next">NEXT ▶</button>' : ''}`
     + '<button type="button" class="btn-s" data-act="record-done">DONE</button></nav>';
