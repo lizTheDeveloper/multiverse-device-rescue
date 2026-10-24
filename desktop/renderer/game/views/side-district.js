@@ -83,7 +83,9 @@ function offlineHtml(held) {
 
 // `seen`: today, for the Found on row.
 // `cityNotes`: "What this mode does" and "Something changed?" (city mode's; standard mode opens it from a warning).
-export function renderSide({ district, held = [], notice = false, scout = () => '', seen = new Date(), cityNotes = true }) {
+// `record`: offer the photo record (photo-record.js offerRecord).
+export const RECORD_LABEL = 'MAKE A PHOTO RECORD';
+export function renderSide({ district, held = [], notice = false, scout = () => '', seen = new Date(), cityNotes = true, record = false }) {
   const v = district.voice;
   const item = (h) => `<li class="held-item">${heldBlockHtml(h, seen)}</li>`;
   const heldHtml = held.length ? `
@@ -97,6 +99,9 @@ export function renderSide({ district, held = [], notice = false, scout = () => 
       <button type="button" class="btn-p" data-act="side-back">BACK TO THE GAME</button></header>
     <div class="scout-row">${scout('happy', 54)}<p class="say">${esc(v.hello)}</p></div>
     ${heldHtml}
+    ${record ? `<div class="panel side-record"><h3 class="side-h">A record to photograph</h3>
+      <p class="intel">${esc('Pages of what the checkup found, made to be photographed with your phone. Nothing is saved on this computer.')}</p>
+      <button type="button" class="btn-p" data-act="record-open">${esc(RECORD_LABEL)}</button></div>` : ''}
     <div class="panel"><h3 class="side-h">Quiet first steps</h3>
       <ol class="side-steps">${FIRST_STEPS.map((x) => `<li><b>${esc(x.title)}</b> ${esc(x.text)}</li>`).join('')}</ol></div>
     <div class="panel"><h3 class="side-h">Who can help</h3><ul class="notes">${help}</ul>

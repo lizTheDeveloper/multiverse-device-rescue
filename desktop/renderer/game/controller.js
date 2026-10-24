@@ -39,6 +39,7 @@ import { renderTraining } from './views/training.js';
 import { renderLesson } from './views/lesson.js';
 import { renderBoss } from './views/boss.js';
 import { pickDistrict, seedFrom } from './district-names.js';
+import { offerRecord, buildRecord, fingerprint, recordPages, renderRecordPage } from './photo-record.js';
 import { SIX_ROSES } from './side-district.js';
 import { renderSide, sideTileHtml, heldNoticeHtml } from './views/side-district.js';
 import { createMissionDesk } from './missions-city.js';
@@ -201,6 +202,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     drillBank: [], drillsLoaded: false, sweepDrills: null, drillAnswers: {}, range: null, sweptDoc: null,
     // The generated district. Memory only, like the ops log; nothing about it is stored.
     sideTicket: 0, sideNotice: false, sideBack: null, heldOpen: false,
+    // The photo record, while open (photo-record.js): memory only, gone when closed.
+    record: null, recordTicket: 0,
     // Opened from city mode's home (showHome): with no sweep yet, the deck is
     // where the person lands and comes back to, never the Training Grounds.
     homeFirst: false };
@@ -879,7 +882,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // a sweep where one timed out or couldn't look (fog) keeps it.
     // A stopped checkup is never a clean sweep, and it carries any held mark on.
     const carry = heldDistrictIds(s.heldCity).size > 0 || (s.progress.deck.sweep.carry === true && (!!s.stopped || !monitoringRanClear(doc)));
-    const r = recordSweep(s.progress.deck, counts, now(), { carry: carry || !!s.stopped });
+    // The scan's own time, for the photo record's header and fingerprint (memory only).
+    s.sweptAt = now();
+    const r = recordSweep(s.progress.deck, counts, s.sweptAt, { carry: carry || !!s.stopped });
     commitAward(r);
     logEntry('SWEEP', sweepLogText(counts, s.stopped));
     if (r.clean) {
@@ -1074,7 +1079,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   function screenHtml() {
     if (s.screen === 'profile') return profileHtml();
     if (s.screen === 'side') {
-      if (sideAllowed()) return renderSide({ district: side(), held: s.held, notice: s.sideNotice, scout, seen: new Date(), cityNotes: inCity() });
+      if (sideAllowed() && s.record) return renderRecordPage(s.record);
+      if (sideAllowed()) return renderSide({ district: side(), held: s.held, notice: s.sideNotice, scout, seen: new Date(), cityNotes: inCity(), record: recordOffered() });
       s.screen = s.city ? 'map' : noCity();
     }
     if (s.screen === 'range') return rangeHtml();
@@ -1434,7 +1440,37 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   }
 
   // The panic key and BACK TO THE GAME: the ordinary game at once, focus on the map.
+  // The photo record (photo-record.js): offered in the district in the spec's four cases; built from the scan in
+  // memory, its fingerprint made here with Web Crypto. Nothing about it is saved, copied or scored.
+  const dualUseAnswers = () => {
+    try { return win.RescueHost && typeof win.RescueHost.dualUseAnswers === 'function' ? win.RescueHost.dualUseAnswers() || {} : {}; } catch (_) { return {}; }
+  };
+  const recordOffered = () => !!s.doc && offerRecord({ mode: hostMode(), situation: s.situation, doc: s.doc, dualUse: dualUseAnswers() });
+  function openRecord() {
+    if (s.screen !== 'side' || !recordOffered()) return;
+    const record = buildRecord({ doc: s.doc, scanAt: s.sweptAt || '', dualUse: dualUseAnswers() });
+    const ticket = ++s.recordTicket;
+    Promise.resolve().then(() => fingerprint(record)).then((fp) => {
+      // Left, or opened again, while it was being made: nothing to show.
+      if (ticket !== s.recordTicket || s.screen !== 'side') return;
+      s.record = { record, fp, index: 0 };
+      render();
+      const page = frame.querySelector('.pr-page');
+      if (page && typeof page.focus === 'function') page.focus();
+    }).catch(() => {});
+  }
+  function moveRecord(by) {
+    if (!s.record) return;
+    const last = recordPages(s.record.record).length - 1;
+    const index = Math.max(0, Math.min(last, s.record.index + by));
+    if (index === s.record.index) return;
+    s.record = { ...s.record, index };
+    render();
+  }
+  function closeRecord() { s.recordTicket += 1; s.record = null; }
+
   function leaveSide() {
+    closeRecord();
     s.sideTicket += 1; // a guide still opening says nothing afterwards
     s.sideNotice = false;
     if (!inCity() && s.sideBack) { s.screen = s.sideBack; s.sideBack = null; render(); return; }
@@ -1463,7 +1499,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   const cityShown = () => !(host && typeof host.closest === 'function' && host.closest('[hidden]'));
   if (typeof win.addEventListener === 'function') {
     win.addEventListener('keydown', (e) => {
-      if (!e || e.key !== 'Escape' || s.screen !== 'side' || !cityShown()) return;
+      if (!e || s.screen !== 'side' || !cityShown()) return;
+      // The photo record's pages: the arrow keys move through them.
+      if (s.record && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
+        if (typeof e.preventDefault === 'function') e.preventDefault();
+        moveRecord(e.key === 'ArrowRight' ? 1 : -1);
+        return;
+      }
+      if (e.key !== 'Escape') return;
       if (typeof e.preventDefault === 'function') e.preventDefault();
       if (typeof e.stopPropagation === 'function') e.stopPropagation();
       leaveSide();
@@ -1512,6 +1555,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (desk.click(act, go)) return;
     if (go === 'side') { if (sideAllowed()) openSide(); return; }
     if (act === 'side-open-guide') { if (s.screen === 'side') openSideGuide(); return; }
+    if (act === 'record-open') { openRecord(); return; }
+    if (act === 'record-next' || act === 'record-back') { moveRecord(act === 'record-next' ? 1 : -1); return; }
+    if (act === 'record-done') { closeRecord(); render(); const t = frame.querySelector('#side-title'); if (t && typeof t.focus === 'function') t.focus(); return; }
     // RE-SWEEP: the same read-only scan as the first one, through app.js, whose
     // gate decides where it lands.
     if (act === 'resweep') { if (!sweeping()) win.RescueHost.startCheckup(); return; }

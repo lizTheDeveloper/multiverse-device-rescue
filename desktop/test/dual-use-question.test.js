@@ -200,3 +200,13 @@ test('city mode: the list never asks', async () => {
   assert.ok(!html.includes(ASK_P) && !html.includes(ASK_W));
   assert.doesNotMatch(html, /data-dual-use/);
 });
+
+test('the game reads this checkup’s answers from memory, for the photo record, as a copy', async () => {
+  const p = await listPage('standard', [f('parental_control', 'Qustodio')]);
+  assert.strictEqual(p.run('JSON.stringify(window.RescueHost.dualUseAnswers())'), '{}');
+  clickList(p, 'data-dual-use', 'parental_control:someone');
+  assert.strictEqual(p.run('JSON.stringify(window.RescueHost.dualUseAnswers())'), '{"parental_control":"someone"}');
+  // A copy: changing it changes nothing here.
+  p.run('window.RescueHost.dualUseAnswers().parental_control = "me"');
+  assert.strictEqual(p.run('JSON.stringify(window.RescueHost.dualUseAnswers())'), '{"parental_control":"someone"}');
+});

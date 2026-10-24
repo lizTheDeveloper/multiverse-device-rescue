@@ -1234,6 +1234,9 @@ if (typeof document !== 'undefined') {
       // The display preference and the install's seed, for the game.
       mode() { return mode; },
       citySeed() { return citySeed; },
+      // This checkup's workplace and parental answers (DualUse), a copy, for the photo record's "You said".
+      // Memory only, as everywhere.
+      dualUseAnswers() { return { ...dualUseAnswers }; },
       // The district's "What this mode does": the note again, back to the district after.
       aboutCityMode() { showAftercare({ again: true, go: () => cityAgain(true), panic: () => cityAgain(false) }); },
       // The district's "Something changed?": the question again, then back where they were.
