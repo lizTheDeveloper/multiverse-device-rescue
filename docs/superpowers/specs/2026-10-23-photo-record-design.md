@@ -55,9 +55,8 @@ says "Couldn't tell", never "no".
 - **Readable in a photo:** large type, black on white whatever the app's theme, no gradients, no hover-only text,
   paths in a monospace face that wraps.
 - **Each page stands alone:** a header on every page with "Checkup record", the date and time of the scan, the
-  computer (model and system version from the scan), "Page 2 of 7", and a short record code shared by every page
-  of this record so they can be shown to belong together. The code is not a tamper seal and the page never says
-  it is.
+  computer (model and system version from the scan), "Page 2 of 7", and the record's **fingerprint** in short
+  form (below), shared by every page so they can be shown to belong together.
 - **First page: how to use it.** "Take a photo of each page with your phone. Make sure the top line is in the
   picture. If someone may look through your phone, keep the photos somewhere they can't reach." Plus who can help
   (the help district's own note, in full).
@@ -65,6 +64,24 @@ says "Couldn't tell", never "no".
   out."
 - **Moving through:** Next / Back buttons and arrow keys; **Done** returns to the help district; Esc leaves at
   once, as everywhere in the help district.
+
+## The fingerprint
+
+The record has one fingerprint: the SHA-256 of its canonical form (the facts on its pages as JSON with sorted
+keys, UTF-8, no whitespace, a `version` field first), computed on this computer with Web Crypto. Nothing is sent
+anywhere to make it.
+
+- **Every page header** shows the short form: the first 16 hex characters in groups of four (`3F9A 0C21 77DE
+  B410`).
+- **The last page** shows all 64 characters, in groups of four over four lines, in a large monospace face, under
+  "Record fingerprint". It says what it proves, plainly: "If anything in this record changes, this number
+  changes. It shows the pages belong together and haven't been edited since the checkup made them. It doesn't
+  prove what the checkup found is true."
+- **Same record, same fingerprint:** opening the photo record twice for the same scan gives the same number.
+  The scan time is part of the record, so a new scan gives a new one.
+- **Proving when:** the fingerprint alone proves nothing about time. That comes with the evidence escrow's
+  public log (`docs/superpowers/proposals/2026-10-23-evidence-escrow.md`), which can record a fingerprint, and only the
+  fingerprint, at the moment it's sent. Until then the page doesn't claim a time beyond the scan's own clock.
 
 ## Words
 
@@ -86,6 +103,8 @@ forbidden-words check applies to every page.
 
 Desktop tests: offered exactly in the four cases above and not otherwise; contents (held findings, warning and
 critical findings, couldn't-check list, info findings left out); full paths never shortened; every page has the
-header, date, computer, page count and the same record code; "Couldn't tell" for missing evidence; nothing written
+header, date, computer, page count and the same short fingerprint; the fingerprint is stable for the same
+record, changes when any fact changes, matches a known SHA-256 for a fixed synthetic record, and nothing is sent
+over the network to make it; "Couldn't tell" for missing evidence; nothing written
 to storage, exports or the clipboard; city-mode forbidden words on every page; Esc and Done. Screenshots of each
 page in both themes to confirm it reads the same (black on white).
