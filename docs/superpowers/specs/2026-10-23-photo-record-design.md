@@ -70,46 +70,71 @@ says "Couldn't tell", never "no".
 The record has one fingerprint: the SHA-256 of its canonical form, computed on this computer with Web Crypto.
 Nothing is sent anywhere to make it.
 
-**The canonical form** holds raw values only, never the pages' words, so the same scan gives the same fingerprint
-whatever the computer's language or time zone. The pages are made from it in the computer's language and are not
-hashed. It is one JSON object:
+**The canonical form covers exactly what the pages print, and nothing else**, so a set of photos can be checked
+on its own: someone holding only the photos can retype the printed facts in a text editor, and `shasum -a 256`
+gives the same number. It is one JSON object (version 2):
 
 ```jsonc
 {
-  "version": 1,
-  "scanned_at": "2026-10-23T16:17:00.000Z",      // when the checkup finished: ISO 8601, UTC, milliseconds; null if unknown
-  "computer": {                                  // null for anything the scan didn't report
-    "platform": "darwin",                        // the scan's own `platform`
-    "model_name": "MacBook Pro", "model": "Mac16,1", "os_version": "26.1", "build": "25B78"
-                                                 // macos_version_support's version_info finding: model_name, model, version, build
-  },
-  "findings": [                                  // held findings first, in scan order; then critical, then warning, as the list merges them
+  "version": 2,                                   // the number 2: this form
+  "computer": "MacBook Pro (Mac16,1), macOS 26.1 (25B78)",
+                                                  // the header's computer line, as printed
+  "findings": [                                   // one per finding page, in page order
     {
-      "module": "stalkerware_scan",              // the check's id
-      "check_name": null,                        // the check's `check_name` from the scan, or null
-      "code": "security.stalkerware_scan.monitoring_software_found",   // or null
-      "severity": "critical",                    // critical | warning | info (info only for held findings)
-      "kind": "parental_control",                // parental_control | employee_monitoring | monitoring_product | keyboard_access |
-                                                 // phone_backup | remote_access_tool | remote_access_tools | program | finding
-      "title": "…",                              // the finding's own title, as the scan wrote it
-      "data": { },                               // the finding's `data` exactly as the scan reported it: raw paths, ISO
-                                                 // dates, booleans, and null where the check couldn't tell
-      "made_by": [ { "subject": "…", "name": "…", "verified": false } ],  // verified: true | false | null
-      "said": "parental_control:someone"         // the person's answer as "<category>:<answer id>" (dual-use.js), or null
+      "kind": "Parental control product",         // the line under the title, as printed
+      "rows": [ ["Where", "/Applications/ExampleWatch.app"], ["Added", "March 3, 2026"] ],
+                                                  // every row, top to bottom: [label, value], as printed
+      "said": "You said: someone else gets its reports",
+                                                  // the whole "You said: …" line; "" when the page has none
+      "what": "ExampleWatch"                      // the page's title
     }
   ],
-  "not_checked": [                               // checks that didn't run or didn't finish
-    { "module": "firewall_audit", "check_name": "Firewall", "why": "couldnt_run" }
-                                                 // why: couldnt_run | not_reached | not_started | unfinished
-  ]
+  "not_checked": [ ["Firewall", "Couldn't run"] ],
+                                                  // the last page's list, top to bottom: [check, why]. Each item prints
+                                                  // as "check: why"; split it at the last ": ". [] when the page says
+                                                  // "Every check ran to the end."
+  "when": "October 23, 2026, 9:17 AM (UTC-7)"     // the header's scan time, as printed
 }
 ```
 
-It is serialized with `version` first and every other key, at every level, in sorted (UTF-16 code unit) order;
-arrays keep their order; no whitespace; strings and numbers as JavaScript's `JSON.stringify` writes them (no
-Unicode normalization, non-ASCII characters as themselves); then encoded as UTF-8 and hashed with SHA-256, written
-as 64 lowercase hex characters. A verifier with the scan JSON, the scan's time and the person's answers can
-rebuild it. `desktop/test/photo-record.test.js` pins a fixed synthetic record, its canonical text and its hash.
+Left out: page numbers, "Checkup record", the how-to-use page, every fixed sentence, the fingerprint itself and
+the buttons. The engine's evidence that no page shows (codes, severities, other `data` fields) isn't covered:
+nobody holding the photos could check it.
+
+**Normalizing every string** (the pages keep their typography; this is for hashing only), in this order:
+
+1. Unicode NFC.
+2. `‘` (U+2018) and `’` (U+2019) become `'`; `“` (U+201C) and `”` (U+201D) become `"`.
+3. `−` (U+2212, minus), `–` (U+2013, en dash) and `—` (U+2014, em dash) become `-`.
+4. Every run of whitespace becomes one space: tab, line feed, U+000B, U+000C, carriage return, space, U+00A0
+   (no-break space), U+1680, U+2000–U+200A, U+2028, U+2029, U+202F, U+205F, U+3000 and U+FEFF (JavaScript's `\s`).
+5. Spaces trimmed from both ends.
+
+So a value retyped with a keyboard's straight apostrophes, or with an extra space, gives the same fingerprint.
+
+**Serializing:** `version` first, then every other key, at every level, in sorted order (`computer`, `findings`,
+`not_checked`, `when`; in a finding `kind`, `rows`, `said`, `what`); arrays in page order; no whitespace between
+tokens; strings as JavaScript's `JSON.stringify` writes them (`"` and `\` escaped with a backslash, any other control
+character as `\u00XX`, non-ASCII characters as themselves). Encoded as UTF-8, no newline at the end, hashed with SHA-256, written as 64 lowercase
+hex characters.
+
+**The printed text is the same on every computer:** the pages are in US English whatever the computer's
+language, and every date is written by the app in that form ("March 3, 2026"). The header's scan time is
+in this computer's time zone and says so, with the computer's own UTC offset at that instant: "October 23,
+2026, 9:17 AM (UTC-7)", "(UTC+5:30)", "(UTC+0)". The same scan opened in another time zone prints another time,
+so its pages have their own fingerprint; each set of pages matches its own.
+
+**Worked example** (`desktop/test/photo-record.test.js` pins it, and checks the fingerprint against facts read
+back out of the rendered pages alone): one parental control finding, one check that couldn't run, scanned at
+2026-10-23T16:17:00Z on a computer in Los Angeles. Its canonical text, one line:
+
+```
+{"version":2,"computer":"MacBook Pro (Mac16,1), macOS 26.1 (25B78)","findings":[{"kind":"Parental control product","rows":[["Where","/Applications/ExampleWatch.app"],["Added","March 3, 2026"],["Last used","Couldn't tell"],["Running now","Couldn't tell"],["Made by","Example Family Co (not verified)"],["How the check knows","Found by the check \"Safety sweep\""]],"said":"You said: someone else gets its reports","what":"ExampleWatch"}],"not_checked":[["Firewall","Couldn't run"]],"when":"October 23, 2026, 9:17 AM (UTC-7)"}
+```
+
+Saved without a final newline (`printf '%s' '…' | shasum -a 256`), its SHA-256 is
+`8298a3867b2a4e5f7f9bf82dbe163f67361346356076c28e65075ff33fb06e51`, and every page header shows
+`8298 A386 7B2A 4E5F`.
 
 - **Every page header** shows the short form: the first 16 hex characters in groups of four (`3F9A 0C21 77DE
   B410`).
@@ -117,8 +142,8 @@ rebuild it. `desktop/test/photo-record.test.js` pins a fixed synthetic record, i
   "Record fingerprint". It says what it proves, plainly: "If anything in this record changes, this number
   changes. It shows the pages belong together and haven't been edited since the checkup made them. It doesn't
   prove what the checkup found is true."
-- **Same record, same fingerprint:** opening the photo record twice for the same scan gives the same number.
-  The scan time is part of the record, so a new scan gives a new one.
+- **Same record, same fingerprint:** opening the photo record twice for the same scan, on the same computer,
+  gives the same number. The scan time is printed, so a new scan gives a new one.
 - **Proving when:** the fingerprint alone proves nothing about time. That comes with the evidence escrow's
   public log (`docs/superpowers/proposals/2026-10-23-evidence-escrow.md`), which can record a fingerprint, and only the
   fingerprint, at the moment it's sent. Until then the page doesn't claim a time beyond the scan's own clock.
@@ -144,7 +169,8 @@ forbidden-words check applies to every page.
 Desktop tests: offered exactly in the four cases above and not otherwise; contents (held findings, warning and
 critical findings, couldn't-check list, info findings left out); full paths never shortened; every page has the
 header, date, computer, page count and the same short fingerprint; the fingerprint is stable for the same
-record, changes when any fact changes, matches a known SHA-256 for a fixed synthetic record, and nothing is sent
-over the network to make it; "Couldn't tell" for missing evidence; nothing written
+record, changes when any printed fact changes and not when evidence no page shows does, matches a known SHA-256
+for a fixed synthetic record, equals the SHA-256 of the facts read back out of the rendered pages alone, survives
+retyping with straight quotes, is the same in two languages, and nothing is sent over the network to make it; "Couldn't tell" for missing evidence; nothing written
 to storage, exports or the clipboard; city-mode forbidden words on every page; Esc and Done. Screenshots of each
 page in both themes to confirm it reads the same (black on white).

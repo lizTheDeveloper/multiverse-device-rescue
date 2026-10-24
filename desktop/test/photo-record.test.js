@@ -1,6 +1,8 @@
 'use strict';
 // The photo record (docs/superpowers/specs/2026-10-23-photo-record-design.md): pages built to be photographed,
-// from the scan in memory, with one SHA-256 fingerprint. game/photo-record.js; synthetic data only.
+// from the scan in memory, with one SHA-256 fingerprint of what they print. game/photo-record.js; synthetic data only.
+// The printed scan time carries this computer's time zone, so the pinned hash needs a fixed one.
+process.env.TZ = 'America/Los_Angeles';
 const test = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
@@ -95,7 +97,10 @@ test('contents: held findings, warning and critical findings, the couldn’t-che
   assert.strictEqual(rawDesk.data.added_on, '2026-03-03', 'the engine’s own ISO day, not "March 3, 2026"');
   assert.strictEqual(rawDesk.data.running_now, false);
   assert.strictEqual(raw.findings.find((f) => f.data.tool === 'HelpDesk').data.running_now, null, '"Couldn’t tell" is null in the record');
-  assert.doesNotMatch(P.canonicalJson(raw), /Couldn’t tell|March|October|Remote-access tool|Parental control product|Found by/);
+  // The fingerprint covers the pages' words, normalized, never the raw values behind them.
+  assert.match(P.canonicalJson(raw), /"Couldn't tell"/);
+  assert.match(P.canonicalJson(raw), /"March 3, 2026"/);
+  assert.doesNotMatch(P.canonicalJson(raw), /2026-03-03|couldnt_run|parental_control|"data"|"module"|’/);
   const watch = r.findings.find((f) => f.what === 'ExampleWatch');
   assert.strictEqual(watch.kind, 'Parental control product');
   const row = (f, l) => (f.rows.find((x) => x[0] === l) || [])[1];
@@ -129,9 +134,9 @@ test('"You said": the dual-use answer that led to the record is in it', async ()
   assert.strictEqual(P.recordView(P.buildRecord(ctx())).findings.find((f) => f.what === 'ExampleWatch').said, '', 'no answer, no line');
 });
 
-// The fixed synthetic record and its canonical form: pinned, so a change to either is seen. Raw values only
-// (docs/superpowers/specs/2026-10-23-photo-record-design.md, "The fingerprint").
-const FIXED = { version: 1, scanned_at: '2026-10-23T16:17:00.000Z',
+// The fixed synthetic record and the canonical text of what its pages print: pinned, so a change to either is seen
+// (docs/superpowers/specs/2026-10-23-photo-record-design.md, "The fingerprint", which quotes both).
+const FIXED = { version: 2, scanned_at: '2026-10-23T16:17:00.000Z',
   computer: { platform: 'darwin', model_name: 'MacBook Pro', model: 'Mac16,1', os_version: '26.1', build: '25B78' },
   findings: [{ module: 'stalkerware_scan', check_name: null, code: 'security.stalkerware_scan.monitoring_software_found', severity: 'critical',
     kind: 'parental_control', title: 'ExampleWatch is on this computer',
@@ -139,15 +144,42 @@ const FIXED = { version: 1, scanned_at: '2026-10-23T16:17:00.000Z',
       location: '/Applications/ExampleWatch.app', added_on: '2026-03-03', running_now: null },
     made_by: [{ subject: '/Applications/ExampleWatch.app', name: 'Example Family Co', verified: false }], said: 'parental_control:someone' }],
   not_checked: [{ module: 'firewall_audit', check_name: 'Firewall', why: 'couldnt_run' }] };
-const FIXED_JSON = '{"version":1,"computer":{"build":"25B78","model":"Mac16,1","model_name":"MacBook Pro","os_version":"26.1","platform":"darwin"},'
-  + '"findings":[{"check_name":null,"code":"security.stalkerware_scan.monitoring_software_found","data":{"added_on":"2026-03-03","check":"monitoring_software_found",'
-  + '"location":"/Applications/ExampleWatch.app","running_now":null,"stalkerware_category":"parental_control","stalkerware_name":"ExampleWatch"},'
-  + '"kind":"parental_control","made_by":[{"name":"Example Family Co","subject":"/Applications/ExampleWatch.app","verified":false}],'
-  + '"module":"stalkerware_scan","said":"parental_control:someone","severity":"critical","title":"ExampleWatch is on this computer"}],'
-  + '"not_checked":[{"check_name":"Firewall","module":"firewall_audit","why":"couldnt_run"}],"scanned_at":"2026-10-23T16:17:00.000Z"}';
+const FIXED_JSON = '{"version":2,"computer":"MacBook Pro (Mac16,1), macOS 26.1 (25B78)","findings":[{"kind":"Parental control product",'
+  + '"rows":[["Where","/Applications/ExampleWatch.app"],["Added","March 3, 2026"],["Last used","Couldn\'t tell"],["Running now","Couldn\'t tell"],'
+  + '["Made by","Example Family Co (not verified)"],["How the check knows","Found by the check \\"Safety sweep\\""]],'
+  + '"said":"You said: someone else gets its reports","what":"ExampleWatch"}],"not_checked":[["Firewall","Couldn\'t run"]],'
+  + '"when":"October 23, 2026, 9:17 AM (UTC-7)"}';
 const FIXED_SHA = crypto.createHash('sha256').update(FIXED_JSON, 'utf8').digest('hex');
+const sha = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 
-test('the fingerprint: SHA-256 of the canonical JSON (version first, keys sorted, no whitespace), pinned', async () => {
+// A verifier holding only the photos, written from the spec and not from photo-record.js: the printed facts,
+// normalized, in the canonical object's sorted key order, as JSON with no whitespace.
+const retype = (v) => String(v).normalize('NFC').replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"')
+  .replace(/[\u2212\u2013\u2014]/g, '-').replace(/[\t\n\v\f\r \u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000\uFEFF]+/g, ' ').trim();
+const canonicalText = (facts) => JSON.stringify({ version: 2, computer: retype(facts.computer),
+  findings: facts.findings.map((f) => ({ kind: retype(f.kind), rows: f.rows.map(([l, v]) => [retype(l), retype(v)]), said: retype(f.said), what: retype(f.what) })),
+  not_checked: facts.not_checked.map(([c, w]) => [retype(c), retype(w)]), when: retype(facts.when) });
+// What the pages print, read back out of their HTML only.
+const unhtml = (h) => h.replace(/<[^>]+>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, '\'').replace(/&amp;/g, '&');
+function readPages(pages) {
+  const one = (re, h) => { const m = re.exec(h); return m ? unhtml(m[1]) : ''; };
+  const heads = pages.map((h) => [...(/<header class="pr-head">([\s\S]*?)<\/header>/.exec(h) || ['', ''])[1].matchAll(/<span>([\s\S]*?)<\/span>/g)].map((m) => unhtml(m[1])));
+  const facts = { when: heads[0][0], computer: heads[0][1], findings: [], not_checked: [] };
+  for (const h of pages) {
+    if (/class="pr-page pr-finding"/.test(h)) {
+      facts.findings.push({ what: one(/<h2 class="pr-title">([\s\S]*?)<\/h2>/, h), kind: one(/<p class="pr-kind">([\s\S]*?)<\/p>/, h),
+        rows: [...h.matchAll(/<dt>([\s\S]*?)<\/dt><dd>([\s\S]*?)<\/dd>/g)].map((m) => [unhtml(m[1]), unhtml(m[2])]),
+        said: one(/<p class="pr-said">([\s\S]*?)<\/p>/, h) });
+    }
+    if (/class="pr-page pr-end"/.test(h)) {
+      // "check: why"; the why is one of a few fixed words, so the last ": " splits them.
+      facts.not_checked = [...h.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => { const t = unhtml(m[1]); const at = t.lastIndexOf(': '); return [t.slice(0, at), t.slice(at + 2)]; });
+    }
+  }
+  return { heads, facts };
+}
+
+test('the fingerprint: SHA-256 of the printed facts’ canonical JSON (version first, keys sorted, no whitespace), pinned', async () => {
   const P = await load();
   assert.strictEqual(P.canonicalJson(FIXED), FIXED_JSON);
   const fp = await P.fingerprint(FIXED);
@@ -155,15 +187,57 @@ test('the fingerprint: SHA-256 of the canonical JSON (version first, keys sorted
   assert.strictEqual(fp, PINNED, 'the pinned value');
   assert.strictEqual(P.shortPrint(fp), fp.slice(0, 16).toUpperCase().match(/.{4}/g).join(' '));
   assert.deepStrictEqual(P.fullPrintLines(fp), fp.toUpperCase().match(/.{16}/g).map((l) => l.match(/.{4}/g).join(' ')));
-  // Same record, same number; any fact changed, a new one.
+  // Same record, same number; any printed fact changed, a new one.
   const built = P.buildRecord(ctx());
   assert.strictEqual(await P.fingerprint(built), await P.fingerprint(P.buildRecord(ctx())));
   const moved = P.buildRecord(ctx({ scanAt: '2026-10-23T16:18:00.000Z' }));
   assert.notStrictEqual(await P.fingerprint(moved), await P.fingerprint(built));
   const edited = JSON.parse(JSON.stringify(FIXED)); edited.findings[0].data.location += 'x';
   assert.notStrictEqual(await P.fingerprint(edited), fp);
+  // The engine's evidence that no page shows isn't covered: nobody holding the photos could check it.
+  const unseen = JSON.parse(JSON.stringify(FIXED));
+  Object.assign(unseen.findings[0], { code: 'security.other', severity: 'warning' });
+  Object.assign(unseen.findings[0].data, { check: 'other', internal_id: 'x-17', bundle_size: 12345 });
+  unseen.findings[0].made_by[0].subject = '/elsewhere';
+  assert.strictEqual(P.canonicalJson(unseen), FIXED_JSON);
+  assert.strictEqual(await P.fingerprint(unseen), fp);
 });
-const PINNED = 'ee35c2170b5a5dd357ae9237c14b5a6b4281c41948fa0e62eeae87f09fd124bf';
+const PINNED = '8298a3867b2a4e5f7f9bf82dbe163f67361346356076c28e65075ff33fb06e51';
+
+test('normalizing for retyping: quotes, dashes and spaces as a keyboard types them; NFC; trimmed', async () => {
+  const P = await load();
+  assert.strictEqual(P.normalizeForPrint('  Couldn\u2019t \u2018x\u2019 \u201Cy\u201D a\u2212b c\u2013d e\u2014f\u00A0g\u202Fh\u2003i \n\t j  '), 'Couldn\'t \'x\' "y" a-b c-d e-f g h i j');
+  assert.strictEqual(P.normalizeForPrint('Cafe\u0301'), 'Caf\u00E9');
+  for (const s of ['Couldn’t tell', 'a\u2212b\u00A0 c', ' x ', 'Cafe\u0301 “q”']) assert.strictEqual(P.normalizeForPrint(s), retype(s), s);
+});
+
+test('the photos verify themselves: the hash is SHA-256 of the facts read back out of the rendered pages', async () => {
+  const P = await load();
+  const r = P.buildRecord(ctx({ dualUse: { parental_control: 'someone' } }));
+  const fp = await P.fingerprint(r);
+  const pages = P.recordPages(r).map((_, i) => P.renderRecordPage({ record: r, fp, index: i }));
+  const { heads, facts } = readPages(pages);
+  for (const h of heads) assert.deepStrictEqual([h[0], h[1]], [heads[0][0], heads[0][1]], 'every header prints the same time and computer');
+  assert.match(facts.when, /^October 23, 2026, 9:17 AM \(UTC-7\)$/);
+  assert.strictEqual(facts.findings.length, r.findings.length);
+  assert.ok(facts.findings.some((f) => f.said === 'You said: someone else gets its reports'));
+  assert.ok(facts.not_checked.length >= 3);
+  assert.strictEqual(sha(canonicalText(facts)), fp);
+  assert.strictEqual(canonicalText(facts), P.canonicalJson(r));
+  // Retyped with a keyboard's straight apostrophes and quotes, and loose spacing: the same number.
+  const typed = JSON.parse(JSON.stringify(facts));
+  typed.findings.forEach((f) => { f.rows = f.rows.map(([l, v]) => [l, ` ${v.replace(/’/g, "'").replace(/[“”]/g, '"')}  `]); });
+  typed.not_checked = typed.not_checked.map(([c, w]) => [c, w.replace(/’/g, "'")]);
+  assert.ok(JSON.stringify(facts).includes('’'), 'there were curly apostrophes to retype');
+  assert.strictEqual(sha(canonicalText(typed)), fp);
+  // Any printed value changed, a different number: every row of every finding page.
+  facts.findings.forEach((f, i) => f.rows.forEach((_, j) => {
+    const changed = JSON.parse(JSON.stringify(facts));
+    changed.findings[i].rows[j][1] += '1';
+    assert.notStrictEqual(sha(canonicalText(changed)), fp, `${f.what}: ${f.rows[j][0]}`);
+  }));
+  for (const k of ['when', 'computer']) assert.notStrictEqual(sha(canonicalText({ ...facts, [k]: `${facts[k]}1` })), fp, k);
+});
 
 test('no network: nothing is fetched or sent to build, fingerprint or draw the record', async () => {
   const P = await load();
@@ -260,7 +334,8 @@ test('a finding page doesn’t repeat its Where under another label, and every p
 });
 
 
-test('the same scan gives the same fingerprint in any language and time zone; only the pages’ words change', () => {
+// Two runs of the same scan in fresh processes: the language and time zone come from the environment.
+function inProcess(env) {
   const { execFileSync } = require('child_process');
   const script = `
     require(${JSON.stringify(path.join(__dirname, '..', 'renderer', 'not-checked.js'))});
@@ -269,12 +344,24 @@ test('the same scan gives the same fingerprint in any language and time zone; on
     import(${JSON.stringify(pathToFileURL(path.join(__dirname, '..', 'renderer', 'game', 'photo-record.js')).href)}).then(async (P) => {
       const r = P.buildRecord({ doc: T.doc(), scanAt: T.AT, dualUse: { parental_control: 'someone' } });
       const fp = await P.fingerprint(r);
-      const page = P.renderRecordPage({ record: r, fp, index: 2 });
-      process.stdout.write(JSON.stringify({ fp, head: /<header[\\s\\S]*?<\\/header>/.exec(page)[0], body: page }));
+      const pages = P.recordPages(r).map((_, i) => P.renderRecordPage({ record: r, fp, index: i }));
+      const local = new Date(2026, 2, 3).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+      process.stdout.write(JSON.stringify({ fp, pages, local }));
     });`;
-  const run = (env) => JSON.parse(execFileSync(process.execPath, ['-e', script], { env: { ...process.env, ...env, NODE_TEST_CONTEXT: '' } }).toString());
-  const us = run({ LC_ALL: 'en_US.UTF-8', LANG: 'en_US.UTF-8', TZ: 'America/Los_Angeles' });
-  const de = run({ LC_ALL: 'de_DE.UTF-8', LANG: 'de_DE.UTF-8', TZ: 'Asia/Tokyo' });
-  assert.notStrictEqual(us.head, de.head, 'the two runs really did show the date differently');
-  assert.strictEqual(us.fp, de.fp);
+  return JSON.parse(execFileSync(process.execPath, ['-e', script], { env: { ...process.env, ...env, NODE_TEST_CONTEXT: '' } }).toString());
+}
+
+test('the same scan in two languages, same time zone: the same pages and the same fingerprint', () => {
+  const us = inProcess({ LC_ALL: 'en_US.UTF-8', LANG: 'en_US.UTF-8', TZ: 'America/Los_Angeles' });
+  const de = inProcess({ LC_ALL: 'de_DE.UTF-8', LANG: 'de_DE.UTF-8', TZ: 'America/Los_Angeles' });
+  assert.notStrictEqual(us.local, de.local, 'the two runs really did have different languages');
+  assert.deepStrictEqual(de.pages, us.pages);
+  assert.strictEqual(de.fp, us.fp);
+  // Another time zone prints another time, so its pages have their own fingerprint, and say which zone.
+  const jp = inProcess({ LC_ALL: 'en_US.UTF-8', LANG: 'en_US.UTF-8', TZ: 'Asia/Tokyo' });
+  assert.ok(jp.pages[0].includes('October 24, 2026, 1:17 AM (UTC+9)'), 'the zone is printed');
+  assert.ok(us.pages[0].includes('October 23, 2026, 9:17 AM (UTC-7)'));
+  assert.notStrictEqual(jp.fp, us.fp);
+  assert.ok(inProcess({ TZ: 'Asia/Kolkata' }).pages[0].includes('October 23, 2026, 9:47 PM (UTC+5:30)'), 'a half-hour offset');
+  assert.ok(inProcess({ TZ: 'UTC' }).pages[0].includes('October 23, 2026, 4:17 PM (UTC+0)'));
 });

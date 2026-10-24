@@ -1,17 +1,20 @@
 // The photo record (docs/superpowers/specs/2026-10-23-photo-record-design.md): what the checkup found, as pages
 // built to be photographed with a phone, offered only in the help district. Drawn from the scan already in
 // memory; nothing is saved, copied, exported or sent, and nothing here scores. One fingerprint, the SHA-256 of
-// the record's canonical JSON, made on this computer with Web Crypto, ties the pages together.
+// the facts the pages print, made on this computer with Web Crypto, ties the pages together: someone holding
+// only the photos can retype those facts and get the same number.
 //
 //   offerRecord({ mode, situation, doc, dualUse }) -> boolean     the four cases in the spec
-//   buildRecord({ doc, scanAt, dualUse }) -> record               raw values only: what the fingerprint covers
-//   recordView(record) -> the pages' words (the computer's language; never hashed)
+//   buildRecord({ doc, scanAt, dualUse }) -> record               raw values: what the pages are made from
+//   recordView(record) -> the pages' words (US English, whatever the computer's language: they're hashed)
+//   normalizeForPrint(s) -> string                                a printed fact as a verifier would retype it
+//   printedFacts(view) -> the canonical object                    the printed facts, normalized, in page order
 //   canonicalJson(record) -> string                               version first, every other key sorted, no whitespace
 //   fingerprint(record, subtle?) -> Promise<hex>                  64 lowercase hex
 //   shortPrint(hex) / fullPrintLines(hex)                         'AAAA BBBB CCCC DDDD' / four such lines of the whole
 //   recordPages(record) -> [{ kind: 'intro' | 'finding' | 'end', finding? }]
 //   renderRecordPage({ record, fp, index }) -> HTML               one page and its Back / Next / Done
-//   scanWhen(iso) -> the scan's date and time, as the header shows it
+//   scanWhen(iso) -> the scan's date, time and UTC offset, as the header shows it
 import { esc } from './escape.js';
 import { splitHeld, heldEvidence, REMOTE_TOOLS } from './held.js';
 import { HELP, OPEN_NOTE } from './side-district.js';
@@ -22,7 +25,8 @@ import * as evidenceModule from '../evidence.js';
 const EV = globalThis.Evidence || evidenceModule.default;
 const NC = globalThis.NotChecked;
 
-export const RECORD_VERSION = 1;
+export const RECORD_VERSION = 2;
+const LOCALE = 'en-US'; // the app's words are English; a printed date must not depend on the computer's language
 const COULDNT = 'Couldn’t tell';
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
 const str = (v) => (typeof v === 'string' && v.trim() ? v.trim() : '');
@@ -47,9 +51,9 @@ export function offerRecord({ mode, situation, doc, dualUse } = {}) {
 
 // ---- What's in it ----
 //
-// The record is raw values only (the fingerprint covers it; see the spec's "The fingerprint"): the scan's ISO time,
-// the engine's own data for each finding, booleans as true / false / null (null: couldn't tell), kinds and answers
-// as stable keys. The pages' words, in the computer's language, are made from it by recordView and never hashed.
+// The record is raw values: the scan's ISO time, the engine's own data for each finding, booleans as true / false /
+// null (null: couldn't tell), kinds and answers as stable keys. The pages' words are made from it by recordView;
+// the fingerprint covers those words, not this (see the spec's "The fingerprint").
 
 function kindKey(module, f, held) {
   const d = isObj(f.data) ? f.data : {};
@@ -120,7 +124,7 @@ export function buildRecord({ doc, scanAt, dualUse } = {}) {
     findings, not_checked: rawNotChecked(doc) };
 }
 
-// ---- What the pages say (the computer's language; never hashed) ----
+// ---- What the pages say (US English everywhere: the fingerprint covers it) ----
 
 const KIND_WORDS = { parental_control: 'Parental control product', employee_monitoring: 'Employee monitoring product',
   monitoring_product: 'Monitoring product', keyboard_access: 'Program with keyboard access', phone_backup: 'Finding in a phone backup',
@@ -131,7 +135,7 @@ const WHY_WORDS = { couldnt_run: 'Couldn’t run', not_reached: 'Not reached', n
 // A check's name as the city may say it (never a watching word).
 const checkName = (module, name) => EV.cityCheckName(name || EV.checkLabel(module, null), module);
 
-const day = (v) => (typeof v === 'string' ? (dayWords(v, { year: true }) || str(v)) : '');
+const day = (v) => (typeof v === 'string' ? (dayWords(v, { year: true, locale: LOCALE }) || str(v)) : '');
 const first = (d, keys) => { for (const k of keys) if (d[k] != null && d[k] !== '') return d[k]; return null; };
 const yesNo = (v) => (v === true ? 'Yes' : v === false ? 'No' : COULDNT);
 
@@ -161,7 +165,7 @@ function rowsOf(rf) {
   const held = HELD_KINDS.has(rf.kind);
   const rows = [['Where', whereOf(d)]];
   if (rf.kind === 'remote_access_tool') {
-    const r = Object.fromEntries(remoteFacts(d, { year: true }).rows.map((x) => [x.label, x.value]));
+    const r = Object.fromEntries(remoteFacts(d, { year: true, locale: LOCALE }).rows.map((x) => [x.label, x.value]));
     rows.push(['Added', r.Added], ['Last let someone in', r['Last let someone in']],
       ['Can let someone in without a click', r['Can let someone in without a click']], ['Running now', r['Running now']]);
   } else {
@@ -222,13 +226,33 @@ export function recordView(record) {
 
 // ---- The fingerprint ----
 
+// For hashing only (the pages keep their typography): what someone retyping a photo would type. NFC; curly
+// quotes straight; minus, en and em dash a hyphen; every kind of space (\s) one space; trimmed.
+export const normalizeForPrint = (v) => String(v == null ? '' : v).normalize('NFC')
+  .replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[\u2212\u2013\u2014]/g, '-')
+  .replace(/\s+/g, ' ').trim();
+
+// The facts as the pages print them, in page order: the header's scan time and computer; each finding page's
+// title, kind line, rows and "You said" line ('' when there's none); the couldn't-check list. Nothing else: no
+// page numbers, instructions, fixed sentences, fingerprint or buttons.
+export function printedFacts(view) {
+  const v = isObj(view) ? view : {};
+  const n = normalizeForPrint;
+  return {
+    version: RECORD_VERSION, when: n(v.when), computer: n(v.computer),
+    findings: (Array.isArray(v.findings) ? v.findings : []).map((f) => ({ what: n(f.what), kind: n(f.kind),
+      rows: (f.rows || []).map(([l, x]) => [n(l), n(x)]), said: f.said ? n(`You said: ${f.said}`) : '' })),
+    not_checked: (Array.isArray(v.not_checked) ? v.not_checked : []).map((x) => [n(x.check), n(x.why)]),
+  };
+}
+
 function sorted(v) {
   if (Array.isArray(v)) return v.map(sorted);
   if (isObj(v)) return Object.fromEntries(Object.keys(v).sort().filter((k) => v[k] !== undefined).map((k) => [k, sorted(v[k])]));
   return v;
 }
 export function canonicalJson(record) {
-  const r = isObj(record) ? record : {};
+  const r = printedFacts(recordView(record));
   const rest = sorted(Object.fromEntries(Object.entries(r).filter(([k]) => k !== 'version')));
   return JSON.stringify({ version: r.version, ...rest });
 }
@@ -248,9 +272,16 @@ export function recordPages(record) {
   return [{ kind: 'intro' }, ...fs.map((finding) => ({ kind: 'finding', finding })), { kind: 'end' }];
 }
 
+// "October 23, 2026, 9:17 AM (UTC-7)": US English by hand (ICU versions differ on " at " and the space before AM),
+// in this computer's time zone with its offset at that instant, so the printed time is unambiguous.
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 export function scanWhen(iso) {
   const t = new Date(String(iso || ''));
-  return Number.isNaN(t.getTime()) ? COULDNT : t.toLocaleString(undefined, { dateStyle: 'long', timeStyle: 'short' });
+  if (Number.isNaN(t.getTime())) return COULDNT;
+  const h = t.getHours();
+  const off = -t.getTimezoneOffset();
+  const zone = `UTC${off < 0 ? '-' : '+'}${Math.floor(Math.abs(off) / 60)}${Math.abs(off) % 60 ? `:${String(Math.abs(off) % 60).padStart(2, '0')}` : ''}`;
+  return `${MONTHS[t.getMonth()]} ${t.getDate()}, ${t.getFullYear()}, ${h % 12 || 12}:${String(t.getMinutes()).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'} (${zone})`;
 }
 
 const looksLikePath = (s) => /^(~|\/|[A-Za-z]:\\)/.test(s);

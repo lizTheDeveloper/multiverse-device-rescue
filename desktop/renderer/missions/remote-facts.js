@@ -5,15 +5,15 @@
 // "Couldn't tell", never "no" and never safe. Pure; dates through day.js, so
 // "2026-03-03" is March 3 in every timezone.
 //
-//   remoteFacts(data, { today, year }) -> { added, last_in, unattended, running, running_now: true|false|null, rows }
+//   remoteFacts(data, { today, year, locale }) -> { added, last_in, unattended, running, running_now: true|false|null, rows }
 //   rows: the same facts as label/value rows for an evidence card (the help district's held card).
 const COULDNT = 'Couldn’t tell';
 import { dayWords } from './day.js';
 
-export function remoteFacts(data, { today, year = false } = {}) {
+export function remoteFacts(data, { today, year = false, locale } = {}) {
   const d = data && typeof data === 'object' ? data : {};
-  const added = dayWords(d.added_on, { today, year });
-  const last = dayWords(d.last_incoming, { today, year });
+  const added = dayWords(d.added_on, { today, year, locale });
+  const last = dayWords(d.last_incoming, { today, year, locale });
   const n = Number.isInteger(d.incoming_count) && d.incoming_count >= 0 ? d.incoming_count : null;
   const times = n === 1 ? 'once' : `${n} times`;
   let lastIn = 'Couldn’t tell when it last let someone in';

@@ -5,8 +5,9 @@
 // Guest Book and the help district both use it.
 //
 //   isoDay(v) -> { y, m, d } | null       null for anything that isn't a real calendar day
-//   dayWords(v, { today, year }) -> string  '' when isoDay(v) is null; `today`: a Date or ISO day (default now);
-//                                           `year: true` always says the year (a record copied onto paper)
+//   dayWords(v, { today, year, locale }) -> string  '' when isoDay(v) is null; `today`: a Date or ISO day (default now);
+//                                           `year: true` always says the year (a record copied onto paper);
+//                                           `locale`: default the computer's ('en-US' for the photo record, whose words are hashed)
 //   localIso(date) -> 'YYYY-MM-DD'          a Date's own local day, for dayWords (no UTC shift)
 
 const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})(?:$|[T ])/;
@@ -34,9 +35,9 @@ export function localIso(date) {
   return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())}`;
 }
 
-export function dayWords(v, { today, year = false } = {}) {
+export function dayWords(v, { today, year = false, locale } = {}) {
   const p = isoDay(v);
   if (!p) return '';
   const opts = !year && p.y === yearOf(today) ? { month: 'long', day: 'numeric' } : { month: 'long', day: 'numeric', year: 'numeric' };
-  return new Date(p.y, p.m - 1, p.d).toLocaleDateString(undefined, opts);
+  return new Date(p.y, p.m - 1, p.d).toLocaleDateString(locale, opts);
 }
