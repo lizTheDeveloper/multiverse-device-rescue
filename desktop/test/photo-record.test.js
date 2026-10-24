@@ -274,17 +274,15 @@ test('every page: the header, date, computer, page count and the same short fing
     assert.ok(text(head).includes('MacBook Pro (Mac16,1), macOS 26.1 (25B78)'), `page ${i + 1}: the computer`);
     assert.ok(head.includes(`Page ${i + 1} of ${pages.length}`), `page ${i + 1}`);
     assert.ok(head.includes(short), `page ${i + 1}: the short fingerprint`);
-    // City mode's forbidden words: every page, except the help district's own note, quoted in full on the first.
-    const own = page.replace(/<section class="pr-help"[\s\S]*?<\/section>/, '');
-    assert.doesNotMatch(text(own), CITY_FORBIDDEN, `page ${i + 1}: ${(text(own).match(CITY_FORBIDDEN) || [])[0]}`);
+    // City mode's forbidden words: every page, all of it.
+    assert.doesNotMatch(text(html), CITY_FORBIDDEN, `page ${i + 1}: ${(text(html).match(CITY_FORBIDDEN) || [])[0]}`);
     assert.match(html, /data-act="record-done"/, 'Done on every page');
+    assert.match(html, /data-act="record-back"/, 'Back on every page (from the first, to the screen before the pages)');
   }
   const first = P.renderRecordPage({ record: r, fp, index: 0 });
+  assert.match(text(first), /How to use these pages/);
   assert.match(text(first), /Take a photo of each page with your phone\. Make sure the top line is in the picture\. If someone may look through your phone, keep the photos somewhere they can’t reach\./);
-  const SD = await import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'game', 'side-district.js')).href);
-  for (const h of SD.HELP) assert.ok(text(first).includes(h.text.replace(/&/g, '&')), `who can help: ${h.id}`);
-  assert.ok(text(first).includes(SD.OPEN_NOTE.text));
-  assert.doesNotMatch(first, /data-act="record-back"/, 'no Back on the first page');
+  assert.doesNotMatch(first, /Who can help/);
   const last = P.renderRecordPage({ record: r, fp, index: pages.length - 1 });
   assert.doesNotMatch(last, /data-act="record-next"/, 'no Next on the last page');
   assert.match(text(last), /Record fingerprint/);
@@ -303,6 +301,34 @@ test('every page: the header, date, computer, page count and the same short fing
   assert.match(block, /background: #fff;/);
   assert.match(block, /color: #000;/);
   assert.doesNotMatch(block, /var\(|gradient/);
+});
+
+test('who can help is on a screen before the pages, never on one: no header, count, fingerprint or page frame', async () => {
+  const P = await load();
+  const SD = await import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'game', 'side-district.js')).href);
+  const start = P.renderRecordStart({ look: 'garden' });
+  assert.match(text(start), /Before you start/);
+  assert.match(text(start), /This screen isn’t part of the record\. You don’t need to photograph it\./);
+  for (const h of SD.HELP) assert.ok(text(start).includes(h.text), `who can help: ${h.id}`);
+  assert.ok(text(start).includes(SD.OPEN_NOTE.text));
+  assert.match(start, /data-act="record-start"[^>]*>START THE RECORD/);
+  assert.match(start, /data-act="record-done"[^>]*>DONE</);
+  assert.doesNotMatch(start, /pr-page|pr-head|photo-record|Checkup record|Page \d|pr-fp|record-back|record-next/);
+  assert.match(start, /class="side record-start look-garden"/, 'the district’s own look');
+  // City mode's forbidden words: all of it but the help district's own list, quoted in full.
+  const own = start.replace(/<div class="panel record-help">[\s\S]*?<\/div>/, '');
+  assert.ok(own.length < start.length);
+  assert.doesNotMatch(text(own), CITY_FORBIDDEN, (text(own).match(CITY_FORBIDDEN) || [])[0]);
+  // And none of it on any record page, which may end up in a camera roll.
+  const r = P.buildRecord(ctx({ dualUse: { parental_control: 'someone' } }));
+  const fp = await P.fingerprint(r);
+  const PHONE = /\b\d{3}[-.\s]\d{3}[-.\s]\d{4}\b|\b(?:911|88788|233733)\b/;
+  P.recordPages(r).forEach((_, i) => {
+    const page = text(P.renderRecordPage({ record: r, fp, index: i }));
+    assert.doesNotMatch(page, PHONE, `page ${i + 1}`);
+    for (const h of [...SD.HELP, SD.OPEN_NOTE]) assert.ok(!page.includes(h.text) && !(h.url && page.includes(h.url)), `page ${i + 1}: ${h.id || 'note'}`);
+    assert.doesNotMatch(page, /Who can help|Before you start/);
+  });
 });
 
 test('hostile values stay inert on every page', async () => {
@@ -329,8 +355,8 @@ test('a finding page doesn’t repeat its Where under another label, and every p
   assert.ok(values.includes('/opt/example/bin/run'), 'other paths stay');
   const html = P.renderRecordPage({ record: r, fp: 'b'.repeat(64), index: 1 });
   assert.match(html, /<code class="pr-mono">\/opt\/example\/bin\/run<\/code>/);
-  // The help district's addresses wrap as words, not letter by letter.
-  assert.match(P.renderRecordPage({ record: r, fp: 'b'.repeat(64), index: 0 }), /<code class="pr-url">https:\/\/techsafety\.org<\/code>/);
+  // The help district's addresses (on the screen before the pages) wrap as words, not letter by letter.
+  assert.match(P.renderRecordStart(), /<code class="pr-url">https:\/\/techsafety\.org<\/code>/);
 });
 
 

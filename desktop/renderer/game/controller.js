@@ -39,7 +39,7 @@ import { renderTraining } from './views/training.js';
 import { renderLesson } from './views/lesson.js';
 import { renderBoss } from './views/boss.js';
 import { pickDistrict, seedFrom } from './district-names.js';
-import { offerRecord, buildRecord, fingerprint, recordPages, renderRecordPage } from './photo-record.js';
+import { offerRecord, buildRecord, fingerprint, recordPages, renderRecordStart, renderRecordPage } from './photo-record.js';
 import { SIX_ROSES } from './side-district.js';
 import { renderSide, sideTileHtml, heldNoticeHtml } from './views/side-district.js';
 import { createMissionDesk } from './missions-city.js';
@@ -1079,7 +1079,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   function screenHtml() {
     if (s.screen === 'profile') return profileHtml();
     if (s.screen === 'side') {
-      if (sideAllowed() && s.record) return renderRecordPage(s.record);
+      if (sideAllowed() && s.record) return s.record.index < 0 ? renderRecordStart({ look: side().look }) : renderRecordPage(s.record);
       if (sideAllowed()) return renderSide({ district: side(), held: s.held, notice: s.sideNotice, scout, seen: new Date(), cityNotes: inCity(), record: recordOffered() });
       s.screen = s.city ? 'map' : noCity();
     }
@@ -1453,19 +1453,26 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     Promise.resolve().then(() => fingerprint(record)).then((fp) => {
       // Left, or opened again, while it was being made: nothing to show.
       if (ticket !== s.recordTicket || s.screen !== 'side') return;
-      s.record = { record, fp, index: 0 };
+      // Index -1: the screen before the pages (who can help; not photographed).
+      s.record = { record, fp, index: -1 };
       render();
-      const page = frame.querySelector('.pr-page');
-      if (page && typeof page.focus === 'function') page.focus();
+      focusRecord();
     }).catch(() => {});
+  }
+  // Onto the screen before the pages, its heading; onto the pages from it, the page.
+  function focusRecord() {
+    const el = frame.querySelector(s.record && s.record.index < 0 ? '#record-start-title' : '.pr-page');
+    if (el && typeof el.focus === 'function') el.focus();
   }
   function moveRecord(by) {
     if (!s.record) return;
     const last = recordPages(s.record.record).length - 1;
-    const index = Math.max(0, Math.min(last, s.record.index + by));
-    if (index === s.record.index) return;
+    const was = s.record.index;
+    const index = Math.max(-1, Math.min(last, was + by));
+    if (index === was) return;
     s.record = { ...s.record, index };
     render();
+    if (Math.min(was, index) < 0) focusRecord();
   }
   function closeRecord() { s.recordTicket += 1; s.record = null; }
 
@@ -1556,6 +1563,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (go === 'side') { if (sideAllowed()) openSide(); return; }
     if (act === 'side-open-guide') { if (s.screen === 'side') openSideGuide(); return; }
     if (act === 'record-open') { openRecord(); return; }
+    if (act === 'record-start') { if (s.record && s.record.index < 0) moveRecord(1); return; }
     if (act === 'record-next' || act === 'record-back') { moveRecord(act === 'record-next' ? 1 : -1); return; }
     if (act === 'record-done') { closeRecord(); render(); const t = frame.querySelector('#side-title'); if (t && typeof t.focus === 'function') t.focus(); return; }
     // RE-SWEEP: the same read-only scan as the first one, through app.js, whose

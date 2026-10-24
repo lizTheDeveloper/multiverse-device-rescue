@@ -74,14 +74,26 @@ test('offered in the help district only, in the four cases, and not otherwise', 
   }
 });
 
-test('pages: Next, Back and the arrow keys move; Done returns to the district; Esc leaves at once', async () => {
-  const t = await setup({ mode: 'city', doc: scan(mod('stalkerware_scan', [WATCH]), mod('sharing_services', [SHARE])) });
+test('pages: the screen before them first; Start, Next, Back and the arrow keys move; Done returns to the district; Esc leaves at once', async () => {
+  const d = scan(mod('stalkerware_scan', [WATCH]), mod('sharing_services', [SHARE]));
+  const t = await setup({ mode: 'city', doc: d });
   t.click({ 'data-go': 'side' });
   t.click({ 'data-act': 'record-open' });
   await ticks();
   const page = () => (/Page (\d+) of (\d+)/.exec(t.html()) || [])[1];
+  const of = () => (/Page (\d+) of (\d+)/.exec(t.html()) || [])[2];
+  const onStart = () => /Before you start/.test(t.html()) && !/pr-page|pr-head|Checkup record|pr-fp/.test(t.html());
+  // First: who can help, on a screen that isn't a page (no header, no count, no fingerprint).
+  assert.ok(onStart(), 'the screen before the pages comes first');
+  assert.match(t.html(), /Who can help/);
+  assert.strictEqual(page(), undefined);
+  t.click({ 'data-act': 'record-start' });
   assert.strictEqual(page(), '1');
   assert.match(t.html(), /How to use these pages/);
+  assert.doesNotMatch(t.html(), /Who can help|Before you start/);
+  // The count is the record's pages only.
+  const P = await game('photo-record.js');
+  assert.strictEqual(of(), String(P.recordPages(P.buildRecord({ doc: d, scanAt: '', dualUse: {} })).length));
   t.click({ 'data-act': 'record-next' });
   assert.strictEqual(page(), '2');
   assert.match(t.html(), /ExampleWatch/);
@@ -91,14 +103,28 @@ test('pages: Next, Back and the arrow keys move; Done returns to the district; E
   assert.strictEqual(page(), '2');
   t.click({ 'data-act': 'record-back' });
   assert.strictEqual(page(), '1');
+  // Back from the first page: the screen before the pages; nothing before it.
+  t.click({ 'data-act': 'record-back' });
+  assert.ok(onStart(), 'Back from page 1');
   t.press('ArrowLeft');
-  assert.strictEqual(page(), '1', 'nothing before the first page');
+  assert.ok(onStart(), 'nothing before it');
+  t.press('ArrowRight');
+  assert.strictEqual(page(), '1');
+  t.press('ArrowLeft');
+  assert.ok(onStart());
   t.click({ 'data-act': 'record-done' });
   assert.match(t.html(), /side-title/);
-  assert.doesNotMatch(t.html(), /pr-page/);
-  // Esc, from a page: straight to the game.
+  assert.doesNotMatch(t.html(), /pr-page|record-start/);
+  // Esc, from a page or the screen before them: straight to the game.
   t.click({ 'data-act': 'record-open' });
   await ticks();
+  assert.ok(onStart());
+  assert.strictEqual(t.press('Escape').prevented, true);
+  assert.doesNotMatch(t.html(), /pr-page|record-start|side-title/);
+  t.click({ 'data-go': 'side' });
+  t.click({ 'data-act': 'record-open' });
+  await ticks();
+  t.click({ 'data-act': 'record-start' });
   assert.match(t.html(), /pr-page/);
   assert.strictEqual(t.press('Escape').prevented, true);
   assert.doesNotMatch(t.html(), /pr-page|side-title/);
@@ -113,6 +139,7 @@ test('it saves, copies, exports and scores nothing', async () => {
   const points = savedAsV3(t.storage).deck.points;
   t.click({ 'data-act': 'record-open' });
   await ticks();
+  t.click({ 'data-act': 'record-start' });
   for (let i = 0; i < 6; i += 1) t.click({ 'data-act': 'record-next' });
   t.press('ArrowLeft');
   t.click({ 'data-act': 'record-done' });

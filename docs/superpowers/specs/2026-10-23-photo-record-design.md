@@ -57,13 +57,17 @@ says "Couldn't tell", never "no".
 - **Each page stands alone:** a header on every page with "Checkup record", the date and time of the scan, the
   computer (model and system version from the scan), "Page 2 of 7", and the record's **fingerprint** in short
   form (below), shared by every page so they can be shown to belong together.
-- **First page: how to use it.** "Take a photo of each page with your phone. Make sure the top line is in the
-  picture. If someone may look through your phone, keep the photos somewhere they can't reach." Plus who can help
-  (the help district's own note, in full).
+- **Before the pages: a screen that isn't one of them.** Shown first when the record opens, headed "Before you
+  start", with "This screen isn't part of the record. You don't need to photograph it." It holds who can help (the
+  help district's own list and note, in full), **Start the record** and **Done**. It has no "Checkup record"
+  header, no fingerprint and no page frame (the district's own look, not black on white), and isn't counted in
+  "Page N of M": a photo of the pages never puts the hotlines in a camera roll someone may look through.
+- **First page: how to use it, only.** "Take a photo of each page with your phone. Make sure the top line is in
+  the picture. If someone may look through your phone, keep the photos somewhere they can't reach."
 - **Last page: what couldn't be checked**, and "a clear checkup lowers the odds of a problem; it doesn't rule one
   out."
-- **Moving through:** Next / Back buttons and arrow keys; **Done** returns to the help district; Esc leaves at
-  once, as everywhere in the help district.
+- **Moving through:** Next / Back buttons and arrow keys; Back from the first page returns to the screen before
+  the pages; **Done** returns to the help district; Esc leaves at once, as everywhere in the help district.
 
 ## The fingerprint
 
@@ -153,7 +157,7 @@ Saved without a final newline (`printf '%s' '…' | shasum -a 256`), its SHA-256
 Facts in plain, neutral words. The product's own name and the kind of thing it is ("Parental control product",
 "Remote-access tool") are evidence and stay. No "stalker", "abuser", "partner" or "ex" words, and the title is
 "Checkup record", not "forensics": the photos will sit in a camera roll someone else may look through. City mode's
-forbidden-words check applies to every page.
+forbidden-words check applies to every page, and to the screen before them (all but the help district's own list).
 
 ## What it never does
 
@@ -172,5 +176,7 @@ header, date, computer, page count and the same short fingerprint; the fingerpri
 record, changes when any printed fact changes and not when evidence no page shows does, matches a known SHA-256
 for a fixed synthetic record, equals the SHA-256 of the facts read back out of the rendered pages alone, survives
 retyping with straight quotes, is the same in two languages, and nothing is sent over the network to make it; "Couldn't tell" for missing evidence; nothing written
-to storage, exports or the clipboard; city-mode forbidden words on every page; Esc and Done. Screenshots of each
+to storage, exports or the clipboard; city-mode forbidden words on every page and the screen before them; the
+screen before the pages comes first, with no header or fingerprint, isn't counted, and is where Back from page 1
+goes; no page carries who can help or a phone number; Esc and Done. Screenshots of each
 page in both themes to confirm it reads the same (black on white).

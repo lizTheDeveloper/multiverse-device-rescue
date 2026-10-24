@@ -442,7 +442,8 @@ h2[tabindex="-1"]:focus, h2[tabindex="-1"]:focus-visible { outline: none; }
 .pr-rows dd { margin: 0; }
 .pr-mono { font-size: 18px; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-all; }
 .pr-said { margin-top: 16px; font-weight: 700; }
-.pr-help { margin-top: 16px; border-top: 1px solid #000; padding-top: 10px; font-size: 17px; }
-.pr-help h3, .pr-fp-head { font-size: 20px; margin: 10px 0 6px; }
+.pr-fp-head { font-size: 20px; margin: 10px 0 6px; }
+/* The screen before the pages (renderRecordStart): the district's look, never the page frame; not photographed. */
+.record-start { display: flex; flex-direction: column; gap: 14px; }
 .pr-fp-full { font-size: 26px; line-height: 1.35; margin: 4px 0 10px; white-space: pre; }
 .pr-nav { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }

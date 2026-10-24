@@ -13,6 +13,7 @@
 //   fingerprint(record, subtle?) -> Promise<hex>                  64 lowercase hex
 //   shortPrint(hex) / fullPrintLines(hex)                         'AAAA BBBB CCCC DDDD' / four such lines of the whole
 //   recordPages(record) -> [{ kind: 'intro' | 'finding' | 'end', finding? }]
+//   renderRecordStart({ look }) -> HTML                           the screen before the pages: who can help, never photographed
 //   renderRecordPage({ record, fp, index }) -> HTML               one page and its Back / Next / Done
 //   scanWhen(iso) -> the scan's date, time and UTC offset, as the header shows it
 import { esc } from './escape.js';
@@ -286,13 +287,24 @@ export function scanWhen(iso) {
 
 const looksLikePath = (s) => /^(~|\/|[A-Za-z]:\\)/.test(s);
 
+// Before the pages, and not one of them: who can help, in the district's own look (no page frame, header,
+// count or fingerprint), so a photo of the pages never puts the hotlines in a camera roll someone may look through.
+export function renderRecordStart({ look = '' } = {}) {
+  return `<section class="side record-start${look ? ` look-${esc(look)}` : ''}" aria-labelledby="record-start-title">
+    <header class="hud side-top"><h2 class="hud-title" id="record-start-title" tabindex="-1">${esc('Before you start')}</h2></header>
+    <div class="panel"><p class="intel"><b>${esc('This screen isn’t part of the record. You don’t need to photograph it.')}</b></p></div>
+    <div class="panel record-help"><h3 class="side-h">Who can help</h3><ul class="notes">${HELP.map((h) => `<li>${esc(h.text)}${h.url ? ` <code class="pr-url">${esc(h.url)}</code>` : ''}</li>`).join('')}</ul>
+      <p class="intel">${esc(OPEN_NOTE.text)}</p></div>
+    <nav class="pr-nav" aria-label="Record"><button type="button" class="btn-p" data-act="record-start">START THE RECORD ▶</button>
+      <button type="button" class="btn-s" data-act="record-done">DONE</button></nav>
+  </section>`;
+}
+
 function introHtml(record) {
   const n = record.findings.length;
   return `<h2 class="pr-title">How to use these pages</h2>
     <p class="pr-lead">Take a photo of each page with your phone. Make sure the top line is in the picture. If someone may look through your phone, keep the photos somewhere they can’t reach.</p>
-    <p>${esc(`This record has ${n} ${n === 1 ? 'page' : 'pages'} of what the checkup found, then a page of what it couldn’t check. Use Next to go through them.`)}</p>
-    <section class="pr-help"><h3>Who can help</h3><ul>${HELP.map((h) => `<li>${esc(h.text)}${h.url ? ` <code class="pr-url">${esc(h.url)}</code>` : ''}</li>`).join('')}</ul>
-      <p>${esc(OPEN_NOTE.text)}</p></section>`;
+    <p>${esc(`This record has ${n} ${n === 1 ? 'page' : 'pages'} of what the checkup found, then a page of what it couldn’t check. Use Next to go through them.`)}</p>`;
 }
 
 function findingHtml(f) {
@@ -321,7 +333,8 @@ export function renderRecordPage({ record, fp = '', index = 0 } = {}) {
   const head = `<header class="pr-head"><b>Checkup record</b><span>${esc(view.when)}</span><span>${esc(view.computer)}</span>`
     + `<span>${esc(`Page ${i + 1} of ${pages.length}`)}</span><span class="pr-fp">${esc(shortPrint(fp))}</span></header>`;
   const body = p.kind === 'intro' ? introHtml(view) : p.kind === 'end' ? endHtml(view, fp) : findingHtml(p.finding);
-  const nav = `<nav class="pr-nav" aria-label="Record pages">${i > 0 ? '<button type="button" class="btn-s" data-act="record-back">◀ BACK</button>' : ''}`
+  // Back on every page: from the first, to the screen before the pages.
+  const nav = '<nav class="pr-nav" aria-label="Record pages"><button type="button" class="btn-s" data-act="record-back">◀ BACK</button>'
     + `${i < pages.length - 1 ? '<button type="button" class="btn-p" data-act="record-next">NEXT ▶</button>' : ''}`
     + '<button type="button" class="btn-s" data-act="record-done">DONE</button></nav>';
   return `<section class="photo-record" aria-label="Checkup record"><article class="pr-page pr-${p.kind}" tabindex="-1">${head}<div class="pr-body">${body}</div></article>${nav}</section>`;
