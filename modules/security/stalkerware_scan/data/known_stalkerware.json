@@ -255,7 +255,7 @@
       "pattern": "qustodio",
       "name": "Qustodio",
       "category": "parental_control",
-      "severity": "info",
+      "severity": "warning",
       "platforms": ["darwin", "win32"],
       "description": "Parental control software. Legitimate for a child's device; on an adult's own computer it gives whoever set it up a log of their activity."
     },
@@ -263,7 +263,7 @@
       "pattern": "net nanny",
       "name": "Net Nanny",
       "category": "parental_control",
-      "severity": "info",
+      "severity": "warning",
       "platforms": ["darwin", "win32"],
       "description": "Parental control and content filtering software with activity reporting."
     },
@@ -271,7 +271,7 @@
       "pattern": "bark",
       "name": "Bark",
       "category": "parental_control",
-      "severity": "info",
+      "severity": "warning",
       "platforms": ["darwin", "win32"],
       "description": "Parental monitoring service that reports messages and browsing to an account owner."
     },

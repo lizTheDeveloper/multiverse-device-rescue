@@ -209,3 +209,115 @@ def test_missing_data_file_is_reported_as_unavailable_not_healthy():
         result = mod.check(_make_profile())
     assert result.error is not None
     assert not result.findings
+
+
+# Dual-use products: what they are made for, and how the person can tell
+# whether this one is theirs (the owner's rule: worried -> treat it as
+# monitoring; work or a child's computer and not worried -> most likely that).
+
+def _desc(mod, profile):
+    findings = _check(mod, profile).findings
+    assert len(findings) == 1
+    return findings[0]
+
+
+def test_employee_monitoring_says_what_it_is_for_and_how_to_tell():
+    mod = _get_module()
+    ns = _namespace(mod)
+    f = _desc(mod, _make_profile(processes=[_process("Teramind Agent")]))
+    assert f.data["stalkerware_category"] == "employee_monitoring"
+    text = f.description
+    # The product's own first sentence still leads.
+    assert text.startswith("Workplace monitoring agent recording screen, keystrokes, and application use.")
+    for sentence in (ns._PURPOSE_EMPLOYEE, ns._HOW_TO_TELL_WORRIED, ns._HOW_TO_TELL_WORK):
+        assert sentence in text
+    assert "an employer recording activity on work computers" in ns._PURPOSE_EMPLOYEE
+    assert ns._HOW_TO_TELL_WORRIED == (
+        "If you're worried someone is watching you, treat it as monitoring software someone put "
+        "here without asking: don't remove it yet, and write down what was found and when."
+    )
+    assert ns._HOW_TO_TELL_WORK == (
+        "If this is a work computer and you aren't worried, it's most likely there for work; "
+        "your IT department can tell you."
+    )
+    assert ns._HOW_TO_TELL_CHILD not in text
+
+
+def test_parental_control_says_what_it_is_for_and_how_to_tell():
+    mod = _get_module()
+    ns = _namespace(mod)
+    f = _desc(mod, _make_profile(processes=[_process("Qustodio")]))
+    assert f.data["stalkerware_category"] == "parental_control"
+    text = f.description
+    assert text.startswith("Parental control software.")
+    for sentence in (ns._PURPOSE_PARENTAL, ns._HOW_TO_TELL_WORRIED, ns._HOW_TO_TELL_CHILD):
+        assert sentence in text
+    assert "a parent watching a child's messages, browsing and screen time" in ns._PURPOSE_PARENTAL
+    assert ns._HOW_TO_TELL_CHILD == (
+        "If this computer is a child's and a parent set it up, it's most likely that."
+    )
+    assert ns._HOW_TO_TELL_WORK not in text
+
+
+def test_how_to_tell_avoids_relationship_words():
+    ns = _namespace(_get_module())
+    import re
+    words = re.compile(r"partner|\bex\b|abuser|stalk|housemate|advocate|hotline", re.I)
+    for s in (ns._PURPOSE_EMPLOYEE, ns._PURPOSE_PARENTAL, ns._HOW_TO_TELL_WORRIED,
+              ns._HOW_TO_TELL_WORK, ns._HOW_TO_TELL_CHILD):
+        assert not words.search(s), s
+
+
+def test_dual_use_findings_keep_the_removal_warning_sentence():
+    mod = _get_module()
+    for proc in ("Qustodio", "Teramind Agent"):
+        f = _desc(mod, _make_profile(processes=[_process(proc)]))
+        assert "Removing it can alert whoever installed it." in f.description
+        assert "1-800-799-7233" in f.description
+
+
+def test_every_parental_control_entry_is_at_least_a_warning():
+    # A parental tool on an adult's computer is the commonest repurposed
+    # monitoring, so it carries the removal warning like the rest.
+    with open(DATA_FILE) as f:
+        entries = json.load(f)["entries"]
+    parental = [e for e in entries if e["category"] == "parental_control"]
+    assert parental
+    assert all(e["severity"] in {"warning", "critical"} for e in parental), [
+        e["name"] for e in parental if e["severity"] == "info"]
+
+
+def test_parental_finding_is_a_warning_and_its_screens_treat_it_as_monitoring():
+    from rescue import safety_scope
+    from rescue.remediation import _removal_warning
+
+    mod = _get_module()
+    f = _desc(mod, _make_profile(processes=[_process("Qustodio")]))
+    assert f.severity == Severity.WARNING
+    # The monitoring checks always carry the removal warning on every screen
+    # (rescue/safety_scope.py); the finding code is one of them.
+    assert mod.name in safety_scope.MONITORING_MODULES
+    assert _removal_warning(mod.name, f.code) == "monitoring check: always"
+
+
+def test_stalkerware_text_is_unchanged():
+    mod = _get_module()
+    f = _desc(mod, _make_profile(processes=[_process("mSpy Agent", "/Applications/mSpy.app/agent")]))
+    assert f.description == (
+        "Covert monitoring suite that records keystrokes, messages, browsing, and location, and hides "
+        "itself from the person being monitored.\n\n"
+        "Found as running process: mSpy Agent (pid 42).\n\n"
+        "This product is sold for watching another person without their knowledge. If nobody told you "
+        "it was here, someone installed it to watch what you do on this computer.\n\n"
+        "Removing it can alert whoever installed it. If you think that's someone close to you, talk to "
+        "an advocate before you touch it (US National Domestic Violence Hotline: 1-800-799-7233, or text "
+        "START to 88788).\n\n"
+        "What to do: Don't remove it yet. Write down its name, where it was found and today's date, and "
+        "make a safety plan first."
+    )
+
+
+def test_remote_access_text_keeps_its_honest_uses_paragraph():
+    mod = _get_module()
+    f = _desc(mod, _make_profile(installed=["TeamViewer Host"], platform=Platform.LINUX))
+    assert "Apps like this have honest uses" in f.description

@@ -89,6 +89,48 @@ _SAFETY_WARNING = (
 )
 
 
+# Workplace and parental tools: what each is made for, and how the person can
+# tell whether this one is theirs. Written once, for every product in the
+# category. Plain words only, and none of the hotline or relationship words
+# standard mode quiets (desktop/renderer/quiet-notes.js), so these sentences
+# show in every mode.
+_PURPOSE_EMPLOYEE = "It's made for an employer recording activity on work computers."
+_PURPOSE_PARENTAL = "It's made for a parent watching a child's messages, browsing and screen time."
+_HOW_TO_TELL_WORRIED = (
+    "If you're worried someone is watching you, treat it as monitoring software someone put "
+    "here without asking: don't remove it yet, and write down what was found and when."
+)
+_HOW_TO_TELL_WORK = (
+    "If this is a work computer and you aren't worried, it's most likely there for work; "
+    "your IT department can tell you."
+)
+_HOW_TO_TELL_CHILD = "If this computer is a child's and a parent set it up, it's most likely that."
+
+_STALKERWARE_CONTEXT = (
+    "This product is sold for watching another person without their "
+    "knowledge. If nobody told you it was here, someone installed "
+    "it to watch what you do on this computer.\n\n"
+)
+_OTHER_CONTEXT = (
+    "Apps like this have honest uses, such as IT support, parental "
+    "controls or work monitoring, but they also let someone see or "
+    "control this computer.\n\n"
+)
+_REMOVAL_ALERT = (
+    "Removing it can alert whoever installed it. If you think that's someone "
+    "close to you, talk to an advocate before you touch it (US National "
+    "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
+)
+_NEXT_STEP_STALKERWARE = (
+    "Don't remove it yet. Write down its name, where it "
+    "was found and today's date, and make a safety plan first."
+)
+_NEXT_STEP_OTHER = (
+    "If you installed it and use it, there's nothing to "
+    "do. If not, make a safety plan before removing it."
+)
+
+
 class Module(ModuleBase):
     name = "stalkerware_scan"
     category = "security"
@@ -332,28 +374,23 @@ class Module(ModuleBase):
             findings.append(
                 Finding(
                     title=f"{entry['name']} is on this computer ({where})",
+                    # One branch per category, so each finding's text reads
+                    # straight through (and scripts/monitoring_descriptions.py
+                    # spells out exactly these variants).
                     description=(
-                        f"{entry['description']}\n\n"
-                        f"Found as {where}: {location}.\n\n"
-                        + (
-                            "This product is sold for watching another person without their "
-                            "knowledge. If nobody told you it was here, someone installed "
-                            "it to watch what you do on this computer.\n\n"
-                            if category == "stalkerware"
-                            else "Apps like this have honest uses, such as IT support, parental "
-                            "controls or work monitoring, but they also let someone see or "
-                            "control this computer.\n\n"
-                        )
-                        + "Removing it can alert whoever installed it. If you think that's someone "
-                        "close to you, talk to an advocate before you touch it (US National "
-                        "Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\n"
-                        + (
-                            "What to do: Don't remove it yet. Write down its name, where it "
-                            "was found and today's date, and make a safety plan first."
-                            if category == "stalkerware"
-                            else "What to do: If you installed it and use it, there's nothing to "
-                            "do. If not, make a safety plan before removing it."
-                        )
+                        f"{entry['description']}\n\nFound as {where}: {location}.\n\n"
+                        f"{_STALKERWARE_CONTEXT}{_REMOVAL_ALERT}What to do: {_NEXT_STEP_STALKERWARE}"
+                        if category == "stalkerware"
+                        else f"{entry['description']} {_PURPOSE_EMPLOYEE} {_HOW_TO_TELL_WORRIED} "
+                        f"{_HOW_TO_TELL_WORK}\n\nFound as {where}: {location}.\n\n"
+                        f"{_REMOVAL_ALERT}What to do: {_NEXT_STEP_OTHER}"
+                        if category == "employee_monitoring"
+                        else f"{entry['description']} {_PURPOSE_PARENTAL} {_HOW_TO_TELL_WORRIED} "
+                        f"{_HOW_TO_TELL_CHILD}\n\nFound as {where}: {location}.\n\n"
+                        f"{_REMOVAL_ALERT}What to do: {_NEXT_STEP_OTHER}"
+                        if category == "parental_control"
+                        else f"{entry['description']}\n\nFound as {where}: {location}.\n\n"
+                        f"{_OTHER_CONTEXT}{_REMOVAL_ALERT}What to do: {_NEXT_STEP_OTHER}"
                     ),
                     severity=severity,
                     category=self.category,

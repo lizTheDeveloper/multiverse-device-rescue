@@ -25,6 +25,15 @@ violence advocate before you remove anything; an advocate can help you plan
 for what happens next. In the US: National Domestic Violence Hotline 1-800-799-7233,
 or text START to 88788. Use a phone or computer the other person can't reach.
 
+Workplace monitoring is made for an employer recording activity on work
+computers; parental controls are made for a parent watching a child's
+messages, browsing and screen time. To tell which this is: if you're worried
+someone is watching you, treat it as monitoring software someone put here
+without asking: don't remove it yet, and write down what was found and when.
+If this is a work computer and you aren't worried, it's most likely there for
+work; your IT department can tell you. If this computer is a child's and a
+parent set it up, it's most likely that.
+
 ## Step 2: Keep a record
 
 On paper or on another device, write down the name the scan found, where it
