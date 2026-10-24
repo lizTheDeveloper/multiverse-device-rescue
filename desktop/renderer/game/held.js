@@ -59,8 +59,9 @@ const holds = (f, module, mode = 'city') => !!f && heldSet(mode).has(module) && 
 // tool adds what the person needs to think back with: when it was added, when
 // it last let someone in, whether it can without a click, and whether it's
 // running (`running_now` true puts "go offline first" at the top). Missing
-// evidence says "Couldn't tell", never "no".
-export function heldEvidence(f, module = f && f.module) {
+// evidence says "Couldn't tell", never "no". `locale` goes to remoteFacts'
+// dates ('en-US': written by hand, for the photo record); default the computer's.
+export function heldEvidence(f, module = f && f.module, { locale } = {}) {
   const d = f && f.data && typeof f.data === 'object' ? f.data : {};
   const str = (v) => (typeof v === 'string' && v.trim() ? v.trim() : '');
   const list = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x.trim()).join(', ') : '');
@@ -76,7 +77,7 @@ export function heldEvidence(f, module = f && f.module) {
   if (module === REMOTE_TOOLS) {
     out.name = str(d.tool) || out.name;
     // The Guest Book's card says the same facts in the same words.
-    Object.assign(out, remoteFacts(d));
+    Object.assign(out, remoteFacts(d, { locale }));
   }
   return Object.fromEntries(Object.entries(out).filter(([, v]) => v !== '' && v != null));
 }
@@ -88,7 +89,8 @@ export function heldEvidence(f, module = f && f.module) {
 // remote-support software is still software on this computer). The scan
 // itself is never changed.
 // `mode`: 'city' (the default) also holds remote-access tools; 'standard' only the monitoring checks.
-export function splitHeld(doc, { mode = 'city' } = {}) {
+// `locale`: for heldEvidence's dates (the photo record passes 'en-US').
+export function splitHeld(doc, { mode = 'city', locale } = {}) {
   if (!doc || typeof doc !== 'object' || !Array.isArray(doc.modules)) return { doc, held: [] };
   const held = [];
   const set = heldSet(mode);
@@ -99,7 +101,7 @@ export function splitHeld(doc, { mode = 'city' } = {}) {
     for (const f of fs) {
       // The whole finding rides along (memory only) so the help district can
       // show its evidence rows (Evidence.evidenceRows, held).
-      if (holds(f, m.name, mode)) { held.push({ module: m.name, title: String(f.title || ''), ...heldEvidence(f, m.name), finding: { ...f, module: m.name } }); found = true; }
+      if (holds(f, m.name, mode)) { held.push({ module: m.name, title: String(f.title || ''), ...heldEvidence(f, m.name, { locale }), finding: { ...f, module: m.name } }); found = true; }
     }
     // Nothing found, and it couldn't look: fog, never clear. (With a
     // detection the check did look, and its district stays open for it.)

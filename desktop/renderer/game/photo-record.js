@@ -20,14 +20,14 @@ import { esc } from './escape.js';
 import { splitHeld, heldEvidence, REMOTE_TOOLS } from './held.js';
 import { HELP, OPEN_NOTE } from './side-district.js';
 import { remoteFacts } from '../missions/remote-facts.js';
-import { dayWords } from '../missions/day.js';
+import { dayWords, EN_MONTHS } from '../missions/day.js';
 import * as evidenceModule from '../evidence.js';
 
 const EV = globalThis.Evidence || evidenceModule.default;
 const NC = globalThis.NotChecked;
 
 export const RECORD_VERSION = 2;
-const LOCALE = 'en-US'; // the app's words are English; a printed date must not depend on the computer's language
+const LOCALE = 'en-US'; // dayWords writes this one by hand: a printed date must not depend on the computer's language or ICU
 const COULDNT = 'Couldn’t tell';
 const isObj = (v) => v != null && typeof v === 'object' && !Array.isArray(v);
 const str = (v) => (typeof v === 'string' && v.trim() ? v.trim() : '');
@@ -45,7 +45,7 @@ const SAID = {
 export function offerRecord({ mode, situation, doc, dualUse } = {}) {
   if (mode === 'city') return true;
   if (situation && situation.safety === true) return true;
-  if (splitHeld(doc, { mode: 'city' }).held.length > 0) return true;
+  if (splitHeld(doc, { mode: 'city', locale: LOCALE }).held.length > 0) return true;
   const a = isObj(dualUse) ? dualUse : {};
   return Object.entries(WATCHED_ANSWERS).some(([cat, yes]) => yes.has(a[cat]));
 }
@@ -111,7 +111,7 @@ function rawNotChecked(doc) {
 
 export function buildRecord({ doc, scanAt, dualUse } = {}) {
   const answers = isObj(dualUse) ? dualUse : {};
-  const split = splitHeld(doc, { mode: 'city' });
+  const split = splitHeld(doc, { mode: 'city', locale: LOCALE });
   const findings = split.held.map((h) => rawFinding(h.module, h.finding || {}, doc, true, answers));
   // Every warning and critical finding from the other checks (info left out: an inventory would bury the evidence).
   const list = NC.displayItems(split.doc, { mode: 'standard' });
@@ -196,7 +196,7 @@ function whatOf(rf) {
     const names = d.tools.filter((x) => typeof x === 'string' && x.trim()).join(', ');
     if (names) return names;
   }
-  if (HELD_KINDS.has(rf.kind)) return heldEvidence({ data: d, made_by: rf.made_by }, rf.module).name || str(rf.title) || COULDNT;
+  if (HELD_KINDS.has(rf.kind)) return heldEvidence({ data: d, made_by: rf.made_by }, rf.module, { locale: LOCALE }).name || str(rf.title) || COULDNT;
   return str(rf.title) || COULDNT;
 }
 
@@ -275,14 +275,13 @@ export function recordPages(record) {
 
 // "October 23, 2026, 9:17 AM (UTC-7)": US English by hand (ICU versions differ on " at " and the space before AM),
 // in this computer's time zone with its offset at that instant, so the printed time is unambiguous.
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 export function scanWhen(iso) {
   const t = new Date(String(iso || ''));
   if (Number.isNaN(t.getTime())) return COULDNT;
   const h = t.getHours();
   const off = -t.getTimezoneOffset();
   const zone = `UTC${off < 0 ? '-' : '+'}${Math.floor(Math.abs(off) / 60)}${Math.abs(off) % 60 ? `:${String(Math.abs(off) % 60).padStart(2, '0')}` : ''}`;
-  return `${MONTHS[t.getMonth()]} ${t.getDate()}, ${t.getFullYear()}, ${h % 12 || 12}:${String(t.getMinutes()).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'} (${zone})`;
+  return `${EN_MONTHS[t.getMonth()]} ${t.getDate()}, ${t.getFullYear()}, ${h % 12 || 12}:${String(t.getMinutes()).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'} (${zone})`;
 }
 
 const looksLikePath = (s) => /^(~|\/|[A-Za-z]:\\)/.test(s);

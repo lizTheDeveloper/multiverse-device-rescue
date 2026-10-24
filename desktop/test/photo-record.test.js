@@ -391,3 +391,45 @@ test('the same scan in two languages, same time zone: the same pages and the sam
   assert.ok(inProcess({ TZ: 'Asia/Kolkata' }).pages[0].includes('October 23, 2026, 9:47 PM (UTC+5:30)'), 'a half-hour offset');
   assert.ok(inProcess({ TZ: 'UTC' }).pages[0].includes('October 23, 2026, 4:17 PM (UTC+0)'));
 });
+
+test('every printed date is written by hand: with the computer’s date formatting broken, the same pages and fingerprint', async () => {
+  const P = await load();
+  const dated = () => {
+    const d = doc();
+    d.modules[0] = mod('stalkerware_scan', [{ ...WATCH, data: { ...WATCH.data, added_on: '2025-11-20', last_used: '2026-10-01T08:00:00Z' } }]);
+    return d;
+  };
+  const run = async () => {
+    const r = P.buildRecord({ doc: dated(), scanAt: AT, dualUse: { parental_control: 'someone' } });
+    const fp = await P.fingerprint(r);
+    return { fp, pages: P.recordPages(r).map((_, i) => P.renderRecordPage({ record: r, fp, index: i })), fixed: await P.fingerprint(FIXED),
+      offered: P.offerRecord({ mode: 'standard', situation: { id: 'unsure' }, doc: dated(), dualUse: {} }) };
+  };
+  const before = await run();
+  const all = before.pages.join('\n');
+  for (const s of ['March 3, 2026', 'March 12, 2026', 'November 20, 2025', 'October 1, 2026', 'October 23, 2026, 9:17 AM (UTC-7)']) {
+    assert.ok(all.includes(s), s);
+  }
+  const saved = { ld: Date.prototype.toLocaleDateString, ls: Date.prototype.toLocaleString, lt: Date.prototype.toLocaleTimeString, dtf: Intl.DateTimeFormat };
+  const runs = [];
+  for (const how of ['throw', 'garbage']) {
+    const bad = how === 'throw' ? () => { throw new Error('date formatting was used'); } : () => 'Zzz 99, 0000 GARBAGE';
+    try {
+      Date.prototype.toLocaleDateString = bad;
+      Date.prototype.toLocaleString = bad;
+      Date.prototype.toLocaleTimeString = bad;
+      Intl.DateTimeFormat = function DateTimeFormat() { if (how === 'throw') throw new Error('Intl was used'); return { format: bad, formatToParts: () => [], resolvedOptions: () => ({}) }; };
+      runs.push([how, await run()]);
+    } finally {
+      Date.prototype.toLocaleDateString = saved.ld;
+      Date.prototype.toLocaleString = saved.ls;
+      Date.prototype.toLocaleTimeString = saved.lt;
+      Intl.DateTimeFormat = saved.dtf;
+    }
+  }
+  for (const [how, after] of runs) {
+    assert.deepStrictEqual(after.pages, before.pages, how);
+    assert.strictEqual(after.fp, before.fp, how);
+    assert.strictEqual(after.fixed, PINNED, how);
+  }
+});

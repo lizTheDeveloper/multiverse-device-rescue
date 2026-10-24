@@ -7,9 +7,13 @@
 //   isoDay(v) -> { y, m, d } | null       null for anything that isn't a real calendar day
 //   dayWords(v, { today, year, locale }) -> string  '' when isoDay(v) is null; `today`: a Date or ISO day (default now);
 //                                           `year: true` always says the year (a record copied onto paper);
-//                                           `locale`: default the computer's ('en-US' for the photo record, whose words are hashed)
+//                                           `locale`: default the computer's. 'en-US' (the photo record, whose words are
+//                                           hashed) is written by hand from EN_MONTHS, with no Intl or toLocale*, so it
+//                                           reads the same whatever the computer's language or ICU
+//   EN_MONTHS                               'January' … 'December'
 //   localIso(date) -> 'YYYY-MM-DD'          a Date's own local day, for dayWords (no UTC shift)
 
+export const EN_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})(?:$|[T ])/;
 
 export function isoDay(v) {
@@ -38,6 +42,8 @@ export function localIso(date) {
 export function dayWords(v, { today, year = false, locale } = {}) {
   const p = isoDay(v);
   if (!p) return '';
-  const opts = !year && p.y === yearOf(today) ? { month: 'long', day: 'numeric' } : { month: 'long', day: 'numeric', year: 'numeric' };
+  const withYear = year || p.y !== yearOf(today);
+  if (locale === 'en-US') return `${EN_MONTHS[p.m - 1]} ${p.d}${withYear ? `, ${p.y}` : ''}`;
+  const opts = withYear ? { month: 'long', day: 'numeric', year: 'numeric' } : { month: 'long', day: 'numeric' };
   return new Date(p.y, p.m - 1, p.d).toLocaleDateString(locale, opts);
 }

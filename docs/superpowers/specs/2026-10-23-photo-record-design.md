@@ -123,7 +123,9 @@ character as `\u00XX`, non-ASCII characters as themselves). Encoded as UTF-8, no
 hex characters.
 
 **The printed text is the same on every computer:** the pages are in US English whatever the computer's
-language, and every date is written by the app in that form ("March 3, 2026"). The header's scan time is
+language. Every date they print is formatted by hand, from fixed English month names, never by the computer's
+date formatting (no `Intl`, no `toLocale*`, whose output varies with language and ICU version): a day is always
+written with its year ("March 3, 2026"), never relative to today. The header's scan time is
 in this computer's time zone and says so, with the computer's own UTC offset at that instant: "October 23,
 2026, 9:17 AM (UTC-7)", "(UTC+5:30)", "(UTC+0)". The same scan opened in another time zone prints another time,
 so its pages have their own fingerprint; each set of pages matches its own.
