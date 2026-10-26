@@ -1,7 +1,7 @@
 {
   "name": "device-rescue",
   "productName": "Reclaim City",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "Reclaim City desktop app",
   "author": "The Multiverse School",
   "main": "main.js",
@@ -25,6 +25,7 @@
       "setting-urls.js",
       "mission-links.js",
       "mission-links.json",
+      "router-url.js",
       "ask-about.js",
       "ai-prompt.js",
       "renderer/**",
