@@ -110,3 +110,16 @@ test('a MINE tag keeps what it is for, from the fixed list only, and survives a 
   assert.strictEqual(suggestCategory({}, ['extension']), 'browser');
   assert.strictEqual(suggestCategory({}), null);
 });
+
+test('district cards count cases, not severities', async () => {
+  const { districtBadges } = await import('../renderer/game/views/map.js');
+  const m = (module, severity, extra = {}) => ({ module, severity, primary: {}, ...extra });
+  const d = { id: 'gatehouse', status: 'hot', notes: [], fog: [], missions: [
+    m('kext_audit', 'critical'), m('ai_worm_filesystem', 'warning'), m('kext_audit', 'warning', { marked: true }),
+    m('firewall_audit', 'warning'), m('time_machine_check', 'critical') ] };
+  const html = districtBadges(d);
+  assert.match(html, /2 LEADS/);
+  assert.match(html, /2 OPEN DOORS/);
+  assert.match(districtBadges({ ...d, id: 'engine-room', missions: [m('disk_space', 'warning')] }), /1 UPKEEP/);
+  assert.doesNotMatch(html, /CRITICAL|WARNING/);
+});
