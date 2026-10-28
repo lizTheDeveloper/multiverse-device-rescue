@@ -72,7 +72,7 @@ function evidenceOf(f) {
 }
 
 // The made_by entry for the program it names (or the first), as {name, verified}.
-function makerOf(f) {
+export function makerOf(f) {
   const list = Array.isArray(f.made_by) ? f.made_by.filter((e) => e && str(e.name) && e.name !== 'Unknown maker') : [];
   const prog = str(dataOf(f).program);
   const e = list.find((x) => x.subject === prog) || list[0];

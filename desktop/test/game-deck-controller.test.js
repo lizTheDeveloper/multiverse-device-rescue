@@ -90,7 +90,7 @@ test('the deck is the city’s home: queue, city, instruments, log, and its own 
   assert.match(html, /data-act="investigate-next"/);
   assert.match(html, /aria-label="Your computer as a city"/);
   assert.match(html, /data-go="filter:gatehouse"/);
-  assert.match(html, /City integrity/);
+  assert.match(html, /Districts secured/);
   assert.match(html, /OPS LOG/);
   assert.match(html, /LOW-PRIORITY SIGNALS \(1\)/);
   assert.match(html, /data-act="resweep"/);
@@ -201,7 +201,7 @@ test('low-priority signals stay folded; THESE ARE ALL FINE sorts every one and p
   assert.strictEqual(Object.keys(saved.deck.tags).length, 120);
   assert.strictEqual(saved.deck.points, 0);
   assert.doesNotMatch(t.html(), /LOW-PRIORITY SIGNALS/);
-  assert.match(t.html(), /<b>120<\/b> <small>SORTED<\/small>/);
+  assert.match(t.html(), /CASES CLOSED/, 'notes aren’t cases: the case count is the incident report’s');
 });
 
 test('marked by the person: out of the queue and into YOURS, still listed; changed since: back in the queue', async () => {
@@ -213,7 +213,7 @@ test('marked by the person: out of the queue and into YOURS, still listed; chang
   assert.match(queue, /CHANGED SINCE YOU MARKED IT[\s\S]*Stale/);
   assert.doesNotMatch(t.html(), /KNOWN AND NOTED/, 'YOURS holds it, not the game-sorting pile');
   assert.match(t.html(), /data-go="yours"[^>]*>YOURS <b class="yours-count">1<\/b>[\s\S]*1 CHANGED/);
-  assert.match(t.html(), /<b>1<\/b> <small>SORTED<\/small>/);
+  assert.match(t.html(), /CASES CLOSED<\/h2>\s*<p class="sb-big"><b>1<\/b>/);
   t.click({ 'data-go': 'yours' });
   assert.match(t.html(), /CHANGED SINCE YOU MARKED IT[\s\S]*Stale[\s\S]*>Mine</);
 });
@@ -237,7 +237,7 @@ test('drills join the queue: about one per four real signals, from the same dist
 test('a drill: right pays drill points, wrong pays nothing and gives the tell; neither touches integrity or the bars', async () => {
   const five = scan(mod('a_mod', Array.from({ length: 5 }, (_, i) => f(`W${i}`, 'warning', { plist: `/w${i}` }))));
   const t = await deckSetup(five);
-  const integrity = () => t.html().match(/City integrity[^<]*/)[0];
+  const integrity = () => t.html().match(/Districts secured <b>[^<]*/)[0];
   const before = integrity();
   t.click({ 'data-go': 'signal:drill:gate-1' });
   assert.match(t.html(), /DRILL[\s\S]*Practice\. This isn’t on your computer\./);
@@ -257,7 +257,7 @@ test('a drill: right pays drill points, wrong pays nothing and gives the tell; n
   assert.strictEqual(t.saved().deck.points, 20);
   t.click({ 'data-act': 'close-signal' });
   assert.strictEqual(integrity(), before);
-  assert.match(t.html(), /<b>0<\/b> <small>SORTED<\/small>/);
+  assert.match(t.html(), /CASES CLOSED<\/h2>\s*<p class="sb-big"><b>0<\/b>/);
   assert.deepStrictEqual(t.saved().deck.tags, {}, 'drills are never tagged in the store');
 });
 
@@ -286,7 +286,7 @@ test('every check errored: no reading, never a clear board, and the couldn’t-c
     { ...mod('b', [], { supported: false, unsupported_reason: 'Mac only' }), category: 'network' }));
   const html = t.html();
   assert.match(html, /NOTHING COULD BE CHECKED/);
-  assert.match(html, /City integrity: no reading/);
+  assert.doesNotMatch(html, /Districts secured/, 'no reading');
   assert.doesNotMatch(html, /CLEAR BOARD|100%/);
   assert.match(html, /data-go="signal:couldnt\|a"/);
   assert.doesNotMatch(html, /signal:drill:/, 'no drills without real signals');
@@ -395,8 +395,8 @@ test('a re-sweep: tags carry over, a gone finding is NO LONGER SEEN with no poin
   assert.strictEqual(saved.deck.sweeps.length, 2);
   assert.ok(saved.deck.sweeps.every((w) => Object.keys(w).every((k) => k === 'at' || typeof w[k] === 'number')), 'dates and counts only');
   assert.match(t.html(), /NO LONGER SEEN<\/span> B/);
-  assert.match(t.html(), /<b>0<\/b> <small>CONFIRMED<\/small>/);
-  assert.match(t.html(), /City integrity 0%, the same as last sweep\./);
+  assert.doesNotMatch(t.html(), /<b>[1-9]\d*<\/b> <small>CONFIRMED<\/small>/);
+  assert.match(t.html(), /Districts secured <b>0%<\/b>/);
 });
 
 test('the same scan shown twice is one sweep', async () => {
@@ -719,7 +719,7 @@ test('city mode: a held monitoring finding has no signal and no points, and inte
   assert.doesNotMatch(JSON.stringify(t.saved()), /stalkerware|Monitoring app/);
   // Integrity: its district was checked and is not secure while it is there.
   assert.match(t.html(), /<b>0%<\/b>/);
-  assert.match(t.html(), /City integrity 0%/);
+  assert.match(t.html(), /Districts secured <b>0%<\/b>/);
   t.ctl.show(scan(mod('stalkerware_scan', [])), { id: 'unsure' });
   assert.match(t.html(), /<b>100%<\/b>/, 'once it is gone, the district is secure');
   // Its going is not a win: no DISTRICT SECURED, no CLEAN SWEEP, no points,

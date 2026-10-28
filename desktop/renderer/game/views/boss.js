@@ -131,7 +131,7 @@ function logPanel(boss) {
 // `panelHtml`: a signal opened from it, over the sweep, which waits behind it (inert).
 // `calm` (new, everyday): no running NOTED tally (FOUND SO FAR says it gently), evidence folded.
 export function renderBoss({ boss, scout, tips, tipsOpen = true, learn = null, lessonHtml = '', offer = null,
-  lessonsLoaded = true, lessonsDone = 0, lessonsTotal = 0, arrivalsHtml = '', panelHtml = '', calm = false }) {
+  lessonsLoaded = true, lessonsDone = 0, lessonsTotal = 0, arrivalsHtml = '', panelHtml = '', calm = false, triageHtml = '' }) {
   const behind = panelHtml ? ' inert' : '';
   const ds = bossDistricts(boss);
   const pct = bossPercent(boss);
@@ -150,7 +150,7 @@ export function renderBoss({ boss, scout, tips, tipsOpen = true, learn = null, l
     <span class="stat cyan">${boss.total ? `<b>${esc(boss.index)}/${esc(boss.total)}</b> <small>CHECKS DONE</small>` : '<small>GETTING READY</small>'}</span>
     ${boss.found && !calm ? `<span class="stat amb"><b>${esc(boss.found)}</b> <small>NOTED</small></span>` : ''}
     ${boss.couldnt ? `<span class="stat grey"><b>${esc(boss.couldnt)}</b> <small>COULDN’T CHECK</small></span>` : ''}
-    <span class="switch"><button type="button" data-go="training">ALL LESSONS</button><button type="button" data-act="leave">PLAIN VIEW</button><b class="on">SWEEP</b></span>
+    ${triageHtml}<span class="switch"><button type="button" data-go="training">ALL LESSONS</button><button type="button" data-act="leave">PLAIN VIEW</button><b class="on">SWEEP</b></span>
   </header>`;
   return `${top}
   <section class="boss sweep-deck" aria-label="Your checkup is running"${behind}>

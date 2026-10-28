@@ -3,10 +3,10 @@
 // loaded, the same map also holds the accounts' districts, and the game's own
 // screens render here (its app.js is never loaded).
 import { findingsToCity, DISTRICTS, findingIdentity } from './findings-to-city.js';
-import { splitHeld, heldOnly, briefingNote, heldPanelHtml, HELD_MODULES } from './held.js';
+import { splitHeld, heldOnly, briefingNote, heldPanelHtml, HELD_MODULES, HELD_LABEL } from './held.js';
 import { loadProgress, saveProgress, reconcile, setStatus, setLessonDone, lessonDone, ranOkModules, recheckOutcome, setDeck } from './progress.js';
-import { buildSignals, compareSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds } from './signals.js';
-import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES,
+import { buildSignals, compareSignals, queueOf, cityIntegrity, districtHeat, sweepCounts, heldDistrictIds } from './signals.js';
+import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, POINTS, MONITORING_MODULES,
   isWatchKey, sessionTag, withSessionTags } from './ledger.js';
 import { cluesFor, drillClues, scoutRead, drillRead, COULDNT_READ } from './clues.js';
 import { loadDrills, chooseDrills, mixDrills, drillSignal, pickDrills } from './drills.js';
@@ -62,14 +62,16 @@ import { renderRadar } from './views/radar.js';
 import { countSort, restoreTag } from './ledger.js';
 import { sweepLine, sweepDoneLine, fixRcControls, focusScreenHeading } from './a11y.js';
 import { attachDisplayPanel } from './display-panel.js';
+// The technical level's triage queue (triage-screen.js): every case, keyboard first, live during the sweep.
+import { createTriageScreen } from './triage-screen.js';
 
 // Specifiers resolve against this file (app://rescue/game/controller.js).
 const loadLessonsHere = () => loadLessons((spec) => import(spec));
 const idleScan = () => ({ running: false, index: 0, total: 0, error: null });
 const TRAINING_SCREENS = new Set(['training', 'lesson', 'boss']);
 // Screens drawn without a city, and screens whose redraws keep keyboard focus.
-const NO_CITY_SCREENS = new Set([...TRAINING_SCREENS, 'range']);
-const KEEP_FOCUS = new Set([...TRAINING_SCREENS, 'map', 'range', 'yours']);
+const NO_CITY_SCREENS = new Set([...TRAINING_SCREENS, 'range', 'triage']);
+const KEEP_FOCUS = new Set([...TRAINING_SCREENS, 'map', 'range', 'yours', 'triage']);
 const LOG_MAX = 100;
 const MOMENTS_MAX = 4;
 const TAG_WORD = { mine: 'MINE', threat: 'THREAT', closer: 'LOOK CLOSER', noted: 'NOTED' };
@@ -374,7 +376,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       offer: inline || !s.lessonsLoaded ? null : sweepOfferNow(), lessonsLoaded: s.lessonsLoaded,
       lessonsDone: s.lessons.filter((l) => lessonDone(s.progress, l.id)).length, lessonsTotal: s.lessons.length,
       // Calm levels open a case right in FOUND SO FAR; technical's panel sits over the sweep.
-      arrivalsHtml: arrivalsNow(), panelHtml: s.signal && !inlineOn() ? signalPanelHtml() : '', calm: inlineOn() });
+      arrivalsHtml: arrivalsNow(), panelHtml: s.signal && !inlineOn() ? signalPanelHtml() : '', calm: inlineOn(), triageHtml: triageButton() });
   }
 
   // Lessons show before any scan, so the platform falls back to what preload says.
@@ -437,13 +439,38 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     docChanged: (d) => win.RescueHost.docChanged(d),
     rebuild: (d) => rebuild(d),
     // Only screens that show marks redraw; a half-filled form elsewhere is left alone.
-    render: () => { if (['map', 'yours', 'district'].includes(s.screen) && !s.busy) render(); },
+    render: () => { if (['map', 'yours', 'district', 'triage'].includes(s.screen) && !s.busy) render(); },
     log: logEntry,
     noteMarked: () => commitDeck(noteMarked(s.progress.deck)),
     modulesFor: (ids) => modulesCoveredBy(ids),
   });
   const yoursNow = () => yoursInventory(signalsNow(), programCtx);
   const chipsFor = (sig) => (sig && sig.kind === 'real' ? kindChipsHtml(kindsOf(sig.finding, programCtx)) : '');
+
+  // --- Triage (technical level): the same deck, ledger and desk, keyboard first.
+  const triageOn = () => level() === 'technical';
+  const triage = createTriageScreen({ frame, now, scanning: () => s.scan.running, boss: () => s.boss,
+    signals: () => (s.city ? signalsNow() : []), live: () => s.live, quiet: (d) => quietDoc(d), platform: () => platform(),
+    tagsDeck: () => withSessionTags(s.progress.deck, s.watchTags), changed: () => s.changedTags, ctx: () => programCtx, desk,
+    held: () => s.held, closedIds: () => new Set(Object.keys(s.progress.deck.confirmed || {})),
+    // Its words are the city's own: city mode names only the generated district.
+    heldSpec: () => (inCity() ? { label: `Something new in ${side().name}`, go: 'side' } : { label: HELD_LABEL, act: 'list' }),
+    deck: () => s.progress.deck, commitDeck: (d) => commitDeck(d), watchTags: () => s.watchTags, setWatchTags: (m) => { s.watchTags = m; },
+    clearChanged: (id) => s.changedTags.delete(id), award: (kind, key) => commitAward(award(s.progress.deck, kind, key)),
+    opened: (id) => openedFor(id), cluesOf: (sig) => cluesOf(sig), log: logEntry,
+    evidence: (sig) => triageEvidence(sig),
+    // CHECK AGAIN: the same path as a case's own (checkSignalAgain).
+    recheck: (sig) => checkSignalAgain(sig),
+    // A first sort counts the same as on the deck: the lifetime count, the sweep's tally, the run.
+    firstSort: (sig) => { commitDeck(countSort(s.progress.deck)); noteFirstSort(sig); },
+    render: () => render(), back: () => { s.screen = s.scan.running ? 'boss' : s.city ? 'map' : 'training'; render(); } });
+  const triageEvidence = (sig) => {
+    if (sig.kind === 'couldnt') return `<p class="intel">${esc(sig.description || COULDNT_READ)}</p>`;
+    const clues = cluesOf(sig).map((c) => `<div class="tri-clue"><b>${esc(c.label)}</b> ${(c.lines || []).map((l) => esc(typeof l === 'string' ? l : l && l.text)).join(' · ')}</div>`).join('');
+    return clues + (sig.kind === 'real' ? evidenceHtml(sig.finding, platform(), cluesOf(sig)) : '');
+  };
+  // TRIAGE ▶ with the count of open cases, where the technical level gets it.
+  const triageButton = () => (triageOn() ? `<button type="button" class="btn-s tri-go" data-go="triage">TRIAGE ▶ <b>${esc(triage.openCount())}</b></button>` : '');
   // The quick MINE control for one signal, where it is shown (a queue row, the panel, the briefing).
   function quickControl(sig, inRow) {
     // Found during the sweep: marking it in Reclaim City waits for the finished scan.
@@ -538,7 +565,11 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const open = all.filter((x) => !x.tag || x.tag === 'closer');
     const calm = level() !== 'technical';
     const unlocked = !calm || s.lessons.some((l) => lessonDone(s.progress, l.id)) || !s.lessons.length;
-    if (!calm) return arrivalsHtml({ items: open, calm, unlocked, sortedNow: s.liveSorted });
+    // Technical: every arrival, in case words too (never CRITICAL / WARNING), in the case order.
+    if (!calm) {
+      const items = open.map((x) => ({ ...x, case: caseFor(x) })).sort(compareCases);
+      return arrivalsHtml({ items, calm, unlocked, sortedNow: s.liveSorted, badge: (x) => caseBadgeHtml(x.case) });
+    }
     const cases = calmCases(open);
     const openHtml = s.signal && s.screen === 'boss' ? signalPanelHtml() : '';
     return arrivalsHtml({ items: cases, calm, unlocked, sortedNow: s.liveSorted, badge: (x) => caseBadgeHtml(x.case), openHtml,
@@ -558,8 +589,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     return renderRadar({ counts: radarOf(deck), running });
   }
-  // The incident report's counts for the HUD (new, everyday), or null for technical.
-  const calmReport = () => (inlineOn() && s.city ? caseReport(mergeEchoes(signalsNow().filter((x) => x.kind === 'real' || x.kind === 'couldnt')
+  // The incident report's counts for the HUD, at every level.
+  const calmReport = () => (s.city ? caseReport(mergeEchoes(signalsNow().filter((x) => x.kind === 'real' || x.kind === 'couldnt')
     .map((x) => ({ ...x, case: caseFor(x) })))) : null);
   const caseFor = (sig) => caseOf(sig, { kinds: sig.kind === 'real' ? kindsOf(sig.finding, programCtx) : [] });
   // A district's note opens its signal on the deck, when the note is one (a
@@ -584,7 +615,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // After MINE: what is it for? (own-categories.js). Never for the watch's session-only tags.
     const c = sig.kind === 'real' || sig.kind === 'couldnt' ? caseFor(sig) : null;
     // New and everyday read the case (case-file.js) where the severity was.
-    const caseHtml = c && level() !== 'technical' ? caseBadgeHtml(c) : '';
+    const caseHtml = c ? caseBadgeHtml(c) : '';
     const cat = c && c.type === 'lead' && sig.kind === 'real' && !isWatchKey(sig.id) ? catPickerHtml({ picked: s.signal.cat,
       suggested: suggestCategory(sig.finding, kindsOf(sig.finding, programCtx).map((k) => k.id)), looked: openedFor(sig.id).length > 0 }) : '';
     const door = !!c && c.type === 'door';
@@ -655,13 +686,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
 
   function deckHtml() {
     const { sigs, q, items: raw } = deckQueue();
-    // New and everyday read an incident report (case-file.js): leads and open
+    // Every level reads an incident report (case-file.js): leads and open
     // doors first, echoes merged, blind spots after, upkeep in its own corner,
-    // drills still one in every few. Technical keeps the severity queue.
+    // drills still one in every few. Technical gets the same words, denser,
+    // and TRIAGE ▶ for working through them; `calm` is only the inline rows.
     const calm = inlineOn();
     let items = raw;
     let upkeep = [];
-    if (calm) {
+    {
       const real = raw.filter((x) => x.kind !== 'drill').map((x) => ({ ...x, case: caseFor(x) }));
       upkeep = real.filter((x) => x.case.type === 'upkeep');
       const blind = real.filter((x) => x.case.type === 'blind');
@@ -673,10 +705,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const inlineRow = openSig && inlineFor(openSig) ? signalPanelHtml() : '';
     const rowShown = !!inlineRow && [...items, ...upkeep, ...(s.lowOpen ? q.low : [])].some((x) => x.id === openSig.id);
     // Counted as shown: the same door said by several checks is one case.
-    const report = calm ? caseReport(mergeEchoes(sigs.filter((x) => x.kind === 'real' || x.kind === 'couldnt').map((x) => ({ ...x, case: caseFor(x) })))) : null;
+    const report = caseReport(mergeEchoes(sigs.filter((x) => x.kind === 'real' || x.kind === 'couldnt').map((x) => ({ ...x, case: caseFor(x) }))));
     const integ = cityIntegrity(s.city, sigs, s.heldCity);
     const deck = s.progress.deck;
-    const history = deck.sweeps.map(sweepPercent);
     const c = counts();
     const goFor = (d) => `filter:${d.id}`;
     const heat = districtHeat(s.city, sigs, s.heldCity);
@@ -706,12 +737,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
         : { extra: level() === 'new' ? '' : quickControl(x, true), chips: chipsFor(x), badge: x.case ? caseBadgeHtml(x.case) : '' }), pickerHtml: pickerHtml(),
       reportHtml: report ? reportHtml(report) : '', upkeep,
       // An open case whose row isn't showing (or the last one's done line) tops the queue.
-      queueTop: (inlineRow && !rowShown ? `<div class="open-row">${inlineRow}</div>` : '') + (!inlineRow && s.done ? doneHtml(s.done) : '') + toastHtml(desk.toast) + bulkBarHtml({ count: desk.picked.size, confirming: !!(desk.confirm && desk.confirm.target === '*'),
+      queueTop: triageButton() + (inlineRow && !rowShown ? `<div class="open-row">${inlineRow}</div>` : '') + (!inlineRow && s.done ? doneHtml(s.done) : '') + toastHtml(desk.toast) + bulkBarHtml({ count: desk.picked.size, confirming: !!(desk.confirm && desk.confirm.target === '*'),
         watch: !!(desk.confirm && desk.confirm.watch) }),
       filter: fd ? { id: fd.id, name: fd.name } : null, cityHtml,
-      instrumentsHtml: (calm ? renderScoreboard({ report, rank: rankOf(deck), session: s.session, confirmed: c.confirmed, reported: c.reported, integrity: integ.percent })
-        : renderInstruments({ integrity: integ.percent, previous: history.length > 1 ? history[history.length - 2] : null,
-          history, bars: { sorted: sortedCount(sigs), confirmed: c.confirmed, reported: c.reported }, rank: rankOf(deck) }))
+      instrumentsHtml: renderScoreboard({ report, rank: rankOf(deck), session: s.session, confirmed: c.confirmed, reported: c.reported, integrity: integ.percent })
         + (watchOffered(s.doc) ? renderWatch(s.watch) : ''),
       log: s.log, moments, panelHtml: s.signal && !inlineRow ? signalPanelHtml() : '', nothingChecked: integ.percent === null,
       scanRunning: s.scan.running, watching: s.watch.state === 'running', districtName: nameOf, notice: heldNotice() + s.linkNotice,
@@ -821,12 +850,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const filed = tag === 'mine' && OWN_CATEGORY_IDS.has(cat) && sig.kind === 'real' && !isWatchKey(sig.id) ? cat : null;
     const base = first ? countSort(s.progress.deck) : s.progress.deck;
     commitDeck(filed ? setTag(base, sig.id, 'mine', sig.fp, now(), filed) : tagOne(base, sig, tag));
-    if (first && sig.live) s.liveSorted += 1;
-    if (first) {
-      const looked = openedFor(sig.id).length > 0;
-      const run = looked ? s.session.run + 1 : 0;
-      s.session = { ...s.session, sorted: s.session.sorted + (looked ? 1 : 0), run, best: Math.max(s.session.best, run) };
-    }
+    if (first) noteFirstSort(sig);
     liveMemo = { n: -1, list: [] }; // its tag changes what FOUND SO FAR shows
     s.changedTags.delete(sig.id);
     if (sig.kind === 'real' && openedFor(sig.id).length >= 2) s.signal.points += commitAward(award(s.progress.deck, 'tagBonus', sig.id));
@@ -837,6 +861,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (inline) { advance(sig, tag, prev, order); return; }
     render();
     focusRead();
+  }
+
+  // A real signal's first sort, after its deck count: the sweep's tally and this session's run.
+  function noteFirstSort(sig) {
+    if (sig.live) s.liveSorted += 1;
+    const looked = openedFor(sig.id).length > 0;
+    const run = looked ? s.session.run + 1 : 0;
+    s.session = { ...s.session, sorted: s.session.sorted + (looked ? 1 : 0), run, best: Math.max(s.session.best, run) };
   }
 
   // The cases a verdict moves on through: on the sweep, what it found so far;
@@ -890,23 +922,35 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // CHECK AGAIN on a case open in its row: just its check, run again, and
   // the answer in place. Gone from a check that ran is CONFIRMED (the fix
   // XP, once ever, as on the briefing); still there says so on the case.
+  // Its check, run again (read-only), and the scan rebuilt from it. Gone
+  // from a check that ran is CONFIRMED: the fix XP, once ever. null when
+  // app.js took over (its gate asked a follow-up).
+  async function checkSignalAgain(sig) {
+    let r;
+    try { r = await win.rescue.recheckModule(sig.module); } catch (_) { r = null; }
+    if (r && r.ok) {
+      if (!win.RescueHost.docChanged(r.doc)) return null;
+      rebuild(r.doc);
+    }
+    const ran = !!(r && r.ok && r.module && r.module.status === 'ok' && r.module.supported !== false);
+    const still = signalsNow().some((x) => x.id === sig.id);
+    let paid = 0;
+    if (ran && !still) {
+      paid = sig.missionId ? commitAward(confirmFix(s.progress.deck, sig.missionId, now())) : 0;
+      logEntry('CONFIRMED', sig.title);
+    }
+    return { ran, still, paid };
+  }
   async function checkInPlace() {
     const sig = s.signal && findSignal(s.signal.id);
     if (!sig || sig.live || sig.kind !== 'real' || !sig.module || MONITORING_MODULES.has(sig.module) || s.busy || s.scan.running) return;
     s.busy = true; s.checking = sig.id;
     render();
-    let r;
-    try { r = await win.rescue.recheckModule(sig.module); } catch (_) { r = null; }
+    const out = await checkSignalAgain(sig);
     s.busy = false; s.checking = null;
-    if (r && r.ok) {
-      if (!win.RescueHost.docChanged(r.doc)) return; // app.js asked the follow-up instead
-      rebuild(r.doc);
-    }
-    const ran = !!(r && r.ok && r.module && r.module.status === 'ok' && r.module.supported !== false);
-    const still = signalsNow().some((x) => x.id === sig.id);
+    if (!out) return; // app.js asked the follow-up instead
+    const { ran, still, paid } = out;
     if (ran && !still) {
-      const paid = sig.missionId ? commitAward(confirmFix(s.progress.deck, sig.missionId, now())) : 0;
-      logEntry('CONFIRMED', sig.title);
       s.done = { id: sig.id, text: `Checked again: gone. ${sig.title}${paid ? ` · +${paid} XP` : ''}` };
       const next = nextCandidates().find((x) => !x.tag || x.tag === 'closer');
       if (next) { openSignal(next.id, { keepDone: true }); return; }
@@ -1112,6 +1156,11 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       s.screen = 'training';
     }
     if (s.screen === 'range') return rangeHtml();
+    if (s.screen === 'triage') {
+      if (triageOn() && (s.city || s.scan.running)) return triage.html();
+      s.screen = s.city ? 'map' : 'training';
+      return screenHtml();
+    }
     if (s.screen === 'training') {
       return sideTile() + renderTraining({ ordered: orderLessons(s.lessons, s.situation && s.situation.id), progress: s.progress,
         worryTitle: s.situation && s.situation.title, scan: s.scan, scout, pendingCity: cityWaiting(),
@@ -1362,6 +1411,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // This is mine: the queue's MINE ✓, the selection, Undo, and the YOURS district.
     if (!(act && act.startsWith('mine-undo'))) desk.settle();
     if (act && deskAct(act)) return;
+    if (go === 'triage') { if (triageOn()) { s.signal = null; s.screen = 'triage'; render(); } return; }
+    if (act && act.startsWith('tri-') && s.screen === 'triage') { triage.click(act, el); return; }
     if (go === 'yours') { if (s.city) { s.signal = null; s.screen = 'yours'; render(); focusEl(frame.querySelector('#yours-title')); } return; }
     const acctNext = acct.click(go, act, el);
     if (acctNext) {
@@ -1654,6 +1705,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (typeof e.preventDefault === 'function') e.preventDefault();
     closeSignal();
   });
+  // The triage queue's keys (triage.js keyAction), only on its screen.
+  frame.addEventListener('keydown', (e) => { if (s.screen === 'triage' && !s.busy) triage.key(e); });
   frame.addEventListener('keydown', (e) => {
     if (!s.rc) return;
     // Enter in a per-category number box files it, like its button.
@@ -1685,6 +1738,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   function showCityFrom(doc) {
     // A sweep that finishes while the person is in the generated district leaves them there.
     const stay = s.screen === 'side' && inCity();
+    // ...and one sorting in the triage queue stays there, the live rows becoming the scan's own.
+    const sorting = s.screen === 'triage' && triageOn();
     s.shown += 1;
     const prev = signalsNow();
     rebuild(doc);
@@ -1694,6 +1749,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.lesson = null; s.pendingCity = false;
     s.signal = null; s.filter = null; s.lowOpen = false; s.range = null;
     s.focusPending = !stay;
+    if (sorting) { s.screen = 'triage'; s.focusPending = false; }
   }
 
   // A new worry: no city until its scan finishes.
@@ -1728,6 +1784,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     },
     showBoss() {
       s.boss = bossInit();
+      triage.reset();
       s.live = liveInit(); s.liveSorted = 0; liveMemo = { n: -1, list: [] };
       // Clue and tag XP earned on the sweep belongs to the sweep it found (newSweep keeps it).
       sweepKeys0 = { ...s.progress.deck.sweep.keys };
@@ -1755,6 +1812,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       say(line.text);
       // A signal open over the sweep isn't redrawn under the person while they read it.
       if ((s.screen === 'boss' && !s.signal) || s.screen === 'training') render();
+      // The triage queue (technical) redraws its rows in place from the same live findings.
+      if (s.screen === 'triage') triage.live();
     },
     // Mid-lesson, the person stays in the lesson with a banner; otherwise the city.
     scanDone(doc, situation) {
