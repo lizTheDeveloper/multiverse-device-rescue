@@ -200,7 +200,7 @@ const RECLAIM_CITY_URL = 'https://play.multiversegames.ai/reclaim-city/';
  * #/district/<id>, and its Quick Quests are links to those same districts.
  * Worries with no real match get nothing.
  */
-const GAME_INTRO = 'Reclaim City also comes as a free game you play in your web browser.';
+const GAME_INTRO = 'It also comes as a free game you play in your web browser.';
 const LEARN_MORE = {
   hacked: { path: '#/district/master-keys',
     text: 'Its “My email got hacked” Quick Quest opens The Master Keys, which walks you through checking who has signed in, setting new passwords and turning on two-step sign-in for your email, one account at a time.' },
@@ -453,7 +453,6 @@ if (typeof document !== 'undefined') {
       results: document.getElementById('screen-results'),
       city: document.getElementById('screen-city'),
     };
-    const stepDots = document.querySelectorAll('[data-step-dot]');
     const appRoot = document.getElementById('app');
 
     let permissionsContent = null;
@@ -570,7 +569,6 @@ if (typeof document !== 'undefined') {
     };
     window.addEventListener('rescue-game-ready', () => { if (lastScanDoc) renderCitySwitch(lastScanDoc); });
 
-    let activeDot = null;
     function showScreen(name) {
       Object.keys(screens).forEach((key) => {
         if (!screens[key]) return;
@@ -580,12 +578,6 @@ if (typeof document !== 'undefined') {
       appRoot.dataset.screen = name;
       if (name === 'city') visitedCity = true;
       renderBackToCity();
-      // The question screen keeps the step the person was on (worry, or the checkup's follow-up).
-      const dotName = name === 'question' ? activeDot : name === 'city' ? 'results' : name;
-      activeDot = dotName;
-      stepDots.forEach((dot) => {
-        dot.classList.toggle('step-dot--active', dot.dataset.stepDot === dotName);
-      });
       window.scrollTo(0, 0);
     }
 
@@ -1071,10 +1063,14 @@ if (typeof document !== 'undefined') {
     // "Back to the city", in the plain header once the city has been on screen:
     // the sweep if a scan is running, this worry's city if it has one, or the
     // Training Grounds.
+    // Once it shows, the city's HUD already names the app, so the plain
+    // header drops its brand rather than say "Reclaim City" twice.
     function renderBackToCity() {
-      document.getElementById('btn-back-to-city').hidden = !(visitedCity
+      const show = !!(visitedCity
         && window.RescueGame && window.RescueGame.isReady
         && (!situation || gameOfferedFor(situation)));
+      document.getElementById('btn-back-to-city').hidden = !show;
+      document.getElementById('app-brand').hidden = show;
     }
     document.getElementById('btn-back-to-city').addEventListener('click', () => {
       if (!(window.RescueGame && window.RescueGame.isReady)) return;
