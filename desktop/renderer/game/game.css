@@ -645,3 +645,5 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, [role="button
 .radar-table th, .radar-table td { padding: 4px 10px; text-align: left; border-bottom: 1px solid var(--line); }
 .radar-table td { font-variant-numeric: tabular-nums; color: var(--lime); }
 .radar-table thead th { font-family: var(--font-display); font-size: 10px; letter-spacing: 1.5px; color: var(--dim); }
+.g-cat .cat-chips, .g-cat-inline .cat-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.cat-chip { text-align: left; }

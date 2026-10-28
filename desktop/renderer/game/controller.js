@@ -558,6 +558,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     return renderRadar({ counts: radarOf(deck), running });
   }
+  // The incident report's counts for the HUD (new, everyday), or null for technical.
+  const calmReport = () => (inlineOn() && s.city ? caseReport(mergeEchoes(signalsNow().filter((x) => x.kind === 'real' || x.kind === 'couldnt')
+    .map((x) => ({ ...x, case: caseFor(x) })))) : null);
   const caseFor = (sig) => caseOf(sig, { kinds: sig.kind === 'real' ? kindsOf(sig.finding, programCtx) : [] });
   // A district's note opens its signal on the deck, when the note is one (a
   // grouped connection-watch note isn't on its own).
@@ -621,7 +624,6 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (g.tagged) {
       after = `${g.read ? `<div class="scout-row">${scout('happy', 54)}<p class="say">${esc(g.read)}</p></div>` : ''}
         ${g.points > 0 ? `<p class="points g-xp">+${esc(g.points)} INCIDENT RESPONSE XP</p>` : '<p class="intel faint">Sorted. Open the clues before your call to earn XP.</p>'}
-        ${g.tagged === 'mine' ? cat : ''}
         ${g.tagged === 'mine' && (quick || mine) ? `<details class="panel g-optional"><summary class="label">OPTIONAL: TELL RECLAIM CITY TOO</summary>
           <p class="intel">This asks Reclaim City itself to stop flagging it. It asks first, and you can undo it.</p>${quick || mine}</details>` : ''}
         ${g.tagged === 'threat' ? `<p class="intel">${door ? 'To close it, follow its steps' : 'It’s on your THREAT BOARD'}${sig.live ? ' on the deck when the checkup is done.' : '. They’re one click away there.'}</p>` : ''}
@@ -630,6 +632,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const next = g.tagged ? nextGuided(sig.id) : null;
     return guidedPanelHtml({ sig, mode: g.guided, steps: guideSteps(cluesOf(sig)), step: g.step || 0, districtName: nameOf(sig.districtId),
       tagged: g.tagged, fold: true, chipsHtml: chipsFor(sig), earned: g.points, after, onSweep, caseHtml, door,
+      afterMore: g.tagged === 'mine' ? cat : '',
       inline: inlineFor(sig), doneHtml: doneHtml(s.done),
       nextHtml: next ? '<button type="button" class="btn-p" data-act="guide-another">NEXT ONE ▶</button>' : '' });
   }
@@ -1193,7 +1196,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const body = screenHtml();
       // The deck has its own top bar; the training and range screens have theirs.
       const hud = NO_CITY_SCREENS.has(s.screen) || s.screen === 'map' || s.screen === 'side' || s.screen === 'yours' ? ''
-        : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts() })
+        : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts(), report: calmReport() })
           + pickerHtml() + s.linkNotice;
       // game.css reads the level for density (technical) and the folded details (new).
       frame.className = `frame level-${level()}`;

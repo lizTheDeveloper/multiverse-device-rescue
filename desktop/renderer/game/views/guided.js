@@ -51,7 +51,7 @@ function dots(at, total) {
 // `after`: what follows the call (the read, points, what is it for, next).
 // `inline`: drawn in its own row (the queue, FOUND SO FAR), not over the screen.
 export function guidedPanelHtml({ sig, mode, steps, step = 0, districtName = '', tagged = null, fold = true, chipsHtml = '',
-  caseHtml = '', earned = 0, after = '', onSweep = false, nextHtml = '', door = false, inline = false, doneHtml = '' }) {
+  caseHtml = '', earned = 0, after = '', afterMore = '', onSweep = false, nextHtml = '', door = false, inline = false, doneHtml = '' }) {
   const head = `
     <p class="g-kicker"><span class="badge cyan">GUIDED</span> ${mode === 'full' ? 'One step at a time.' : esc(LIGHT_HINT)}</p>
     <div class="sig-head">${caseHtml || SEV_BADGE[sig.severity] || ''} <small>${esc(districtName)}</small></div>
@@ -60,8 +60,9 @@ export function guidedPanelHtml({ sig, mode, steps, step = 0, districtName = '',
   const xp = earned > 0 ? `<p class="points g-xp" role="status">+${esc(earned)} INCIDENT RESPONSE XP</p>` : '';
   let body;
   if (tagged) {
-    // NEXT ONE sits where NEXT ▶ was: first in the row under the words.
-    body = `<div class="g-body">${after}</div>${nextHtml ? `<div class="row g-act">${nextHtml}${back}</div>` : `<div class="row">${back}</div>`}`;
+    // NEXT ONE sits where NEXT ▶ was: first in the row under the words, and
+    // anything optional (what is it for?) comes after it.
+    body = `<div class="g-body">${after}</div>${nextHtml ? `<div class="row g-act">${nextHtml}${back}</div>` : `<div class="row">${back}</div>`}${afterMore}`;
   } else if (mode === 'full') {
     const at = Math.max(0, Math.min(step, steps.length - 1));
     const s = steps[at];
