@@ -13,6 +13,7 @@ produces carries an explicit caveat to that effect.
 
 import json
 import os
+import plistlib
 import shutil
 import subprocess
 import tempfile
@@ -49,19 +50,26 @@ class Module(ModuleBase):
     depends_on = []
     estimated_duration = "instant by default; 1-10m if backup scanning is enabled"
 
-    # A full `mvt check-backup` is a heavy forensic operation: MVT loads and
-    # parses the entire device backup in its own process, so its memory use
-    # scales with backup size and can reach many gigabytes on a full iPhone
-    # backup — enough to freeze the host. Because check() is meant to be a cheap,
-    # read-only probe (and the orchestrator runs it unattended, abandoning it on
-    # timeout while MVT keeps running in the background), backup scanning is
-    # OPT-IN. By default check() only reports that a scan is available.
+    # A full `mvt check-backup` is a slow forensic operation: on a full iPhone
+    # backup it can take many minutes. check() is meant to be a quick, read-only
+    # probe, so backup scanning is OPT-IN (the iphone_spyware_check profile turns
+    # it on). By default check() only reports that a scan is available.
     scan_backups: bool = False
-    # When scanning is enabled, backups larger than this are skipped with a
-    # clear finding rather than scanned, as a memory-safety valve.
-    max_backup_bytes: int = 2 * 1024**3  # 2 GiB
+    # Optional size guard: backups larger than this many bytes are skipped with
+    # a clear finding. 0 means no limit, which is the default: a spyware check
+    # that silently skips most real iPhone backups (they are usually well over
+    # a few GB) is not a spyware check. Set it only for a machine short on memory.
+    max_backup_bytes: int = 0
+    # How long one `mvt check-backup` may run before it's stopped and reported
+    # as unfinished. Large backups take a while; the default module timeout
+    # (60s) would abandon every real scan.
+    mvt_timeout: int = 3600
+    # Budget for the whole check when scanning is on: room for a few backups.
+    _SCAN_CHECK_TIMEOUT = 4 * 3600 + 300
 
     emits_codes = [
+        "security.mvt_spyware_scan.mvt_backup_encrypted",
+        "security.mvt_spyware_scan.mvt_scan_incomplete",
         "security.mvt_spyware_scan.mvt_requires_wsl",
         "security.mvt_spyware_scan.no_backups_found",
         "security.mvt_spyware_scan.mvt_not_installed",
@@ -81,6 +89,12 @@ class Module(ModuleBase):
             self.scan_backups = bool(config["scan_backups"])
         if "max_backup_bytes" in config:
             self.max_backup_bytes = int(config["max_backup_bytes"])
+        if "mvt_timeout" in config:
+            self.mvt_timeout = int(config["mvt_timeout"])
+        # The orchestrator reads check_timeout; without this a real scan is
+        # abandoned after the 60-second default while MVT keeps running.
+        if self.scan_backups:
+            self.check_timeout = self._SCAN_CHECK_TIMEOUT
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings: list[Finding] = []
@@ -182,8 +196,44 @@ class Module(ModuleBase):
             return CheckResult(module_name=self.name, findings=findings)
 
         any_detected = False
+        scanned = 0
         for backup in backups:
-            size = self._estimate_backup_size(backup, self.max_backup_bytes)
+            if self._is_encrypted(backup):
+                findings.append(
+                    Finding(
+                        title=f"This backup is encrypted, so it couldn't be checked yet: {backup.name}",
+                        description=(
+                            f"The backup {backup.name} is encrypted (that's good: it "
+                            "protects your phone's data on this computer). The spyware "
+                            "scanner can't read it until it's unlocked with the backup "
+                            "password you chose in Finder or iTunes. We did not check "
+                            "this backup, so this is not a clean result. It is also not "
+                            "a sign that anything is wrong.\n\n"
+                            "What to do: open Terminal and run this, which makes an "
+                            "unlocked copy in a new folder and asks for the backup "
+                            "password:\n"
+                            f"  {mvt_bin} decrypt-backup -d ~/iphone-backup-decrypted \"{backup}\"\n"
+                            "Then scan the copy:\n"
+                            f"  {mvt_bin} check-backup --output ~/mvt-results ~/iphone-backup-decrypted\n"
+                            "Delete the unlocked copy when you're done: it holds your "
+                            "messages and photos unprotected."
+                        ),
+                        severity=Severity.WARNING,
+                        category=self.category,
+                        code="security.mvt_spyware_scan.mvt_backup_encrypted",
+                        data={
+                            "check": "mvt_backup_encrypted",
+                            "confidence": "high",
+                            "backup_path": str(backup),
+                        },
+                    )
+                )
+                continue
+            size = (
+                self._estimate_backup_size(backup, self.max_backup_bytes)
+                if self.max_backup_bytes > 0
+                else None
+            )
             if size is not None and size > self.max_backup_bytes:
                 findings.append(
                     Finding(
@@ -215,6 +265,30 @@ class Module(ModuleBase):
                 )
                 continue
             detections = self._run_mvt_scan(mvt_bin, backup)
+            if detections is None:
+                findings.append(
+                    Finding(
+                        title=f"The spyware scan didn't finish: {backup.name}",
+                        description=(
+                            f"The scanner started on the backup {backup.name} but didn't "
+                            "finish, so we can't say whether it's clean. This is not a "
+                            "clean result, and it isn't a sign that anything is wrong.\n\n"
+                            "What to do: run the scan yourself in Terminal, where you can "
+                            "see its progress and any error:\n"
+                            f"  {mvt_bin} check-backup --output ~/mvt-results \"{backup}\""
+                        ),
+                        severity=Severity.WARNING,
+                        category=self.category,
+                        code="security.mvt_spyware_scan.mvt_scan_incomplete",
+                        data={
+                            "check": "mvt_scan_incomplete",
+                            "confidence": "high",
+                            "backup_path": str(backup),
+                        },
+                    )
+                )
+                continue
+            scanned += 1
             if detections:
                 any_detected = True
             for detection in detections:
@@ -250,18 +324,18 @@ class Module(ModuleBase):
                     )
                 )
 
-        if not any_detected:
+        if scanned and not any_detected:
             findings.append(
                 Finding(
                     title="No spyware indicators detected",
                     description=(
-                        f"MVT scanned {len(backups)} backup(s) and found no known "
+                        f"MVT scanned {scanned} backup(s) and found no known "
                         f"spyware indicators. {_CLEAN_SCAN_CAVEAT}"
                     ),
                     severity=Severity.INFO,
                     category=self.category,
                     code="security.mvt_spyware_scan.mvt_clean_scan",
-                    data={"check": "mvt_clean_scan", "confidence": "high", "backups_scanned": len(backups)},
+                    data={"check": "mvt_clean_scan", "confidence": "high", "backups_scanned": scanned},
                 )
             )
 
@@ -405,9 +479,20 @@ class Module(ModuleBase):
             return None
         return total
 
-    def _run_mvt_scan(self, mvt_bin: str, backup_path: Path) -> list[dict]:
+    def _is_encrypted(self, backup_path: Path) -> bool:
+        """Whether an iOS backup is encrypted (Manifest.plist's IsEncrypted).
+        MVT can't scan one until it's decrypted, so scanning it would fail."""
+        try:
+            with open(backup_path / "Manifest.plist", "rb") as fh:
+                return bool(plistlib.load(fh).get("IsEncrypted", False))
+        except Exception:
+            return False
+
+    def _run_mvt_scan(self, mvt_bin: str, backup_path: Path) -> list[dict] | None:
         """Run `mvt-ios check-backup` (or mvt-android) against a backup and
-        return parsed detections. Returns [] on any scan failure.
+        return parsed detections: [] for a scan that finished and found nothing,
+        None for a scan that failed, timed out or exited with an error. A failed
+        scan must never read as a clean one.
 
         MVT writes its results as JSON files into ``--output``; we parse those,
         not stdout. So its (very verbose) console output is discarded rather than
@@ -415,7 +500,7 @@ class Module(ModuleBase):
         into this process for no benefit."""
         output_dir = Path(tempfile.mkdtemp(prefix="mvt_scan_"))
         try:
-            subprocess.run(
+            proc = subprocess.run(
                 [
                     mvt_bin,
                     "check-backup",
@@ -425,11 +510,13 @@ class Module(ModuleBase):
                 ],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                timeout=900,
+                timeout=self.mvt_timeout,
             )
+            if proc.returncode != 0:
+                return None
             return self._parse_mvt_output(output_dir)
         except (subprocess.SubprocessError, OSError):
-            return []
+            return None
         finally:
             shutil.rmtree(output_dir, ignore_errors=True)
 
