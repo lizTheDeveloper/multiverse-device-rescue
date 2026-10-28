@@ -150,6 +150,10 @@ jobs:
             desktop/dist/ReclaimCity-*.dmg
             desktop/dist/ReclaimCity-*.exe
           if-no-files-found: error
+          # The publish job attaches these to the GitHub Release, so the
+          # artifact is only a handoff between jobs. Ninety days of copies
+          # filled the account-wide artifact quota and broke CI in other repos.
+          retention-days: 1
 
   publish:
     name: attach to the GitHub Release
