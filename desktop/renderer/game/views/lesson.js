@@ -1,9 +1,12 @@
 import { esc } from '../escape.js';
 import { lessonText, skipBar, cityBanner, trainingHud } from './training.js';
 
+// One question of a lesson, its what-to-know, options and feedback. Shared by
+// the lesson screen and the sweep, which shows a lesson inline while the scan
+// runs (`inline`: a compact header with a way to put it away, no Scout).
 // `settingFor(key)` gives { key, hint } for a question's `setting` on a Mac, else null.
 // `routerHtml()` gives the router button's HTML (after a scan), else ''; questions marked `router` show it.
-export function renderLesson({ lesson: l, qIndex, picked, scan, scout, pendingCity, scanFinished = false, settingFor = () => null, routerHtml = () => '' }) {
+export function lessonQuizHtml({ lesson: l, qIndex, picked, scout, settingFor = () => null, routerHtml = () => '', inline = false }) {
   const i = Math.max(0, Math.min(qIndex, l.questions.length - 1));
   const q = l.questions[i];
   const last = i >= l.questions.length - 1;
@@ -30,17 +33,26 @@ export function renderLesson({ lesson: l, qIndex, picked, scan, scout, pendingCi
       ? `<p class="intel"><strong>In the checkup:</strong> ${lessonText(l.whatTheScanLooksFor)}</p>
          <button type="button" class="btn-p" data-act="finish-lesson">FINISH LESSON</button>`
       : '<button type="button" class="btn-p" data-act="next-question">NEXT QUESTION</button>'}` : '';
+  const head = inline
+    ? `<div class="crumbs"><b>${esc(l.title)}</b> · QUESTION ${i + 1} OF ${l.questions.length}
+        <button type="button" class="btn-t" data-act="sweep-close">PUT IT AWAY</button></div>`
+    : `<div class="crumbs"><button type="button" data-go="training">Training Grounds</button> / <b>${esc(l.title)}</b> · QUESTION ${i + 1} OF ${l.questions.length}</div>`;
   return `
-  ${trainingHud({ lessons: {} }, [])}
-  ${pendingCity ? cityBanner() : ''}
-  <section class="quiz lesson-screen">
-    <div class="crumbs"><button type="button" data-go="training">Training Grounds</button> / <b>${esc(l.title)}</b> · QUESTION ${i + 1} OF ${l.questions.length}</div>
-    ${know.length ? `<div class="panel"><div class="label">WHAT TO KNOW</div>${know.map((t) => `<p class="intel">${lessonText(t)}</p>`).join('')}${settingHtml}${routerButton}</div>` : ''}
+    ${head}
+    ${know.length ? `<div class="panel know"><div class="label">WHAT TO KNOW</div>${know.map((t) => `<p class="intel">${lessonText(t)}</p>`).join('')}${settingHtml}${routerButton}</div>` : ''}
     ${message}
     <p class="q">${lessonText(q.prompt)}</p>
     <div class="options">${options}</div>
     ${after}
-    <div class="scout-row">${scout(answer && answer.correct ? 'happy' : 'thinkingA', 54)}</div>
+    ${inline ? '' : `<div class="scout-row">${scout(answer && answer.correct ? 'happy' : 'thinkingA', 54)}</div>`}`;
+}
+
+export function renderLesson({ lesson, qIndex, picked, scan, scout, pendingCity, scanFinished = false, settingFor = () => null, routerHtml = () => '' }) {
+  return `
+  ${trainingHud({ lessons: {} }, [])}
+  ${pendingCity ? cityBanner() : ''}
+  <section class="quiz lesson-screen">
+    ${lessonQuizHtml({ lesson, qIndex, picked, scout, settingFor, routerHtml })}
   </section>
   ${skipBar(scan, scanFinished)}`;
 }

@@ -33,8 +33,9 @@ import { renderVerification, renderMilestoneSplit } from './views/verification.j
 import { loadLessons, orderLessons, lessonForModule, afterScanDone, lessonsByDistrict, districtLesson } from './training.js';
 import { bossInit, bossApply, bossFinish } from './boss.js';
 import { renderTraining } from './views/training.js';
-import { renderLesson } from './views/lesson.js';
+import { renderLesson, lessonQuizHtml } from './views/lesson.js';
 import { renderBoss } from './views/boss.js';
+import { sweepPick, lessonItems } from './sweep.js';
 import { pickDistrict, seedFrom } from './district-names.js';
 import { SIX_ROSES } from './side-district.js';
 import { renderSide, sideTileHtml, heldNoticeHtml } from './views/side-district.js';
@@ -103,6 +104,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     rc: null, rcState: null, rcRoute: null, rcUi: {}, landing: null, accountsError: false,
     scanConfirmed: loadScanConfirmed(storage), linkNotice: '',
     lessons: [], lessonsLoaded: false, lesson: null, pendingCity: false, tips: [], tipsOpen: true, scan: idleScan(), boss: bossInit(),
+    // The sweep's WHILE YOU WAIT: the lesson on offer ({ id, reason }) and the ones passed over this sweep.
+    sweepOffer: null, sweepPassed: [],
     // The command center. The ops log is kept in memory only.
     signal: null, filter: null, lowOpen: false, log: [], moments: [], opened: {}, changedTags: new Set(),
     drillBank: [], drillsLoaded: false, sweepDrills: null, drillAnswers: {}, range: null, sweptDoc: null,
@@ -273,6 +276,42 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     reviewedAt.set(pick.id, reviewTick);
     return pick;
   };
+
+  // A lesson being opened. Its `round` picks which item of each question's bank
+  // shows (sweep.js lessonItems): the questions as written the first time, a
+  // variant on a review or a second try. Counted in memory only.
+  const lessonRounds = {};
+  function openLesson(id, extra = {}) {
+    const tries = lessonRounds[id] || 0;
+    lessonRounds[id] = tries + 1;
+    s.lesson = { id, q: 0, picked: null, round: tries + (lessonDone(s.progress, id) ? 1 : 0), ...extra };
+  }
+  const lessonShown = () => {
+    const l = s.lesson && s.lessons.find((x) => x.id === s.lesson.id);
+    return l ? lessonItems(l, s.lesson.round || 0) : null;
+  };
+
+  // The sweep's WHILE YOU WAIT: a lesson open inline (s.lesson.inSweep), or the
+  // one on offer. The offer is picked once, about the check running then, and
+  // stays put until it's started or passed over, so it never jumps while read.
+  // One picked before the first check started (`early`) is picked again once a
+  // check is running, which follows at once.
+  function sweepOfferNow() {
+    const o = s.sweepOffer && s.lessons.find((l) => l.id === s.sweepOffer.id);
+    const stale = s.sweepOffer && s.sweepOffer.early && s.boss.now;
+    if (o && !stale && !lessonDone(s.progress, o.id)) return { lesson: o, reason: s.sweepOffer.reason };
+    const p = sweepPick(s.lessons, s.progress, s.boss.now, s.situation && s.situation.id, s.sweepPassed);
+    s.sweepOffer = p ? { id: p.lesson.id, reason: p.reason, early: !s.boss.now && !s.boss.log.length } : null;
+    return p;
+  }
+  function bossHtml() {
+    const inline = s.lesson && s.lesson.inSweep ? lessonShown() : null;
+    const lessonHtml = inline ? lessonQuizHtml({ lesson: inline, qIndex: s.lesson.q, picked: s.lesson.picked, scout, settingFor, inline: true,
+      routerHtml: () => (win.RouterLink ? win.RouterLink.gameLinkHtml(routerFor()) : '') }) : '';
+    return renderBoss({ boss: s.boss, scout, tips: s.tips, tipsOpen: s.tipsOpen, learn: learnFor(), lessonHtml,
+      offer: inline || !s.lessonsLoaded ? null : sweepOfferNow(), lessonsLoaded: s.lessonsLoaded,
+      lessonsDone: s.lessons.filter((l) => lessonDone(s.progress, l.id)).length, lessonsTotal: s.lessons.length });
+  }
 
   // Lessons show before any scan, so the platform falls back to what preload says.
   const platform = () => (s.doc && s.doc.platform) || (win.rescue && win.rescue.platform) || null;
@@ -647,13 +686,13 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
         lessonsLoaded: s.lessonsLoaded, scanFinished: !!s.city });
     }
     if (s.screen === 'lesson') {
-      const l = s.lesson && s.lessons.find((x) => x.id === s.lesson.id);
+      const l = lessonShown();
       if (l) return renderLesson({ lesson: l, qIndex: s.lesson.q, picked: s.lesson.picked, scan: s.scan, scout, pendingCity: cityWaiting(), scanFinished: !!s.city, settingFor,
         routerHtml: () => (win.RouterLink ? win.RouterLink.gameLinkHtml(routerFor()) : '') });
       s.screen = 'training';
       return screenHtml();
     }
-    if (s.screen === 'boss') return renderBoss({ boss: s.boss, scout, tips: s.tips, tipsOpen: s.tipsOpen, learn: learnFor() });
+    if (s.screen === 'boss') return bossHtml();
     if (s.screen === 'rc' && s.rc && s.rcRoute) return rcScreenHtml();
     if (s.screen === 'milestone' && district(s.districtId)) {
       return renderMilestone({ district: district(s.districtId), progress: s.progress, scout });
@@ -888,19 +927,41 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (go === 'training') { s.lesson = null; s.screen = 'training'; render(); return; }
     if (go === 'boss') { s.screen = s.scan.running ? 'boss' : 'training'; render(); return; }
     if (go === 'city') { s.pendingCity = false; s.lesson = null; s.screen = 'map'; render(); return; }
-    if (go && go.startsWith('lesson:')) { s.lesson = { id: go.slice(7), q: 0, picked: null }; s.screen = 'lesson'; render(); return; }
-    // A district on the sweep: the lesson for that area. Finishing it comes back here.
+    if (go && go.startsWith('lesson:')) { openLesson(go.slice(7)); s.screen = 'lesson'; render(); return; }
+    // A district on the sweep: the lesson for that area. While the scan runs it
+    // opens inline in WHILE YOU WAIT, so the progress stays on screen.
+    const onSweep = s.screen === 'boss' && s.scan.running;
+    const fromSweep = onSweep ? { inSweep: true } : { fromSweep: true };
     if (go && go.startsWith('learn:')) {
       // A district whose lessons are all done opens nothing (its card isn't a
       // button any more; this guards a stale click). Reviewing is `review:`.
       const l = learnFor()(go.slice(6));
-      if (l && !l.done) { s.lesson = { id: l.lesson.id, q: 0, picked: null, fromSweep: true }; s.screen = 'lesson'; render(); }
+      if (l && !l.done) { openLesson(l.lesson.id, fromSweep); if (!onSweep) s.screen = 'lesson'; render(); }
       return;
     }
     // The optional review on a DONE district: its first lesson, coming back the same way.
     if (go && go.startsWith('review:')) {
       const l = learnFor()(go.slice(7));
-      if (l) { s.lesson = { id: nextReview(l.list || [l.lesson]).id, q: 0, picked: null, fromSweep: true }; s.screen = 'lesson'; render(); }
+      if (l) { openLesson(nextReview(l.list || [l.lesson]).id, fromSweep); if (!onSweep) s.screen = 'lesson'; render(); }
+      return;
+    }
+    // WHILE YOU WAIT on the sweep: start the lesson on offer, pass it over for
+    // another, put an open one away (it counts as passed over), or, once every
+    // lesson is done, review one asked a different way.
+    if (act && act.startsWith('sweep-start:')) {
+      if (onSweep && s.lessons.some((l) => l.id === act.slice(12))) { openLesson(act.slice(12), { inSweep: true }); render(); }
+      return;
+    }
+    if (act === 'sweep-pass') {
+      if (s.sweepOffer) s.sweepPassed = [...s.sweepPassed, s.sweepOffer.id];
+      s.sweepOffer = null; render(); return;
+    }
+    if (act === 'sweep-close') {
+      if (s.lesson && s.lesson.inSweep) { s.sweepPassed = [...s.sweepPassed, s.lesson.id]; s.sweepOffer = null; s.lesson = null; }
+      render(); return;
+    }
+    if (act === 'sweep-review') {
+      if (onSweep && s.lessons.length) { openLesson(nextReview(s.lessons).id, { inSweep: true }); render(); }
       return;
     }
     if (act === 'start-checkup') { if (!s.scan.running) win.RescueHost.startCheckup(); return; }
@@ -925,10 +986,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
         s.progress = setLessonDone(s.progress, s.lesson.id, now());
         saveProgress(storage, s.progress);
       }
-      // A lesson opened from the sweep goes back to the sweep, or, once the
-      // checkup has finished, to the city: never the Training Grounds' list.
-      const fromSweep = s.lesson.fromSweep;
-      s.screen = !fromSweep ? 'training' : s.scan.running ? 'boss' : s.city ? 'map' : 'training';
+      // A lesson opened from the sweep goes back to the sweep (whose WHILE YOU
+      // WAIT then offers the next one), or, once the checkup has finished, to
+      // the city: never the Training Grounds' list.
+      const sweepLesson = s.lesson.fromSweep || s.lesson.inSweep;
+      s.screen = !sweepLesson ? 'training' : s.scan.running ? 'boss' : s.city ? 'map' : 'training';
+      if (s.lesson.inSweep) s.sweepOffer = null;
       if (s.screen === 'map') s.pendingCity = false;
       s.lesson = null;
       render();
@@ -1142,6 +1205,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     },
     showBoss() {
       s.boss = bossInit();
+      s.sweepOffer = null; s.sweepPassed = [];
       s.scan = { running: true, index: 0, total: 0, error: null };
       s.pendingCity = false;
       s.screen = 'boss';
@@ -1164,8 +1228,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       s.boss = bossFinish(s.boss);
       s.scan = { running: false, index: s.boss.total, total: s.boss.total, error: null };
       if (situation) s.situation = situation;
-      const inLesson = afterScanDone(s.screen) === 'banner';
-      const lesson = s.lesson;
+      // A lesson open inline on the sweep carries on as the lesson screen, pick kept.
+      const inSweepLesson = s.screen === 'boss' && !!(s.lesson && s.lesson.inSweep);
+      const inLesson = afterScanDone(s.screen) === 'banner' || inSweepLesson;
+      const lesson = inSweepLesson ? { ...s.lesson, inSweep: false, fromSweep: true } : s.lesson;
       showCityFrom(doc);
       if (inLesson) { s.lesson = lesson; s.screen = 'lesson'; s.pendingCity = true; s.focusPending = false; }
       return render();
@@ -1175,6 +1241,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       s.boss = bossFinish(s.boss);
       s.scan = { running: false, index: 0, total: 0, error: String(message || 'The checkup stopped.') };
       if (s.screen !== 'lesson') s.screen = 'training';
+      if (s.lesson && s.lesson.inSweep) s.lesson = null;
       return render();
     },
   };
