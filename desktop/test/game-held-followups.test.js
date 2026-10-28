@@ -372,12 +372,12 @@ test('recordSweep: a sweep that carries held software, or follows one, pays no c
 test('a monitoring check that couldn’t look is COULDN’T CHECK, never NOTHING FOUND or 100%', async () => {
   const { findingsToCity } = await game('findings-to-city.js');
   const { splitHeld, COULDNT_LOOK } = await game('held.js');
-  assert.deepStrictEqual([...COULDNT_LOOK].sort(), [`${MVT}mvt_backup_too_large`, `${MVT}mvt_not_installed`, `${MVT}mvt_requires_wsl`,
-    `${MVT}mvt_scan_available`, `${MVT}no_backups_found`]);
+  assert.deepStrictEqual([...COULDNT_LOOK].sort(), [`${MVT}mvt_backup_encrypted`, `${MVT}mvt_backup_too_large`, `${MVT}mvt_not_installed`,
+    `${MVT}mvt_requires_wsl`, `${MVT}mvt_scan_available`, `${MVT}mvt_scan_incomplete`, `${MVT}no_backups_found`]);
   const real = new Set(REAL.map((r) => r.code));
   for (const code of COULDNT_LOOK) {
     assert.ok(real.has(code), code);
-    const sev = code.endsWith('too_large') ? 'warning' : 'info';
+    const sev = /too_large|encrypted|incomplete$/.test(code) ? 'warning' : 'info';
     const doc = scan(mod('mvt_spyware_scan', [finding('x', sev, { code })]));
     const d = findingsToCity(splitHeld(doc).doc).districts.find((x) => x.fog.length);
     assert.ok(d, `${code}: fog`);
