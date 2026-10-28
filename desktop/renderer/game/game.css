@@ -553,7 +553,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, [role="button
 [style*="color: rgba(237,239,243,0.45)"], [style*="color: rgba(237,239,243,0.5)"] { color: var(--dim) !important; }
 .badge[style*="rgba(255,45,155,0.7)"] { color: var(--magenta) !important; }
 .badge[style*="rgba(0,229,255,0.6)"] { color: var(--cyan) !important; }
-/* TEXT & MOTION (display-panel.js): a slim bar above every city screen, and its dialog. */
+/* SETTINGS (display-panel.js): a slim bar above every city screen, and its dialog (detail, text, motion). */
 .display-bar { display: flex; justify-content: flex-end; padding: 4px 18px; background: var(--midnight); border-bottom: 1px solid var(--line); }
 .display-open { font-family: var(--font-display); font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--offwhite); padding: 6px 10px; min-height: 32px; border: 1px solid rgba(255,255,255,0.22); }
 .display-open span { font-family: var(--font-body); font-size: 14px; margin-right: 4px; }
@@ -564,4 +564,89 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, [role="button
 .display-group { border: 1px solid var(--line); margin: 0 0 10px; padding: 4px 12px 6px; display: grid; gap: 2px; }
 .display-group legend { font-weight: 600; padding: 0 4px; }
 .display-choice { display: flex; gap: 10px; align-items: center; min-height: 32px; cursor: pointer; }
+.display-note { margin: -4px 0 12px; font-size: 13px; color: var(--dim); }
 .display-choice input { width: 18px; height: 18px; margin: 0; accent-color: var(--cyan); flex: none; }
+
+/* The guided walkthrough, FOUND SO FAR on the sweep, and "what is it for?" (views/guided.js). */
+.sig-panel.guided { border-color: rgba(198,255,0,0.45); }
+.g-kicker { margin: 0; display: flex; gap: 8px; align-items: center; font-size: 14px; color: var(--dim); }
+.g-dots { margin: 2px 0 0; display: flex; gap: 6px; align-items: center; font-family: var(--font-display); font-size: 10px; letter-spacing: 1.5px; color: var(--dim); }
+.g-dots i { width: 22px; height: 6px; border: 1px solid rgba(0,229,255,0.5); }
+.g-dots i.done { background: rgba(0,229,255,0.5); }
+.g-dots i.now { background: var(--cyan); box-shadow: 0 0 8px rgba(0,229,255,0.6); }
+.g-dots span { margin-left: 6px; }
+.g-step { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); background: rgba(0,229,255,0.03); }
+.g-step .clue-plain, .g-step .clue-line { margin: 0; font-size: 17px; line-height: 1.5; }
+.g-calls { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.g-calls li { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 12px; align-items: center; }
+.g-calls span { font-size: 14px; color: var(--dim); }
+.g-xp { animation: g-pop 0.35s ease-out; }
+@keyframes g-pop { from { transform: scale(0.9); opacity: 0.4; } to { transform: none; opacity: 1; } }
+.g-optional summary { cursor: pointer; }
+.g-cat { display: grid; gap: 10px; }
+.cat-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cat-chip { min-height: 36px; padding: 6px 10px; font-size: 13px; color: var(--offwhite); border: 1px solid rgba(255,255,255,0.22); background: transparent; cursor: pointer; }
+.cat-chip:hover, .cat-chip:focus-visible { border-color: var(--lime); color: var(--lime); }
+.cat-chip.suggested { border-color: var(--lime); background: rgba(198,255,0,0.08); }
+.g-cat-done { color: var(--lime); }
+.arrivals { display: grid; gap: 10px; }
+.arrivals-count { margin: 0; font-size: 15px; color: var(--dim); }
+.arrivals-count b { font-family: var(--font-display); font-size: 20px; color: var(--offwhite); }
+.arrival-next { margin: 0; font-size: 16px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.arrival-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.arrival { width: 100%; display: flex; gap: 8px; align-items: baseline; text-align: left; padding: 8px 10px; font-size: 14px; color: var(--offwhite);
+  background: rgba(255,255,255,0.02); border: 1px solid var(--line); cursor: pointer; }
+.arrival.sev-critical { border-left: 3px solid var(--magenta); }
+.arrival.sev-warning { border-left: 3px solid var(--amber); }
+.arrival:hover, .arrival:focus-visible { border-color: var(--cyan); }
+.cmds-from { margin: 4px 0 0; }
+/* A case open in its own row (new, everyday): no panel across the screen. */
+.sig-panel.inline { position: static; inset: auto; width: auto; max-height: none; overflow: visible; box-shadow: 0 0 0 1px rgba(0,229,255,0.25); z-index: auto; padding: 14px; }
+.open-row { list-style: none; }
+.g-body { min-height: 8.5em; display: grid; gap: 8px; align-content: start; }
+.g-verdict { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.g-verdict .btn-s { min-height: 48px; width: 100%; justify-content: center; padding: 6px 4px; font-size: 11px; letter-spacing: 1px; line-height: 1.2; text-align: center; }
+.sig-panel.inline .m-title { font-size: 17px; line-height: 1.35; overflow-wrap: anywhere; }
+.sig-panel.inline .sig-head { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.g-cat-inline { display: grid; gap: 8px; }
+.g-cat-inline .label { margin: 0; }
+.g-cat-inline .cat-chip.suggested { order: -1; }
+.g-done { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; padding: 6px 10px; font-size: 14px; color: var(--dim);
+  border-left: 3px solid var(--lime); background: rgba(198,255,0,0.06); animation: g-pop 0.25s ease-out; }
+.g-done b { color: var(--lime); font-family: var(--font-display); font-size: 11px; letter-spacing: 1px; }
+.g-done-xp { color: var(--lime); }
+.g-done .btn-t { margin-left: auto; font-family: var(--font-display); font-size: 11px; letter-spacing: 1px; }
+.g-check { margin: 0; color: var(--offwhite); }
+.badge.case { white-space: normal; }
+.badge.case.pri-high { color: var(--magenta); background: rgba(255,45,155,0.1); border-color: rgba(255,45,155,0.3); }
+.badge.case.pri-medium { color: var(--amber); background: rgba(255,159,0,0.1); border-color: rgba(255,159,0,0.3); }
+.badge.case.pri-low { color: var(--dim); }
+/* The incident report (new, everyday): its line over the queue, the upkeep corner, the scoreboard. */
+.case-report { margin: 0; font-size: 14px; color: var(--offwhite); line-height: 1.5; }
+.upkeep summary { cursor: pointer; }
+.scoreboard { display: grid; gap: 8px; align-content: start; }
+.scoreboard .label { margin: 6px 0 0; }
+.sb-big { margin: 0; font-family: var(--font-display); color: var(--lime); }
+.sb-big b { font-size: 40px; }
+.sb-big small { font-size: 18px; color: var(--dim); }
+.sb-bar i { background: var(--lime); }
+.sb-small, .sb-session { margin: 0; font-size: 14px; color: var(--dim); }
+.sb-small b, .sb-session b { color: var(--offwhite); }
+.moment-recap { border-left-color: var(--cyan); }
+/* YOUR COMPUTER'S RADAR (views/radar.js). */
+.radar-body { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 18px; align-items: center; }
+@media (max-width: 700px) { .radar-body { grid-template-columns: minmax(0, 1fr); } }
+.radar-svg { width: 100%; max-width: 220px; height: auto; }
+.r-ring { fill: none; stroke: rgba(0,229,255,0.18); stroke-width: 1; }
+.r-spoke { stroke: rgba(0,229,255,0.18); stroke-width: 1; }
+.r-shape { fill: rgba(198,255,0,0.22); stroke: var(--lime); stroke-width: 2; }
+.r-label { fill: var(--offwhite); font-size: 13px; }
+.radar-table { border-collapse: collapse; font-size: 14px; }
+.radar-table th, .radar-table td { padding: 4px 10px; text-align: left; border-bottom: 1px solid var(--line); }
+.radar-table td { font-variant-numeric: tabular-nums; color: var(--lime); }
+.radar-table thead th { font-family: var(--font-display); font-size: 10px; letter-spacing: 1.5px; color: var(--dim); }
+.g-cat .cat-chips, .g-cat-inline .cat-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.cat-chip { text-align: left; }
+/* New and everyday open cases in the queue, so the queue gets the room the panel had. */
+@media (min-width: 1201px) { .frame.level-new .deck, .frame.level-everyday .deck { grid-template-columns: minmax(300px, 1.5fr) minmax(0, 1.7fr) minmax(220px, 1fr); } }
+@media (min-width: 901px) and (max-width: 1200px) { .frame.level-new .deck, .frame.level-everyday .deck { grid-template-columns: minmax(300px, 1.2fr) minmax(0, 1fr); } }

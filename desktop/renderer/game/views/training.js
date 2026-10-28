@@ -25,12 +25,11 @@ export function skipBar(scan, scanFinished = false, first = false) {
     <button type="button" class="${first ? 'btn-p' : 'btn-s quiet'}" data-act="start-checkup">${label}</button></div>`;
 }
 
-// `levelHtml`: the DETAIL button (views/level.js levelButton), or ''.
-export function trainingHud(progress, lessons, levelHtml = '') {
+export function trainingHud(progress, lessons) {
   const done = lessons.filter((l) => lessonDone(progress, l.id)).length;
   return `<header class="hud"><h1 class="hud-title">THE TRAINING GROUNDS</h1>
     ${lessons.length ? `<span class="stat lime"><b>${done}/${lessons.length}</b> <small>LESSONS</small></span>` : ''}
-    <span class="switch">${levelHtml}<button type="button" data-act="leave">PLAIN VIEW</button></span></header>`;
+    <span class="switch"><button type="button" data-act="leave">PLAIN VIEW</button></span></header>`;
 }
 
 // `next`: the one lesson to start first; it gets the strongest styling.
@@ -48,10 +47,10 @@ function lessonItem(l, progress, next = false, testOut = false) {
 // `lessonsLoaded`: false while the lesson files are still loading, so an empty
 // list isn't yet a failure.
 // `level` (level.js): "technical" calls the lessons optional refreshers and
-// makes the checkup the main button. `testOut(lesson)`: offer TEST OUT for it. `levelHtml` and `pickerHtml`: the DETAIL
-// button and, when it's open or never asked, the three cards.
+// makes the checkup the main button. `testOut(lesson)`: offer TEST OUT for it. `pickerHtml`: the three
+// cards, until a level is chosen (after that it's in SETTINGS).
 export function renderTraining({ ordered, progress, worryTitle, scan, scout, pendingCity, lessonsLoaded = false, scanFinished = false,
-  level = 'everyday', levelHtml = '', pickerHtml = '', testOut = () => false }) {
+  level = 'everyday', pickerHtml = '', testOut = () => false }) {
   const all = [...ordered.recommended, ...ordered.other];
   const optional = level === 'technical';
   const nextLesson = optional ? null
@@ -66,7 +65,7 @@ export function renderTraining({ ordered, progress, worryTitle, scan, scout, pen
       <p class="intel">The checkup didn’t finish. This is what it said: ${esc(scan.error)}</p>
       <p class="intel">Nothing on your computer was changed. You can start it again whenever you’re ready.</p></div>` : '';
   return `
-  ${trainingHud(progress, all, levelHtml)}
+  ${trainingHud(progress, all)}
   ${pickerHtml}
   ${pendingCity ? cityBanner() : ''}
   ${failed}

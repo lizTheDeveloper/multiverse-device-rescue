@@ -114,20 +114,15 @@ test('check-it-yourself commands reuse the clues\' walkthrough commands, only lo
   }
 });
 
-test('the picker: three plain cards, the chosen one pressed, and engine-free text', async () => {
-  const { renderLevelPicker, levelButton, LEVEL_CHOICES } = await load();
-  const first = renderLevelPicker({ chosen: null, first: true });
+test('the first-run picker: three plain cards, and engine-free text', async () => {
+  const { renderLevelPicker, LEVEL_CHOICES } = await load();
+  const first = renderLevelPicker();
   for (const c of LEVEL_CHOICES) assert.ok(first.includes(`data-act="level:${c.id}"`), c.id);
   assert.match(first, /HOW MUCH DETAIL/);
   assert.match(first, /change it any time/);
   assert.doesNotMatch(first, /aria-pressed/);
   assert.doesNotMatch(first, /level-close/, 'the one-time ask has nothing to close: it just stays until a card is picked');
-  const panel = renderLevelPicker({ chosen: 'technical' });
-  assert.match(panel, /data-act="level:technical" aria-pressed="true"/);
-  assert.match(panel, /data-act="level-close"/);
-  assert.match(panel, /Every fix still asks first/);
-  assert.match(levelButton('new'), /data-act="level-open"[^>]*>DETAIL: NEW</);
-  assert.match(levelButton('nonsense'), /DETAIL: EVERYDAY/);
+  assert.match(first, /under SETTINGS at the top/);
   for (const c of LEVEL_CHOICES) assert.doesNotMatch(`${c.title} ${c.line}`, /\b(test|quiz|score|beginner|expert)\b/i);
 });
 
@@ -261,13 +256,13 @@ test('every lesson with item banks can be tested out of', async () => {
   assert.ok(!banked.includes('password-asker'), 'a lesson without banks has no test-out');
 });
 
-test('the Training Grounds: "technical" makes the checkup the main button; the picker and DETAIL button are drawn when given', async () => {
+test('the Training Grounds: "technical" makes the checkup the main button; the first-run picker is drawn when given', async () => {
   const v = await views();
   const lesson = { id: 'a', title: 'A', questions: [{}] };
   const ordered = { recommended: [lesson], other: [] };
   const idle = { running: false, index: 0, total: 0, error: null };
-  const everyday = v.renderTraining({ ordered, progress: { lessons: {} }, scan: idle, scout, levelHtml: '<b>DETAIL-BTN</b>', pickerHtml: '<i>PICKER</i>' });
-  assert.match(everyday, /DETAIL-BTN[\s\S]*PICKER[\s\S]*START HERE/);
+  const everyday = v.renderTraining({ ordered, progress: { lessons: {} }, scan: idle, scout, pickerHtml: '<i>PICKER</i>' });
+  assert.match(everyday, /PICKER[\s\S]*START HERE/);
   assert.match(everyday, /class="btn-s quiet" data-act="start-checkup"/);
   const tech = v.renderTraining({ ordered, progress: { lessons: {} }, scan: idle, scout, level: 'technical' });
   assert.match(tech, /OPTIONAL REFRESHERS/);

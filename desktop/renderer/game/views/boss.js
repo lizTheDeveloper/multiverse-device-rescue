@@ -50,7 +50,8 @@ function districtCard(d, learn) {
 
 // NOW CHECKING: the check running right now, in plain words, then the evidence
 // line (where it looks, the check's own name, its district).
-function nowPanel(boss, scout, line) {
+// `calm` (new, everyday): the evidence line waits under HOW IT LOOKS.
+function nowPanel(boss, scout, line, calm = false) {
   const now = boss.now;
   const note = now ? noteFor(now.module) : null;
   const count = now && boss.total && now.index ? ` · CHECK ${esc(now.index)} OF ${esc(boss.total)}` : '';
@@ -59,10 +60,10 @@ function nowPanel(boss, scout, line) {
     body = `
       <h3 class="now-what">${esc(note.what)}</h3>
       ${note.why ? `<p class="intel now-why">${esc(note.why)}</p>` : ''}
-      <dl class="evidence">
+      ${calm ? '<details class="raw"><summary>HOW IT LOOKS</summary>' : ''}<dl class="evidence">
         ${note.where ? `<dt>LOOKS AT</dt><dd><code class="where">${esc(plainWhere(note.where))}</code></dd>` : ''}
         <dt>CHECK</dt><dd><code>${esc(note.module)}</code> · ${esc(districtName(now.category))}</dd>
-      </dl>`;
+      </dl>${calm ? '</details>' : ''}`;
   } else if (now) {
     body = '<h3 class="now-what">A check</h3>';
   } else if (boss.log && boss.log.length) {
@@ -126,8 +127,12 @@ function logPanel(boss) {
 }
 
 // `tipsOpen`: the pop-up tips stay as the person left them across redraws.
+// `arrivalsHtml`: FOUND SO FAR (views/guided.js), under NOW CHECKING.
+// `panelHtml`: a signal opened from it, over the sweep, which waits behind it (inert).
+// `calm` (new, everyday): no running NOTED tally (FOUND SO FAR says it gently), evidence folded.
 export function renderBoss({ boss, scout, tips, tipsOpen = true, learn = null, lessonHtml = '', offer = null,
-  lessonsLoaded = true, lessonsDone = 0, lessonsTotal = 0 }) {
+  lessonsLoaded = true, lessonsDone = 0, lessonsTotal = 0, arrivalsHtml = '', panelHtml = '', calm = false }) {
+  const behind = panelHtml ? ' inert' : '';
   const ds = bossDistricts(boss);
   const pct = bossPercent(boss);
   const current = ds.find((d) => d.state === 'sweeping');
@@ -140,22 +145,22 @@ export function renderBoss({ boss, scout, tips, tipsOpen = true, learn = null, l
     <details class="panel tips"${tipsOpen ? ' open' : ''}><summary class="label" data-act="toggle-tips">POP-UPS YOU MIGHT SEE</summary>
       <ul class="notes">${tips.map((t) => `<li><strong>${esc(t.title)}</strong> ${esc(t.body)}</li>`).join('')}</ul></details>` : '';
   const top = `
-  <header class="hud deck-top sweep-top">
+  <header class="hud deck-top sweep-top"${behind}>
     <h1 class="hud-title">THE SWEEP</h1>
     <span class="stat cyan">${boss.total ? `<b>${esc(boss.index)}/${esc(boss.total)}</b> <small>CHECKS DONE</small>` : '<small>GETTING READY</small>'}</span>
-    ${boss.found ? `<span class="stat amb"><b>${esc(boss.found)}</b> <small>NOTED</small></span>` : ''}
+    ${boss.found && !calm ? `<span class="stat amb"><b>${esc(boss.found)}</b> <small>NOTED</small></span>` : ''}
     ${boss.couldnt ? `<span class="stat grey"><b>${esc(boss.couldnt)}</b> <small>COULDN’T CHECK</small></span>` : ''}
     <span class="switch"><button type="button" data-go="training">ALL LESSONS</button><button type="button" data-act="leave">PLAIN VIEW</button><b class="on">SWEEP</b></span>
   </header>`;
   return `${top}
-  <section class="boss sweep-deck" aria-label="Your checkup is running">
+  <section class="boss sweep-deck" aria-label="Your checkup is running"${behind}>
     <div class="sweep-meter">
       <div class="bar" role="progressbar" aria-label="Checkup progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="--pct: ${pct}%"></i></div></div>
-    <div class="sweep-side">${nowPanel(boss, scout, line)}</div>
+    <div class="sweep-side">${nowPanel(boss, scout, line, calm)}${arrivalsHtml}</div>
     ${tipList ? `<div class="sweep-tips">${tipList}</div>` : ''}
     ${learnPanel({ lessonHtml, offer, lessonsLoaded, lessonsDone, lessonsTotal, now: boss.now })}
     <aside class="sweep-city" aria-label="The city's districts"><h2 class="label">DISTRICTS</h2>
       <div class="districts sweep">${ds.map((d) => districtCard(d, learn)).join('')}</div></aside>
     ${logPanel(boss)}
-  </section>`;
+  </section>${panelHtml}`;
 }

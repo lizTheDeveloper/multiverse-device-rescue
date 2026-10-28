@@ -5,7 +5,11 @@ const test = require('node:test');
 const assert = require('node:assert');
 
 const STORE = 'device-rescue.game.v1';
-const memStore = () => { const s = {}; return { getItem: (k) => (k in s ? s[k] : null), setItem: (k, v) => { s[k] = String(v); } }; };
+// Seeded past the guided walkthrough's first signals (guided.js), so a signal
+// opens in the ordinary panel; game-guided.test.js covers the walkthrough.
+const SEASONED = JSON.stringify({ version: 3, missions: {}, lessons: {}, deck: { points: 0, rank: 0, drills: { right: 0, tried: 0 }, tags: {},
+  confirmed: {}, once: {}, sweep: { at: null, keys: {} }, sweeps: [], sorts: 50 } });
+const memStore = () => { const s = { 'device-rescue.game.v1': SEASONED, 'device-rescue.level': 'technical' }; return { getItem: (k) => (k in s ? s[k] : null), setItem: (k, v) => { s[k] = String(v); } }; };
 const tick = () => new Promise((r) => setTimeout(r, 0));
 const f = (title, severity, data = {}, extra = {}) => ({ title, description: `${title}: what it is.`, severity, category: 'security', data, ...extra });
 const mod = (name, findings, extra = {}) => ({ name, category: 'security', status: 'ok', error: null, supported: true, findings, ...extra });
@@ -101,7 +105,7 @@ test('opening a real signal shows every clue and pays for looking at once, befor
   assert.match(t.html(), /WHO MADE IT[\s\S]*Unknown maker, not verified \(unsigned\)[\s\S]*How to read this/);
   assert.match(t.html(), /WHERE IT LIVES[\s\S]*WHAT IT DOES/);
   assert.strictEqual(t.saved().deck.points, 15, 'three clues, five points each');
-  assert.match(t.html(), /\+15 POINTS for looking at the clues/);
+  assert.match(t.html(), /\+15 INCIDENT RESPONSE XP for looking at the clues/);
   t.click({ 'data-act': 'clue:maker' });
   t.click({ 'data-act': 'clue:when' });
   t.click({ 'data-act': 'close-signal' });
@@ -109,7 +113,7 @@ test('opening a real signal shows every clue and pays for looking at once, befor
   t.click({ 'data-act': 'investigate-next' });
   assert.match(t.html(), /Unknown maker, not verified/);
   assert.strictEqual(t.saved().deck.points, 15, 'looking again pays nothing more this scan');
-  assert.doesNotMatch(t.html(), /POINTS for looking/, 'and claims nothing');
+  assert.doesNotMatch(t.html(), /XP for looking/, 'and claims nothing');
 });
 
 test('tagging after looking pays a bonus once; tags are keyed by identity; re-tagging pays nothing more', async () => {
@@ -747,12 +751,10 @@ test('city mode: I DID IT on a held finding re-checks nothing and confirms nothi
   assert.doesNotMatch(t.html().split('OPS LOG')[1], /CONFIRMED|MARKED|SECURED|Monitoring app/);
 });
 
-test('DETAIL: the level picker opens from the top bar, stores one key, and changes only how a signal is shown', async () => {
+test('the level: stored in one key, and it changes only how a signal is shown', async () => {
   const t = await deckSetup(DOC);
-  assert.match(t.html(), /data-act="level-open"[^>]*>DETAIL: EVERYDAY</);
+  assert.doesNotMatch(t.html(), /level-open|DETAIL:/, 'the level is in SETTINGS, above the frame, not in the HUD');
   assert.doesNotMatch(t.html(), /level-pick/, 'the deck never asks on its own');
-  t.click({ 'data-act': 'level-open' });
-  assert.match(t.html(), /DETAIL LEVEL[\s\S]*data-act="level:new"[\s\S]*data-act="level:technical"/);
   t.click({ 'data-act': 'level:technical' });
   assert.strictEqual(t.storage.getItem('device-rescue.level'), 'technical');
   assert.doesNotMatch(t.html(), /level-pick/, 'picking closes it');
@@ -768,13 +770,15 @@ test('DETAIL: the level picker opens from the top bar, stores one key, and chang
 });
 
 test('the Training Grounds ask the level once, until one is picked', async () => {
-  const t = await deckSetup(null);
+  const fresh = memStore();
+  fresh.setItem('device-rescue.level', ''); // never asked
+  const t = await deckSetup(null, { storage: fresh });
   t.ctl.showTraining({ id: 'unsure', title: 'Not sure' });
   assert.match(t.html(), /HOW MUCH DETAIL DO YOU WANT\?/);
   t.click({ 'data-act': 'level:everyday' });
   assert.strictEqual(t.storage.getItem('device-rescue.level'), 'everyday');
   assert.doesNotMatch(t.html(), /HOW MUCH DETAIL/);
-  assert.match(t.html(), /DETAIL: EVERYDAY/);
+  assert.doesNotMatch(t.html(), /DETAIL:/, 'after that it lives in SETTINGS'); 
 });
 
 test('TEST OUT (technical only): every answer right marks the lesson done; a miss marks nothing', async () => {
