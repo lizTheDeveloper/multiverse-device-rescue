@@ -147,5 +147,24 @@ class Target:
             return paths
         return [self.resolve(path)]
 
+    def expand_views(self, path: str) -> list[tuple[str, Path]]:
+        """Like `expand`, but pair each host path with the path as the disk shows it.
+
+        The view string is not resolved, so a symlinked `~/.bashrc` is still
+        `/home/sam/.bashrc` (what the person would see), while the host path
+        is where its contents actually live.
+        """
+        if path.startswith("~/"):
+            rest = path[2:]
+            pairs = []
+            for _, home in self.user_homes():
+                view = self.display(home).rstrip("/") + "/" + rest
+                try:
+                    pairs.append((view, self.resolve(view)))
+                except TargetError:
+                    continue
+            return pairs
+        return [(path, self.resolve(path))]
+
     def _under(self, home: Path, rest: str) -> Path:
         return self.resolve(self.display(home) + "/" + rest)

@@ -158,3 +158,20 @@ def test_read_text_reads_until_eof_across_short_reads(disk, monkeypatch):
     t = Target(root=disk, os=Platform.LINUX)
     assert t.read_text("/etc/big") == "abcdefghijklmnopqrstuvwxyz" * 4
     assert t.read_text("/etc/big", 12) == "abcdefghijkl"
+
+
+def test_expand_views_keeps_unresolved_view_for_symlinked_file(disk):
+    (disk / "home/sam/dotfiles").mkdir()
+    (disk / "home/sam/dotfiles/bashrc").write_text("x\n")
+    (disk / "home/sam/.bashrc").symlink_to("dotfiles/bashrc")
+    views = dict(target(disk).expand_views("~/.bashrc"))
+    assert views["/home/sam/.bashrc"] == disk / "home/sam/dotfiles/bashrc"
+
+
+def test_expand_views_tilde_per_user(disk):
+    t = target(disk)
+    assert t.expand_views("~/.bashrc") == [
+        ("/root/.bashrc", disk / "root" / ".bashrc"),
+        ("/home/sam/.bashrc", disk / "home" / "sam" / ".bashrc"),
+    ]
+    assert t.expand_views("/etc/cron.d") == [("/etc/cron.d", disk / "etc" / "cron.d")]

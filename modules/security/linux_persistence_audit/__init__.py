@@ -26,6 +26,7 @@ import os
 import re
 import stat
 import time
+from itertools import islice
 from pathlib import Path
 from shlex import quote
 
@@ -168,10 +169,10 @@ class Module(ModuleBase):
         entries: list[dict] = []
         limits = WalkLimits(max_depth=2, max_files=self.max_files, deadline_s=10.0)
         if target is not None:
-            for path in self._walk_target(roots, limits, target):
-                if patterns != ("*",) and not any(path.match(p) for p in patterns):
+            for view, path in self._walk_target(roots, limits, target):
+                if patterns != ("*",) and not any(Path(view).match(p) for p in patterns):
                     continue
-                entries.append(self._describe(path, kind, target))
+                entries.append(self._describe(path, kind, target, view))
             return entries
         expanded = [Path(os.path.expanduser(root)) for root in roots]
         existing = [p for p in expanded if is_dir_nofollow(p)]
@@ -184,17 +185,23 @@ class Module(ModuleBase):
         return entries
 
     @staticmethod
-    def _expand_all(roots: list[str], target: Target) -> list[Path]:
-        out: list[Path] = []
+    def _expand_all(roots: list[str], target: Target) -> list[tuple[str, Path]]:
+        """(view path, host path) for every root, skipping ones that fail."""
+        out: list[tuple[str, Path]] = []
         for root in roots:
             try:
-                out.extend(target.expand(root))
+                out.extend(target.expand_views(root))
             except OSError:
                 continue
         return out
 
+    @staticmethod
+    def _clean(text: str) -> str:
+        """Control characters in a name from an untrusted disk become "?"."""
+        return re.sub(r"[\x00-\x1f\x7f]", "?", text)
+
     def _walk_target(self, roots: list[str], limits: WalkLimits, target: Target):
-        """Yield files and file symlinks under the target's roots.
+        """Yield (view path, host path) for files and file symlinks under the roots.
 
         Unlike bounded_walk this lists symlinked files too (a unit enabled by
         a link into /lib/systemd/system is the normal case on a real disk), but
@@ -203,41 +210,43 @@ class Module(ModuleBase):
         """
         start = time.monotonic()
         seen = 0
-        for root in self._expand_all(roots, target):
+        for root_view, root in self._expand_all(roots, target):
             if not is_dir_nofollow(root):
                 continue
-            stack = [(root, 0)]
+            stack = [(root, root_view.rstrip("/"), 0)]
             while stack:
-                current, depth = stack.pop()
+                current, current_view, depth = stack.pop()
                 try:
                     with os.scandir(current) as it:
-                        children = sorted(it, key=lambda e: e.name)
+                        # Never list more than the cap, so a huge directory
+                        # is neither fully read nor fully sorted.
+                        children = sorted(islice(it, limits.max_files + 1), key=lambda e: e.name)
                 except OSError:
                     continue
                 for entry in children:
-                    if seen >= self.max_files or time.monotonic() - start >= limits.deadline_s:
+                    if seen >= limits.max_files or time.monotonic() - start >= limits.deadline_s:
                         return
+                    view = current_view + "/" + entry.name
                     try:
                         if entry.is_symlink():
-                            view = target.display(Path(entry.path))
                             if is_file_nofollow(target.resolve(view)):
                                 seen += 1
-                                yield Path(entry.path)
+                                yield view, Path(entry.path)
                         elif entry.is_dir(follow_symlinks=False):
                             if depth < limits.max_depth:
-                                stack.append((Path(entry.path), depth + 1))
+                                stack.append((Path(entry.path), view, depth + 1))
                         elif entry.is_file(follow_symlinks=False):
                             seen += 1
-                            yield Path(entry.path)
+                            yield view, Path(entry.path)
                     except OSError:
                         continue
 
     def _scan_files(self, paths: list[str], kind: str, target: Target | None = None) -> list[dict]:
         entries = []
         if target is not None:
-            for path in self._expand_all(paths, target):
+            for view, path in self._expand_all(paths, target):
                 if is_file_nofollow(path):
-                    entries.append(self._describe(path, kind, target))
+                    entries.append(self._describe(path, kind, target, view))
             return entries
         for raw in paths:
             path = Path(os.path.expanduser(raw))
@@ -251,24 +260,15 @@ class Module(ModuleBase):
     def _spool_crontabs(self, target: Target) -> list[dict]:
         """Per-user crontabs live in spool files; read them off the disk."""
         entries = []
-        for spool in self.cron_spool_dirs:
-            try:
-                host = target.resolve(spool)
-                with os.scandir(host) as it:
-                    children = sorted(it, key=lambda e: e.name)
-            except OSError:
-                continue
-            for entry in children:
-                path = Path(entry.path)
-                if not is_file_nofollow(path):
-                    continue
-                described = self._describe(path, "user crontab", target)
-                described["content"] = "\n".join(
-                    line for line in described["content"].splitlines()
-                    if line.strip() and not line.strip().startswith("#")
-                )
-                described["mode"] = None
-                entries.append(described)
+        limits = WalkLimits(max_depth=0, max_files=self.max_files, deadline_s=10.0)
+        for view, path in self._walk_target(self.cron_spool_dirs, limits, target):
+            described = self._describe(path, "user crontab", target, view)
+            described["content"] = "\n".join(
+                line for line in described["content"].splitlines()
+                if line.strip() and not line.strip().startswith("#")
+            )
+            described["mode"] = None
+            entries.append(described)
         return entries
 
     def _user_crontab(self) -> list[dict]:
@@ -289,13 +289,15 @@ class Module(ModuleBase):
             "mode": None,
         }]
 
-    def _describe(self, path: Path, kind: str, target: Target | None = None) -> dict:
+    def _describe(
+        self, path: Path, kind: str, target: Target | None = None, view: str | None = None
+    ) -> dict:
         content = ""
         mode = None
         if target is not None:
             # `path` is a host path under the mounted disk. Read and stat the
             # file the disk's own view of the path leads to, never the host's.
-            view = target.display(path)
+            view = view if view is not None else target.display(path)
             try:
                 content = target.read_text(view, limit=64_000)
             except OSError:
@@ -304,7 +306,7 @@ class Module(ModuleBase):
                 mode = stat.S_IMODE(os.lstat(target.resolve(view)).st_mode)
             except OSError:
                 pass
-            return {"path": view, "kind": kind, "content": content, "mode": mode}
+            return {"path": self._clean(view), "kind": kind, "content": content, "mode": mode}
         try:
             # Persistence files are small; a huge one is itself odd, and reading
             # a bounded prefix is enough to spot an execution pattern.
@@ -437,11 +439,7 @@ class Module(ModuleBase):
         shown_path = self.ld_preload_path
         try:
             if target is not None:
-                hosts = target.expand(self.ld_preload_path)
-                if not hosts or not is_file_nofollow(hosts[0]):
-                    return []
-                shown_path = target.display(hosts[0])
-                content = target.read_text(shown_path).strip()
+                content = target.read_text(self.ld_preload_path).strip()
             else:
                 path = Path(self.ld_preload_path)
                 if not path.is_file():
@@ -502,9 +500,9 @@ class Module(ModuleBase):
                 actions.append(self._guidance(
                     f"Work out what {path} is before removing it",
                     "  1. Read the whole file:\n"
-                    f"         cat '{path}'\n"
+                    f"         cat {quote(str(path))}\n"
                     "  2. Find out when it appeared:\n"
-                    f"         stat '{path}'\n"
+                    f"         stat {quote(str(path))}\n"
                     "  3. If it is a systemd unit, see what it is doing:\n"
                     "         systemctl status <unit>\n"
                     "         journalctl -u <unit> --since '7 days ago'\n"

