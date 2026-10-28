@@ -1207,7 +1207,7 @@ export const CHECK_NOTES = {
   "platforms": [
    "macOS"
   ],
-  "what": "Notification settings and storage",
+  "what": "Settings and storage for notifications",
   "where": "~/Library/Preferences/com.apple.ncprefs.plist, Application Support/NotificationCenter",
   "why": "Many apps sending alerts, or a large notification store, can be distracting and slow."
  },
@@ -1216,7 +1216,7 @@ export const CHECK_NOTES = {
   "platforms": [
    "macOS"
   ],
-  "what": "Notification previews and Do Not Disturb",
+  "what": "Previews of notifications, and Do Not Disturb",
   "where": "`defaults read com.apple.ncprefs`, `defaults read com.apple.controlcenter`",
   "why": "Previews on the lock screen can show private messages to anyone nearby."
  },

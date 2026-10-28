@@ -650,12 +650,12 @@
     "where": "`ping -c 5 8.8.8.8`, `dig google.com +stats`, `system_profiler SPAirPortDataType`"
   },
   "notification_center_check": {
-    "what": "Notification settings and storage",
+    "what": "Settings and storage for notifications",
     "why": "Many apps sending alerts, or a large notification store, can be distracting and slow.",
     "where": "~/Library/Preferences/com.apple.ncprefs.plist, Application Support/NotificationCenter"
   },
   "notifications_config": {
-    "what": "Notification previews and Do Not Disturb",
+    "what": "Previews of notifications, and Do Not Disturb",
     "why": "Previews on the lock screen can show private messages to anyone nearby.",
     "where": "`defaults read com.apple.ncprefs`, `defaults read com.apple.controlcenter`"
   },
