@@ -15,6 +15,10 @@
   color: var(--offwhite); font-family: var(--font-body); font-size: 15px; line-height: 1.55;
   min-height: 100%;
 }
+/* styles.css's own rule doesn't reach into the shadow root, and `display: grid`
+   on .fix-panel (MarkFlow and FixFlow's confirm cards) beat the browser's
+   [hidden]: the "Yes, it's mine" card showed before anyone asked. Hidden wins. */
+[hidden] { display: none !important; }
 *, *::before, *::after { box-sizing: border-box; }
 img { image-rendering: pixelated; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: inherit; }
