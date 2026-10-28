@@ -477,6 +477,8 @@ def _emit_progress(phase, index, total, mod, check):
     if check is not None:
         event["findings"] = len(check.findings)
         event["error"] = check.error
+        # A check that couldn't run here checked nothing: the app must not show it as "0 noted".
+        event["supported"] = bool(getattr(check, "supported", True))
     click.echo(json.dumps({"progress": event}), err=True)
 
 
