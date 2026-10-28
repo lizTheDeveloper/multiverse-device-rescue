@@ -130,8 +130,16 @@ export function recordSweep(deck, counts, now, { carry = false } = {}) {
   if (entry.secured > entry.checked) entry.secured = entry.checked;
   const prev = d.sweeps.length ? d.sweeps[d.sweeps.length - 1] : null;
   const next = { ...d, sweep: { at: entry.at, keys: {}, ...(carry ? { carry: true } : {}) }, sweeps: [...d.sweeps, entry].slice(-MAX_SWEEPS) };
-  if (carry || d.sweep.carry === true || !(prev && isClean(entry) && !isClean(prev))) return { deck: next, points: 0, rankUp: false, clean: false };
+  if (carry || d.sweep.carry === true || d.sweep.marked === true || !(prev && isClean(entry) && !isClean(prev))) return { deck: next, points: 0, rankUp: false, clean: false };
   return { ...award(next, 'clean', entry.at), clean: true };
+}
+
+// "This is mine" is sorting, not a fix: it pays nothing, and the sweep after
+// a mark isn't paid as clean either, so mark / unmark / re-sweep can't farm
+// the clean bonus. A bare flag on the current sweep (see progress.js).
+export function noteMarked(deck) {
+  const d = deckOf(deck);
+  return d.sweep.marked === true ? d : { ...d, sweep: { ...d.sweep, marked: true } };
 }
 
 // After any scan or re-check, with buildSignals(…) for the new city. A tag

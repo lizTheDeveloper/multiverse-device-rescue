@@ -55,6 +55,7 @@ export function validDeck(d) {
     && plainObject(d.once) && Object.values(d.once).every((v) => v === true)
     && plainObject(d.sweep) && (d.sweep.at === null || typeof d.sweep.at === 'string') && plainObject(d.sweep.keys)
     && (d.sweep.carry === undefined || typeof d.sweep.carry === 'boolean')
+    && (d.sweep.marked === undefined || typeof d.sweep.marked === 'boolean')
     && Array.isArray(d.sweeps) && d.sweeps.every(sweepFieldsOk);
 }
 
@@ -74,7 +75,10 @@ export function cleanDeck(d) {
     // `carry`: this sweep carries something the game holds (held.js). A bare
     // flag, so the next sweep, even after a restart, isn't paid for its going.
     sweep: { at: d.sweep.at, keys: Object.fromEntries(Object.entries(d.sweep.keys).filter(([, v]) => v === true)),
-      ...(d.sweep.carry === true ? { carry: true } : {}) },
+      ...(d.sweep.carry === true ? { carry: true } : {}),
+      // `marked`: something was marked as yours this sweep (ledger noteMarked),
+      // so the next sweep's clean board isn't paid. A bare flag, like carry.
+      ...(d.sweep.marked === true ? { marked: true } : {}) },
     sweeps: d.sweeps.map((w) => Object.fromEntries([['at', w.at], ...SWEEP_FIELDS.map((k) => [k, w[k]])])),
   };
 }
