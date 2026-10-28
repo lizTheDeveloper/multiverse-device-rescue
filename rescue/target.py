@@ -81,7 +81,15 @@ class Target:
         try:
             if not stat.S_ISREG(os.fstat(fd).st_mode):
                 raise TargetError(f"{path} is not a regular file")
-            data = os.read(fd, limit)
+            chunks = []
+            left = limit
+            while left > 0:
+                chunk = os.read(fd, left)  # FUSE/NTFS mounts may return short
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                left -= len(chunk)
+            data = b"".join(chunks)
         except TargetError:
             raise
         except OSError as exc:

@@ -115,7 +115,8 @@ def _finding(finding, walkthroughs, fixable=None, made_by=None, action_fixable=N
     return out
 
 
-def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, made_by=None, app_actions=None) -> str:
+def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, made_by=None, app_actions=None,
+                   target: dict | None = None) -> str:
     """Convert check results to a JSON string suitable for external consumption.
 
     Args:
@@ -154,6 +155,8 @@ def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, ma
             # False means the check could not run here: not a clean result.
             "supported": getattr(check, "supported", True),
             "unsupported_reason": getattr(check, "unsupported_reason", None),
+            # What this check could not look at; empty unless it said so.
+            "not_checked": list(getattr(check, "not_checked", None) or []),
             "findings": [
                 _finding(
                     f, walkthroughs, offer, made_by,
@@ -164,7 +167,9 @@ def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, ma
             ],
         })
     _link_task_marks(modules)
-    return json.dumps(
-        {"schema_version": 1, "platform": platform, "modules": modules},
-        indent=2,
-    )
+    doc = {"schema_version": 1, "platform": platform}
+    if target is not None:
+        # A disk mounted elsewhere was checked: {"root", "os", "read_only"}.
+        doc["target"] = target
+    doc["modules"] = modules
+    return json.dumps(doc, indent=2)

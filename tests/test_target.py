@@ -147,3 +147,14 @@ def test_expand_skips_a_home_that_fails_to_resolve(disk):
     os.symlink("/loop2", disk / "home" / "sam" / ".bashrc")
     os.symlink("/home/sam/.bashrc", disk / "loop2")
     assert target(disk).expand("~/.bashrc") == [disk / "root" / ".bashrc"]
+
+
+def test_read_text_reads_until_eof_across_short_reads(disk, monkeypatch):
+    import rescue.target as target_mod
+
+    (disk / "etc" / "big").write_text("abcdefghijklmnopqrstuvwxyz" * 4)
+    real_read = os.read
+    monkeypatch.setattr(target_mod.os, "read", lambda fd, n: real_read(fd, min(n, 5)))
+    t = Target(root=disk, os=Platform.LINUX)
+    assert t.read_text("/etc/big") == "abcdefghijklmnopqrstuvwxyz" * 4
+    assert t.read_text("/etc/big", 12) == "abcdefghijkl"

@@ -207,8 +207,21 @@ def version():
     help='With --json and --progress or --trace, each finished check\'s progress line also carries its '
          'module, in the same shape as the final JSON ("result"), so an app can show it at once.',
 )
+@click.option(
+    "--target-root",
+    type=click.Path(exists=True, file_okay=False),
+    default=None,
+    help="Check the disk mounted here instead of this computer. Needs --target-os.",
+)
+@click.option(
+    "--target-os",
+    type=click.Choice(["windows", "linux", "macos"]),
+    default=None,
+    help="Which system is on the disk at --target-root. Only linux works so far.",
+)
 @_no_downloads_option
-def scan(as_json, profile_name, module_names, progress, trace, no_attribution, live):
+def scan(as_json, profile_name, module_names, progress, trace, no_attribution, live,
+         target_root, target_os):
     """Run read-only checks. With --json, print structured results to stdout."""
     from rescue.serialize import checks_to_json
     if profile_name and module_names:
@@ -217,8 +230,17 @@ def scan(as_json, profile_name, module_names, progress, trace, no_attribution, l
         threat_profile = _module_only_profile(module_names)
     else:
         threat_profile = _load_profile_or_exit(profile_name) if profile_name else None
-    profile = gather_profile()
-    orch = Orchestrator(modules_dir=_get_modules_dir(), profile=threat_profile)
+    if (target_root is None) != (target_os is None):
+        raise click.UsageError("--target-root and --target-os go together.")
+    target_doc = None
+    if target_root is not None:
+        profile = _gather_target_or_exit(target_root, target_os)
+        target_doc = _target_block(target_root, profile)
+        no_attribution = True  # signature lookups would run on this computer, not the disk
+    else:
+        profile = gather_profile()
+    orch = Orchestrator(modules_dir=_get_modules_dir(), profile=threat_profile,
+                        system_profile=profile if target_root is not None else None)
     shaper = _LiveResults(profile.platform.value, attribution=not no_attribution) if (
         live and as_json and (progress or trace)) else None
     if trace:
@@ -243,11 +265,46 @@ def scan(as_json, profile_name, module_names, progress, trace, no_attribution, l
                     made_by = None  # enrichment is optional; never break a scan
         click.echo(checks_to_json(
             results, profile.platform.value, walkthroughs, app_fixes, made_by,
-            app_actions=app_actions,
+            app_actions=app_actions, target=target_doc,
         ))
         return
     for mod, check in results:
         click.echo(mod.report(check))
+
+
+def _gather_target_or_exit(target_root, target_os):
+    """The profile of the disk at target_root, or exit 2 with the reason on stderr."""
+    from rescue.models import Platform
+    from rescue.profiler.base import gather_target_profile
+    from rescue.target import TargetError
+
+    root = Path(target_root)
+    if root.resolve() == Path("/"):
+        raise click.UsageError(
+            "--target-root / is the running system. Use plain `rescue scan` for that."
+        )
+    platform = {"windows": Platform.WIN32, "linux": Platform.LINUX, "macos": Platform.DARWIN}[target_os]
+    try:
+        return gather_target_profile(root, platform)
+    except TargetError as exc:
+        raise click.UsageError(str(exc)) from exc
+
+
+def _target_block(target_root, profile):
+    """The JSON "target" block; warns on stderr when the disk is mounted read-write."""
+    root = Path(target_root)
+    read_only = False
+    try:
+        read_only = bool(os.statvfs(root).f_flag & os.ST_RDONLY)
+    except (OSError, AttributeError):
+        pass
+    if not read_only:
+        click.echo(
+            f"Warning: {root} is mounted read-write. This check won't change it, "
+            "but mounting read-only (-o ro) is safer.",
+            err=True,
+        )
+    return {"root": str(root), "os": profile.platform.value, "read_only": read_only}
 
 
 def _listening_verdict():
