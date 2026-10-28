@@ -30,3 +30,9 @@ test('learnMoreFor still hides the web game link exactly when mayBeWatched says 
   }
   assert.strictEqual(learnMoreFor(byId('hacked'), withFinding('stalkerware_scan', 'warning')), null);
 });
+
+test('no worry promises how long anything takes', () => {
+  for (const s of SITUATIONS) {
+    assert.doesNotMatch(`${s.title} ${s.sub}`, /\b(seconds?|minutes?|hours?)\b/i, s.id);
+  }
+});

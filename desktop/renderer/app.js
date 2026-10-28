@@ -53,7 +53,7 @@ const SITUATIONS = [
     sub: 'It\u2019s clearly infected, or it won\u2019t start. Keep it off your network first',
     profile: 'infected_device', guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/infected-device/', steps: 'isolate' },
   { id: 'unsure', icon: '\u{1F937}', title: 'I\u2019m not sure \u2014 check everything',
-    sub: 'The full checkup. It takes longer: often 10 minutes or more',
+    sub: 'The full checkup: every check, so it takes the longest',
     profile: null, guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/' },
 ];
 
