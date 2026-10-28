@@ -45,7 +45,7 @@ export function nextMoveHtml(sig) {
 
 export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOpen = false, threats = [], known = [], filter = null,
   cityHtml = '', instrumentsHtml = '', log = [], moment = null, moments = [], panelHtml = '', nothingChecked = false, scanRunning = false, watching = false,
-  districtName = () => '', notice = '', heldLine = '', rowParts = () => ({}), queueTop = '', levelHtml = '', pickerHtml = '' }) {
+  districtName = () => '', notice = '', heldLine = '', rowParts = () => ({}), queueTop = '', pickerHtml = '' }) {
   const dn = districtName;
   // While the Signal or Noise panel is open, the deck behind it is inert:
   // Tab stays in the panel, and Escape (or BACK TO THE DECK) closes it.
@@ -58,7 +58,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
     ${scanRunning ? '<span class="stat cyan"><small>SWEEPING…</small></span>'
     : watching ? '<span class="stat grey"><small>RE-SWEEP AFTER THE WATCH</small></span>'
       : '<button type="button" class="btn-s" data-act="resweep">RE-SWEEP ⟳</button>'}
-    <span class="switch">${levelHtml}<button type="button" data-go="training">TRAINING</button><button type="button" data-act="list">LIST</button><b class="on">CITY</b></span>
+    <span class="switch"><button type="button" data-go="training">TRAINING</button><button type="button" data-act="list">LIST</button><b class="on">CITY</b></span>
   </header>`;
   const head = filter ? `
       <div class="row"><span class="label">SHOWING ${esc(String(filter.name).toUpperCase())}</span>

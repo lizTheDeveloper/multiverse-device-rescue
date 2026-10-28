@@ -747,12 +747,10 @@ test('city mode: I DID IT on a held finding re-checks nothing and confirms nothi
   assert.doesNotMatch(t.html().split('OPS LOG')[1], /CONFIRMED|MARKED|SECURED|Monitoring app/);
 });
 
-test('DETAIL: the level picker opens from the top bar, stores one key, and changes only how a signal is shown', async () => {
+test('the level: stored in one key, and it changes only how a signal is shown', async () => {
   const t = await deckSetup(DOC);
-  assert.match(t.html(), /data-act="level-open"[^>]*>DETAIL: EVERYDAY</);
+  assert.doesNotMatch(t.html(), /level-open|DETAIL:/, 'the level is in SETTINGS, above the frame, not in the HUD');
   assert.doesNotMatch(t.html(), /level-pick/, 'the deck never asks on its own');
-  t.click({ 'data-act': 'level-open' });
-  assert.match(t.html(), /DETAIL LEVEL[\s\S]*data-act="level:new"[\s\S]*data-act="level:technical"/);
   t.click({ 'data-act': 'level:technical' });
   assert.strictEqual(t.storage.getItem('device-rescue.level'), 'technical');
   assert.doesNotMatch(t.html(), /level-pick/, 'picking closes it');
@@ -774,7 +772,7 @@ test('the Training Grounds ask the level once, until one is picked', async () =>
   t.click({ 'data-act': 'level:everyday' });
   assert.strictEqual(t.storage.getItem('device-rescue.level'), 'everyday');
   assert.doesNotMatch(t.html(), /HOW MUCH DETAIL/);
-  assert.match(t.html(), /DETAIL: EVERYDAY/);
+  assert.doesNotMatch(t.html(), /DETAIL:/, 'after that it lives in SETTINGS'); 
 });
 
 test('TEST OUT (technical only): every answer right marks the lesson done; a miss marks nothing', async () => {

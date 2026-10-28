@@ -87,7 +87,7 @@ test('a new screen focuses its own title, else its h1, without adding a Tab stop
   assert.strictEqual(focusScreenHeading(null), false);
 });
 
-test('TEXT & MOTION: every choice is a labelled radio in a named group, the current ones checked', async () => {
+test('SETTINGS: every choice is a labelled radio in a named group, the current ones checked', async () => {
   const { displayPanelHtml } = await game('display-panel.js');
   const html = displayPanelHtml(DisplayPrefs, { textSize: 'large', font: 'plain', motion: 'system' });
   assert.match(html, /<dialog class="display-panel" aria-labelledby="display-title">/);
@@ -99,8 +99,45 @@ test('TEXT & MOTION: every choice is a labelled radio in a named group, the curr
   assert.match(html, /name="font" value="plain" checked/);
   assert.match(html, /name="motion" value="system" checked/);
   assert.match(html, /<label class="display-choice"><input type="radio" name="textSize" value="normal"> <span>Normal<\/span><\/label>/);
-  assert.match(html, /data-display="open" aria-haspopup="dialog"/);
+  assert.match(html, /data-display="open" aria-haspopup="dialog"><span aria-hidden="true">⚙<\/span> SETTINGS</);
   assert.doesNotMatch(html, /\bmin(ute)?s?\b|second/i);
+  assert.doesNotMatch(html, /How much detail/, 'no level group without a level');
+});
+
+test('SETTINGS holds the detail level too: one more named group, the current level checked', async () => {
+  const { displayPanelHtml } = await game('display-panel.js');
+  const html = displayPanelHtml(DisplayPrefs, { textSize: 'normal', font: 'city', motion: 'system' }, 'technical');
+  assert.match(html, /<legend>How much detail<\/legend>[\s\S]*<legend>Text size<\/legend>/, 'detail comes first');
+  assert.strictEqual((html.match(/type="radio"/g) || []).length, 10);
+  assert.match(html, /name="level" value="technical" checked/);
+  assert.match(html, /name="level" value="new"> <span>I’m new to this<\/span>/);
+  assert.match(html, /not what is checked\. Every fix still asks first/);
+});
+
+test('SETTINGS: picking a level hands it to the city; text choices are stored as before', async () => {
+  const { attachDisplayPanel } = await game('display-panel.js');
+  const fake = () => {
+    const on = {};
+    return { handlers: on, addEventListener: (ev, f) => { on[ev] = f; }, focus() {}, close() {}, showModal() {}, querySelectorAll: () => radios };
+  };
+  const radios = ['new', 'everyday', 'technical'].map((value) => ({ name: 'level', value, checked: false }));
+  const dialog = fake();
+  const parts = { dialog, '[data-display="open"]': fake(), '[data-display="close"]': fake() };
+  const bar = { innerHTML: '', querySelector: (q) => parts[q] || null };
+  const store = recordingStore();
+  const picked = [];
+  let level = 'everyday';
+  assert.ok(attachDisplayPanel({ bar, host: null, storage: store, win: { DisplayPrefs }, level: () => level, setLevel: (v) => picked.push(v) }));
+  assert.match(bar.innerHTML, /name="level" value="everyday" checked/);
+  dialog.handlers.change({ target: { type: 'radio', name: 'level', value: 'technical' } });
+  dialog.handlers.change({ target: { type: 'radio', name: 'level', value: 'expert' } });
+  assert.deepStrictEqual(picked, ['technical'], 'an unknown level never reaches the city');
+  // Opening reads the level afresh (the first-run cards can change it).
+  level = 'new';
+  parts['[data-display="open"]'].handlers.click();
+  assert.deepStrictEqual(radios.map((r) => r.checked), [true, false, false]);
+  dialog.handlers.change({ target: { type: 'radio', name: 'textSize', value: 'large' } });
+  assert.strictEqual(DisplayPrefs.read(store).textSize, 'large');
 });
 
 test('applying: letters and motion go on the host, text size zooms the window by a known factor', async () => {
@@ -116,7 +153,7 @@ test('applying: letters and motion go on the host, text size zooms the window by
   assert.strictEqual(host.attrs['data-text-size'], 'normal');
 });
 
-test('the controller draws TEXT & MOTION and the polite line outside the frame, so redraws leave them alone', () => {
+test('the controller draws SETTINGS and the polite line outside the frame, so redraws leave them alone', () => {
   const src = require('fs').readFileSync(path.join(__dirname, '..', 'renderer', 'game', 'controller.js'), 'utf8');
   assert.match(src, /id="display-bar"><\/div><div class="frame" id="frame"><\/div>'\s*\+ '<div class="sr-only" id="announce" role="status" aria-live="polite">/);
 });

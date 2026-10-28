@@ -49,7 +49,7 @@ import { noteMarked } from './ledger.js';
 import { renderYours, yoursTileHtml, mineRowHtml, bulkBarHtml, toastHtml, confirmHtml } from './views/yours.js';
 // How much detail is shown (level.js): never what is safe.
 import { readLevel, levelOf, writeLevel, levelPolicy, LEVELS, canTestOut } from './level.js';
-import { renderLevelPicker, levelButton, evidenceHtml } from './views/level.js';
+import { renderLevelPicker, evidenceHtml } from './views/level.js';
 import { sweepLine, sweepDoneLine, fixRcControls, focusScreenHeading } from './a11y.js';
 import { attachDisplayPanel } from './display-panel.js';
 
@@ -117,7 +117,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   const say = (text) => { if (text && live && live !== frame) live.textContent = text; };
   // A new screen starts at its top, TEXT & MOTION included, not where the last one was scrolled to.
   const bar = shadow.getElementById('display-bar');
-  attachDisplayPanel({ bar: bar !== frame ? bar : null, host, storage, win });
+  // SETTINGS holds the detail level too: picking one there redraws the city.
+  attachDisplayPanel({ bar: bar !== frame ? bar : null, host, storage, win, level: () => levelOf(storage),
+    setLevel: (lv) => { if (writeLevel(storage, lv)) render(); } });
   const toTop = () => { if (bar && bar !== frame && typeof bar.scrollIntoView === 'function') bar.scrollIntoView({ block: 'start' }); };
   const scout = (feeling, size) => scoutSprite(feeling, { size });
   const now = () => new Date().toISOString();
@@ -137,8 +139,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     sideTicket: 0, sideNotice: false, heldOpen: false,
     // The connection watch, and its findings' tags (memory only: ledger sessionTag).
     watch: idleWatch(), watchTags: {},
-    // The DETAIL panel (level.js) is open. The level itself is in storage.
-    levelOpen: false };
+  };
   let drawnScreen = null; // the screen the last render drew
   let drawnKey = null; // ...and which one of it (a district, a lesson question, a game route)
   let sweepSaid = 0; // the last quarter of the sweep said aloud (a11y.js sweepLine)
@@ -168,11 +169,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // The detail level (level.js): how much is shown, never what is safe.
   const level = () => levelOf(storage);
   const policy = () => levelPolicy(level());
-  const levelHtml = () => levelButton(level());
-  // The cards: when DETAIL is open, or (on the Training Grounds, where city
-  // mode starts) once, until a level is chosen.
-  const pickerHtml = (askHere = false) => (s.levelOpen ? renderLevelPicker({ chosen: readLevel(storage) })
-    : askHere && readLevel(storage) === null ? renderLevelPicker({ chosen: null, first: true }) : '');
+  // The cards: on the Training Grounds, where city mode starts, once, until a
+  // level is chosen. After that the level lives in SETTINGS (display-panel.js).
+  const pickerHtml = (askHere = false) => (askHere && readLevel(storage) === null ? renderLevelPicker() : '');
   const evidenceFor = (finding, clues) => (policy().evidence && finding ? evidenceHtml(finding, platform(), clues || cluesFor(finding)) : '');
 
   // loadLessons never rejects: a lesson that fails to load is left out.
@@ -550,7 +549,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       lastSweep: deck.sweeps.length ? deck.sweeps[deck.sweeps.length - 1] : null,
       // Marked as yours: in YOURS, not the KNOWN AND NOTED pile. Each queue row carries MINE ✓ and its kind.
       items, low: q.low, lowOpen: s.lowOpen, threats: q.threats, known: [...q.known.filter((x) => !x.marked), ...q.noted],
-      rowParts: (x) => ({ extra: quickControl(x, true), chips: chipsFor(x) }), levelHtml: levelHtml(), pickerHtml: pickerHtml(),
+      rowParts: (x) => ({ extra: quickControl(x, true), chips: chipsFor(x) }), pickerHtml: pickerHtml(),
       queueTop: toastHtml(desk.toast) + bulkBarHtml({ count: desk.picked.size, confirming: !!(desk.confirm && desk.confirm.target === '*'),
         watch: !!(desk.confirm && desk.confirm.watch) }),
       filter: fd ? { id: fd.id, name: fd.name } : null, cityHtml,
@@ -833,7 +832,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (s.screen === 'training') {
       return sideTile() + renderTraining({ ordered: orderLessons(s.lessons, s.situation && s.situation.id), progress: s.progress,
         worryTitle: s.situation && s.situation.title, scan: s.scan, scout, pendingCity: cityWaiting(),
-        lessonsLoaded: s.lessonsLoaded, scanFinished: !!s.city, level: level(), levelHtml: levelHtml(), pickerHtml: pickerHtml(true),
+        lessonsLoaded: s.lessonsLoaded, scanFinished: !!s.city, level: level(), pickerHtml: pickerHtml(true),
         testOut: policy().lessonsOptional ? canTestOut : () => false });
     }
     if (s.screen === 'lesson') {
@@ -914,7 +913,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const body = screenHtml();
       // The deck has its own top bar; the training and range screens have theirs.
       const hud = NO_CITY_SCREENS.has(s.screen) || s.screen === 'map' || s.screen === 'side' || s.screen === 'yours' ? ''
-        : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts(), levelHtml: levelHtml() })
+        : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts() })
           + pickerHtml() + s.linkNotice;
       // game.css reads the level for density (technical) and the folded details (new).
       frame.className = `frame level-${level()}`;
@@ -1068,18 +1067,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     // The connection watch runs alongside everything else, re-checks included.
     if (act && act.startsWith('watch-')) { watchAct(act); return; }
-    // DETAIL (level.js): only how much is shown changes, so it works any time.
-    if (act === 'level-open' || act === 'level-close') {
-      s.levelOpen = act === 'level-open' ? !s.levelOpen : false;
-      render();
-      if (!s.levelOpen || !focusEl(frame.querySelector('.level-card.on') || frame.querySelector('.level-card'))) {
-        focusEl(findByAttr(frame, 'data-act', 'level-open'));
-      }
-      return;
-    }
+    // The first-run cards (level.js): only how much is shown changes, so it works any time.
     if (act && act.startsWith('level:')) {
       const lv = act.slice(6);
-      if (LEVELS.includes(lv)) { writeLevel(storage, lv); s.levelOpen = false; render(); focusEl(findByAttr(frame, 'data-act', 'level-open')); }
+      if (LEVELS.includes(lv)) { writeLevel(storage, lv); render(); focusScreenHeading(frame); }
       return;
     }
     if (s.busy) return;

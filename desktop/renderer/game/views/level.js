@@ -1,31 +1,20 @@
-// The detail level's own pieces: the three cards, the HUD button that opens
-// them again, and (technical) a finding's evidence and check-it-yourself
-// commands. Pure. Every string from the engine is escaped.
+// The detail level's own pieces: the three first-run cards, and (technical)
+// a finding's evidence and check-it-yourself commands. Pure. Every string from the engine is escaped.
 import { esc } from '../escape.js';
-import { LEVEL_CHOICES, DEFAULT_LEVEL, evidenceRows, checkCommands, COMMANDS_NOTE } from '../level.js';
+import { LEVEL_CHOICES, evidenceRows, checkCommands, COMMANDS_NOTE } from '../level.js';
 
-const SHORT = { new: 'NEW', everyday: 'EVERYDAY', technical: 'TECHNICAL' };
-
-// `chosen`: the stored level, or null (never asked). `first`: the one-time ask,
-// which says it can be changed later; otherwise it's the settings panel.
-export function renderLevelPicker({ chosen = null, first = false }) {
+// The one-time ask, on the Training Grounds until a card is picked. After
+// that the level is in SETTINGS (display-panel.js), with text and motion.
+export function renderLevelPicker() {
   const cards = LEVEL_CHOICES.map((c) => `
-      <button type="button" class="level-card${chosen === c.id ? ' on' : ''}" data-act="level:${esc(c.id)}"${chosen === c.id ? ' aria-pressed="true"' : ''}>
+      <button type="button" class="level-card" data-act="level:${esc(c.id)}">
         <b>${esc(c.title)}</b><small>${esc(c.line)}</small></button>`).join('');
-  const head = first ? 'HOW MUCH DETAIL DO YOU WANT?' : 'DETAIL LEVEL';
-  const foot = first ? 'Pick whichever fits. You can change it any time with DETAIL at the top.'
-    : 'This changes how much is shown, not what is checked. Every fix still asks first.';
   return `
-  <section class="panel level-pick${first ? ' first' : ''}" aria-label="How much detail">
-    <div class="row"><span class="label">${head}</span>${first ? '' : '<button type="button" class="btn-t" data-act="level-close">CLOSE</button>'}</div>
+  <section class="panel level-pick first" aria-label="How much detail">
+    <div class="row"><span class="label">HOW MUCH DETAIL DO YOU WANT?</span></div>
     <div class="level-cards">${cards}</div>
-    <p class="intel faint">${esc(foot)}</p>
+    <p class="intel faint">Pick whichever fits. You can change it any time under SETTINGS at the top.</p>
   </section>`;
-}
-
-// For a HUD's .switch: opens the picker.
-export function levelButton(level) {
-  return `<button type="button" data-act="level-open" aria-label="Detail level: ${esc(SHORT[level] || SHORT[DEFAULT_LEVEL])}. Change it.">DETAIL: ${esc(SHORT[level] || SHORT[DEFAULT_LEVEL])}</button>`;
 }
 
 // EVIDENCE and CHECK IT YOURSELF, for the technical level. '' when the finding
