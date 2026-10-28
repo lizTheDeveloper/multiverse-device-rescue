@@ -40,3 +40,13 @@ def _not_elevated(monkeypatch):
         monkeypatch.setattr(ctypes.windll.shell32, "IsUserAnAdmin", lambda: 0)
     elif hasattr(os, "geteuid") and os.geteuid() == 0:
         monkeypatch.setattr(os, "geteuid", lambda: 1000)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_backup_tools(tmp_path_factory, monkeypatch):
+    """The backup checks look for other backup apps; tests never see the real ones."""
+    from rescue import backup_tools
+
+    empty = tmp_path_factory.mktemp("no-backup-tools")
+    monkeypatch.setattr(backup_tools, "ROOT", empty)
+    monkeypatch.setattr(backup_tools, "HOME", empty)
