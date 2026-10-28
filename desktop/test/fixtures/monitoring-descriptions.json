@@ -967,7 +967,7 @@
  {
   "module": "mvt_spyware_scan",
   "code": "security.mvt_spyware_scan.mvt_backup_encrypted",
-  "description": "The backup ExampleApp is encrypted (that's good: it protects your phone's data on this computer). The spyware scanner can't read it until it's unlocked with the backup password you chose in Finder or iTunes. We did not check this backup, so this is not a clean result. It is also not a sign that anything is wrong.\n\nWhat to do: open Terminal and run this, which makes an unlocked copy in a new folder and asks for the backup password:\n  ExampleApp decrypt-backup -d ~/iphone-backup-decrypted \"ExampleApp\"\nThen scan the copy:\n  ExampleApp check-backup --output ~/mvt-results ~/iphone-backup-decrypted\nDelete the unlocked copy when you're done: it holds your messages and photos unprotected."
+  "description": "The backup ExampleApp is encrypted (that's good: it protects your phone's data on this computer). The spyware scanner can't read it until it's unlocked with the backup password you chose in Finder or iTunes. We did not check this backup, so this is not a clean result. It is also not a sign that anything is wrong.\n\nWhat to do: open Terminal and run this, which makes an unlocked copy in a new folder and asks for the backup password:\n  ExampleApp decrypt-backup -d ~/iphone-backup-decrypted ExampleApp\nThen scan the copy:\n  ExampleApp check-backup --output ~/mvt-results ~/iphone-backup-decrypted\nDelete the unlocked copy when you're done: it holds your messages and photos unprotected."
  },
  {
   "module": "mvt_spyware_scan",
@@ -977,7 +977,7 @@
  {
   "module": "mvt_spyware_scan",
   "code": "security.mvt_spyware_scan.mvt_scan_incomplete",
-  "description": "The scanner started on the backup ExampleApp but didn't finish, so we can't say whether it's clean. This is not a clean result, and it isn't a sign that anything is wrong.\n\nWhat to do: run the scan yourself in Terminal, where you can see its progress and any error:\n  ExampleApp check-backup --output ~/mvt-results \"ExampleApp\""
+  "description": "The scanner started on the backup ExampleApp but didn't finish, so we can't say whether it's clean. This is not a clean result, and it isn't a sign that anything is wrong.\n\nWhat to do: run the scan yourself in Terminal, where you can see its progress and any error:\n  ExampleApp check-backup --output ~/mvt-results ExampleApp"
  },
  {
   "module": "mvt_spyware_scan",

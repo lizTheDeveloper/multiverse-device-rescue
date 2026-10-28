@@ -293,3 +293,17 @@ def test_is_encrypted_reads_manifest(tmp_path):
     (tmp_path / "Manifest.plist").write_bytes(plistlib.dumps({"IsEncrypted": False}))
     assert mod._is_encrypted(tmp_path) is False
     assert mod._is_encrypted(tmp_path / "missing") is False
+
+
+def test_suggested_commands_quote_the_path():
+    """A path with shell syntax in it must not run when the person pastes
+    the suggested command into Terminal."""
+    mod = _get_module()
+    mod.configure({"scan_backups": True})
+    evil = "x$(touch pwned)"
+    result, _, _ = _scan_with(mod, encrypted=True, backups=(evil,))
+    enc = next(f for f in result.findings if f.data.get("check") == "mvt_backup_encrypted")
+    assert "'/fake/backup/x$(touch pwned)'" in enc.description
+    result, _, _ = _scan_with(mod, scan_result=None, backups=(evil,))
+    inc = next(f for f in result.findings if f.data.get("check") == "mvt_scan_incomplete")
+    assert "'/fake/backup/x$(touch pwned)'" in inc.description

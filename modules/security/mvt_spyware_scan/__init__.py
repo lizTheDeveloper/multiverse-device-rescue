@@ -14,6 +14,7 @@ produces carries an explicit caveat to that effect.
 import json
 import os
 import plistlib
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -212,7 +213,7 @@ class Module(ModuleBase):
                             "What to do: open Terminal and run this, which makes an "
                             "unlocked copy in a new folder and asks for the backup "
                             "password:\n"
-                            f"  {mvt_bin} decrypt-backup -d ~/iphone-backup-decrypted \"{backup}\"\n"
+                            f"  {mvt_bin} decrypt-backup -d ~/iphone-backup-decrypted {shlex.quote(str(backup))}\n"
                             "Then scan the copy:\n"
                             f"  {mvt_bin} check-backup --output ~/mvt-results ~/iphone-backup-decrypted\n"
                             "Delete the unlocked copy when you're done: it holds your "
@@ -275,7 +276,7 @@ class Module(ModuleBase):
                             "clean result, and it isn't a sign that anything is wrong.\n\n"
                             "What to do: run the scan yourself in Terminal, where you can "
                             "see its progress and any error:\n"
-                            f"  {mvt_bin} check-backup --output ~/mvt-results \"{backup}\""
+                            f"  {mvt_bin} check-backup --output ~/mvt-results {shlex.quote(str(backup))}"
                         ),
                         severity=Severity.WARNING,
                         category=self.category,
