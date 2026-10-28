@@ -14,6 +14,7 @@ export const LESSON_FILES = [
   './lessons/browser-add-ons.js',
   './lessons/couldnt-check.js',
   './lessons/poisoned-packages.js',
+  './lessons/taking-accounts-back.js',
 ];
 
 // Lessons teach; the scan diagnoses. None of these may appear in lesson text.

@@ -1,6 +1,7 @@
 // Writes desktop/mission-links.json: every https link in Reclaim City's
 // missions (any "url" field, at any depth, so stepsByManager and reportSteps
-// count too) and every account's securityUrl. The main process opens exactly
+// count too), every account's securityUrl, and the provider help and settings
+// pages of game mode's own account checklist (renderer/game/account-recovery.js). The main process opens exactly
 // these and nothing else. Re-run after bumping the game submodule; a test fails
 // if the file is out of date.
 import { writeFileSync } from 'node:fs';
@@ -24,6 +25,8 @@ export async function collectMissionLinks(srcDir = DEFAULT_SRC) {
   };
   walk(MISSIONS);
   for (const a of Object.values(ACCOUNTS)) if (typeof a.securityUrl === 'string') out.add(a.securityUrl);
+  const { allLinks } = await import(pathToFileURL(path.join(here, '..', 'renderer', 'game', 'account-recovery.js')).href);
+  for (const u of allLinks()) out.add(u);
   return [...out].filter((u) => u.startsWith('https://')).sort();
 }
 

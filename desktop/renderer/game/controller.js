@@ -38,6 +38,7 @@ import { renderBoss } from './views/boss.js';
 import { pickDistrict, seedFrom } from './district-names.js';
 import { SIX_ROSES } from './side-district.js';
 import { renderSide, sideTileHtml, heldNoticeHtml } from './views/side-district.js';
+import { createAccountsScreen, ACCOUNT_SCREENS } from './accounts-screen.js';
 
 // Specifiers resolve against this file (app://rescue/game/controller.js).
 const loadLessonsHere = () => loadLessons((spec) => import(spec));
@@ -92,7 +93,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   const doc0 = win.document;
   const host = doc0.getElementById('city-host');
   const shadow = host.attachShadow({ mode: 'open' });
-  shadow.innerHTML = '<link rel="stylesheet" href="rc/style.css"><link rel="stylesheet" href="game/game.css"><div class="frame" id="frame"></div>';
+  shadow.innerHTML = '<link rel="stylesheet" href="rc/style.css"><link rel="stylesheet" href="game/game.css"><link rel="stylesheet" href="game/accounts.css"><div class="frame" id="frame"></div>';
   const frame = shadow.getElementById('frame');
   const scout = (feeling, size) => scoutSprite(feeling, { size });
   const now = () => new Date().toISOString();
@@ -126,6 +127,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     return sideDistrict;
   };
   const sideTile = () => (inCity() ? sideTileHtml(side(), s.held.length) : '');
+
+  // "Take your accounts back" (accounts-screen.js): the account half of "I think I've been hacked".
+  const acct = createAccountsScreen({ storage, now,
+    ctx: () => ({ city: s.city, progress: s.progress, situation: s.situation, sideName: inCity() ? side().name : null, held: s.held.length > 0 }),
+    openLink: (url) => openLink(url),
+    report: (id, title) => { commitAward(award(s.progress.deck, 'report', `accounts:${id}`)); logEntry('YOU REPORTED', title); } });
   const heldNotice = () => (inCity() && s.held.length ? heldNoticeHtml(side()) : '');
 
   // loadLessons never rejects: a lesson that fails to load is left out.
@@ -250,7 +257,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // CONFIRMED is what a re-check (or the checkup, for an account mission)
   // proved; YOU REPORTED is the person's word. The deck and every HUD agree.
   function counts() {
-    return countDeckBars({ rc: s.rc, deck: s.progress.deck, rcState: s.rcState, scanConfirmed: s.scanConfirmed, doc: s.doc });
+    const c = countDeckBars({ rc: s.rc, deck: s.progress.deck, rcState: s.rcState, scanConfirmed: s.scanConfirmed, doc: s.doc });
+    return { ...c, reported: c.reported + acct.reportedCount() };
   }
 
   // "Your checkup is done" and the way to the city: when a scan finished while
@@ -370,7 +378,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const heldIn = heldDistrictIds(s.heldCity);
     // City mode has no note above the map: a held district points to the generated one.
     const heldAt = inCity() ? side().name : null;
-    const cityHtml = sideTile() + held + (s.rc || s.accountsError
+    const cityHtml = sideTile() + acct.tileHtml() + held + (s.rc || s.accountsError
       ? renderOneCityMap({ city: s.city, progress: s.progress, scout, cameBack: s.cameBack, focus: focusFor(s.situation),
         accountCards: s.rc ? accountDistrictCards({ rc: s.rc, rcState: s.rcState, doc: s.doc }) : [],
         accountsError: s.accountsError, goFor, heat, selected: s.filter, held: heldIn, heldAt })
@@ -655,6 +663,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (s.screen === 'boss') return renderBoss({ boss: s.boss, scout, tips: s.tips, tipsOpen: s.tipsOpen, learn: learnFor() });
     if (s.screen === 'rc' && s.rc && s.rcRoute) return rcScreenHtml();
+    if (ACCOUNT_SCREENS.has(s.screen)) return acct.html(s.screen, scout);
     if (s.screen === 'milestone' && district(s.districtId)) {
       return renderMilestone({ district: district(s.districtId), progress: s.progress, scout });
     }
@@ -857,6 +866,15 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (act && act.startsWith('watch-')) { watchAct(act); return; }
     if (s.busy) return;
     if (go) s.linkNotice = '';
+    const acctNext = acct.click(go, act, el);
+    if (acctNext) {
+      if (acctNext === 'none') return;
+      if (acctNext !== 'same') { s.screen = acctNext; s.signal = null; }
+      render();
+      // A redraw keeps focus on the button pressed; a new screen starts at its title.
+      if (!(acctNext === 'same' && act && focusEl(findByAttr(frame, 'data-act', act)))) focusEl(frame.querySelector('.crumbs button'));
+      return;
+    }
     if (go === 'side') { if (inCity()) openSide(); return; }
     if (act === 'side-open-guide') { if (s.screen === 'side') openSideGuide(); return; }
     // RE-SWEEP: the same read-only scan as the plain route, through app.js, whose
@@ -888,7 +906,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (go === 'training') { s.lesson = null; s.screen = 'training'; render(); return; }
     if (go === 'boss') { s.screen = s.scan.running ? 'boss' : 'training'; render(); return; }
     if (go === 'city') { s.pendingCity = false; s.lesson = null; s.screen = 'map'; render(); return; }
-    if (go && go.startsWith('lesson:')) { s.lesson = { id: go.slice(7), q: 0, picked: null }; s.screen = 'lesson'; render(); return; }
+    if (go && go.startsWith('lesson:')) { s.lesson = { id: go.slice(7), q: 0, picked: null, fromAccounts: ACCOUNT_SCREENS.has(s.screen) }; s.screen = 'lesson'; render(); return; }
     // A district on the sweep: the lesson for that area. Finishing it comes back here.
     if (go && go.startsWith('learn:')) {
       // A district whose lessons are all done opens nothing (its card isn't a
@@ -928,7 +946,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       // A lesson opened from the sweep goes back to the sweep, or, once the
       // checkup has finished, to the city: never the Training Grounds' list.
       const fromSweep = s.lesson.fromSweep;
-      s.screen = !fromSweep ? 'training' : s.scan.running ? 'boss' : s.city ? 'map' : 'training';
+      s.screen = s.lesson.fromAccounts && s.city ? 'accounts' : !fromSweep ? 'training' : s.scan.running ? 'boss' : s.city ? 'map' : 'training';
       if (s.screen === 'map') s.pendingCity = false;
       s.lesson = null;
       render();
