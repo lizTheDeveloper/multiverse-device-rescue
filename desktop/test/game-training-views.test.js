@@ -122,6 +122,7 @@ test('the city HUD links back to the Training Grounds', async () => {
   const html = renderHud({ title: 'T', city: { districts: [], totals: { critical: 0, warning: 0, fog: 0 } }, progress: { missions: {} } });
   assert.match(html, /data-go="training"/);
   assert.match(html, /data-act="list"/);
+  assert.match(html, /<button type="button" class="on" data-go="city"[^>]*>CITY<\/button>/, 'CITY goes back to the command center');
 });
 
 test('a call or text has no subject line, and never prints null', async () => {
