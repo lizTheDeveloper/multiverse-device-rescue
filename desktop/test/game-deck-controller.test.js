@@ -105,7 +105,7 @@ test('opening a real signal shows every clue and pays for looking at once, befor
   assert.match(t.html(), /WHO MADE IT[\s\S]*Unknown maker, not verified \(unsigned\)[\s\S]*How to read this/);
   assert.match(t.html(), /WHERE IT LIVES[\s\S]*WHAT IT DOES/);
   assert.strictEqual(t.saved().deck.points, 15, 'three clues, five points each');
-  assert.match(t.html(), /\+15 POINTS for looking at the clues/);
+  assert.match(t.html(), /\+15 INCIDENT RESPONSE XP for looking at the clues/);
   t.click({ 'data-act': 'clue:maker' });
   t.click({ 'data-act': 'clue:when' });
   t.click({ 'data-act': 'close-signal' });
@@ -113,7 +113,7 @@ test('opening a real signal shows every clue and pays for looking at once, befor
   t.click({ 'data-act': 'investigate-next' });
   assert.match(t.html(), /Unknown maker, not verified/);
   assert.strictEqual(t.saved().deck.points, 15, 'looking again pays nothing more this scan');
-  assert.doesNotMatch(t.html(), /POINTS for looking/, 'and claims nothing');
+  assert.doesNotMatch(t.html(), /XP for looking/, 'and claims nothing');
 });
 
 test('tagging after looking pays a bonus once; tags are keyed by identity; re-tagging pays nothing more', async () => {

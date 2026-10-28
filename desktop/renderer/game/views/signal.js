@@ -40,7 +40,7 @@ function clueItem(c, opened, sig, fold = false) {
 }
 
 // Real findings pay for looking, so the points show with the clues, before any tag.
-const cluePoints = (sig, points) => (sig.kind === 'real' && points > 0 ? `<p class="points">+${esc(points)} POINTS for looking at the clues</p>` : '');
+const cluePoints = (sig, points) => (sig.kind === 'real' && points > 0 ? `<p class="points">+${esc(points)} INCIDENT RESPONSE XP for looking at the clues</p>` : '');
 
 // `quickHtml`: the one-click "mark it in Reclaim City" control, or ''; it and
 // MarkFlow's `mineHtml` are offered only after the MINE call, as one optional
@@ -76,7 +76,7 @@ export function renderSignalPanel({ signal: sig, districtName = '', clues = [], 
     : `<div class="row tags">${TAG_BUTTONS.map(([t, label]) => `<button type="button" class="btn-s tag-${t}" data-act="tag:${t}"${current === t ? ' aria-pressed="true"' : ''}${drill && tagged ? ' aria-disabled="true" disabled' : ''}>${label}</button>`).join('')}</div>`;
   const after = !tagged ? '' : `
     ${read ? `<div class="scout-row">${scout(drill && !right ? 'thinkingA' : 'happy', 54)}<p class="say">${esc(read)}</p></div>` : ''}
-    ${drill && points > 0 ? `<p class="points">+${esc(points)} POINTS</p>` : ''}
+    ${drill && points > 0 ? `<p class="points">+${esc(points)} INCIDENT RESPONSE XP</p>` : ''}
     ${!drill && tagged === 'mine' ? catHtml : ''}
     ${!drill && tagged === 'mine' && (quickHtml || mineHtml) ? `<div class="panel"><div class="label">OPTIONAL: TELL RECLAIM CITY TOO</div>
       <p class="intel">The MINE pile is the game’s sorting. This asks Reclaim City itself to remember it’s yours, so it stops flagging it. It asks first, and you can undo it.</p>${quickHtml || mineHtml}</div>` : ''}
