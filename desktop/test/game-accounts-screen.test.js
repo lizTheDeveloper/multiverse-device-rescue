@@ -117,3 +117,24 @@ test('the lesson link from the list comes back to the list when finished', async
   stub.click({ 'data-act': 'finish-lesson' });
   assert.match(stub.frame.innerHTML, /Take your accounts back/);
 });
+
+test('for a hack, a device mission that can let someone in says so, and leads back to the accounts', async () => {
+  const t = await setup();
+  t.click({ 'data-go': 'acct-step:device' });
+  const id = /data-go="(mission:[^"]+)"/.exec(t.html())[1];
+  t.click({ 'data-go': id });
+  assert.match(t.html(), /before you change passwords on this computer/);
+  assert.match(t.html(), /data-go="accounts"/);
+  assert.doesNotMatch(t.html(), /This isn’t urgent/);
+  const other = await setup({ situation: { id: 'wifi' } });
+  other.click({ 'data-go': id });
+  assert.doesNotMatch(other.html(), /before you change passwords on this computer/);
+});
+
+test('a check that couldn’t run is named in words, not by its module name', async () => {
+  const { renderDistrict } = await import('../renderer/game/views/district.js');
+  const html = renderDistrict({ district: { id: 'gatehouse', name: 'The Gatehouse', missions: [], notes: [], status: 'partial', checksRan: 1,
+    fog: [{ module: 'code_signature_audit', reason: 'timed out after 60.0s' }] }, progress: { missions: {} }, scout: () => '' });
+  assert.match(html, /Code signature audit<\/strong>: timed out/);
+  assert.doesNotMatch(html, /code_signature_audit/);
+});

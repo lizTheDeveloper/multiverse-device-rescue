@@ -27,7 +27,9 @@ export function renderDistrict({ district: d, progress, scout }) {
   const rows = missions + reclaimed;
   const notes = d.notes.map((n) => `<li>${esc(n.title)}</li>`).join('');
   // A monitoring check is never named on the city (held.js): just "A check".
-  const fog = d.fog.map((x) => `<li><strong>${esc(HELD_MODULES.has(x.module) ? 'A check' : x.module)}</strong>: ${esc(x.reason)}</li>`).join('');
+  // Others in words ("Code signature audit"), the way the sweep names them.
+  const words = (name) => { const w = String(name).replace(/_/g, ' '); return w.charAt(0).toUpperCase() + w.slice(1); };
+  const fog = d.fog.map((x) => `<li><strong>${esc(HELD_MODULES.has(x.module) ? 'A check' : words(x.module))}</strong>: ${esc(x.reason)}</li>`).join('');
   return `
   <section class="district-screen">
     <div class="crumbs"><button type="button" data-go="map">Your computer</button> / <b>${esc(d.name)}</b></div>

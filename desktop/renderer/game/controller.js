@@ -39,6 +39,7 @@ import { pickDistrict, seedFrom } from './district-names.js';
 import { SIX_ROSES } from './side-district.js';
 import { renderSide, sideTileHtml, heldNoticeHtml } from './views/side-district.js';
 import { createAccountsScreen, ACCOUNT_SCREENS } from './accounts-screen.js';
+import { HACK_MODULES } from './account-recovery.js';
 
 // Specifiers resolve against this file (app://rescue/game/controller.js).
 const loadLessonsHere = () => loadLessons((spec) => import(spec));
@@ -686,7 +687,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const controls = note.kind === 'held' ? ''
         : `${win.FixFlow.fixControlsHtml(m.primary, watchedOpts())}${win.MarkFlow.markControlsHtml(m.primary, watchedOpts())}${routerHtml(m.primary)}`;
       return renderBriefing({ mission: m, status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: controls,
-        scout, busy: s.busy, wantsSafety: win.RescueHost.wantsSafety(m.primary), learned: lessonForModule(s.lessons, s.progress, m.module), note });
+        scout, busy: s.busy, wantsSafety: win.RescueHost.wantsSafety(m.primary), learned: lessonForModule(s.lessons, s.progress, m.module), note,
+        forHack: acct.offered() && HACK_MODULES.has(m.module) });
     }
     if (s.screen === 'outcome' && s.outcome) {
       // After a fix the engine can undo, offer Undo here too, but only on the
