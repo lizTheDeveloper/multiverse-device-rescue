@@ -147,7 +147,7 @@ const MODULE_NAME = /^[a-z][a-z0-9_]{0,63}$/;
 // pid and port. Then a path's owner and signature, and the engine's own
 // read-only single-module re-check (docs/cli.md: `--module`). Nothing here
 // changes the computer: no sudo, no kill, no mv, no launchctl.
-const FROM_WALKTHROUGH = 'From the walkthrough for this kind of finding.';
+export const FROM_WALKTHROUGH = 'From the walkthrough for this kind of finding.';
 const CHECK_KIND = { unusual_listening_port: 'listen', unusual_outbound_connection: 'conn' };
 export function checkCommands(finding, platform, clues = []) {
   if (!finding || typeof finding !== 'object' || HELD_MODULES.has(finding.module)) return [];

@@ -122,7 +122,7 @@ test('instruments: integrity with a text equivalent, a hidden sparkline, confirm
   assert.match(html, /City integrity 72%, up from 61% last sweep\./);
   assert.match(html, /<b>4<\/b> <small>SORTED<\/small>[\s\S]*<b>2<\/b> <small>CONFIRMED<\/small>[\s\S]*<b>3<\/b> <small>YOU REPORTED<\/small>/);
   assert.doesNotMatch(html, /<b>5<\/b>/, 'confirmed and reported are never summed');
-  assert.match(html, /ROOKIE[\s\S]*40 POINTS[\s\S]*aria-valuenow="40"[\s\S]*60 points to SIGNAL ANALYST/);
+  assert.match(html, /ROOKIE[\s\S]*40 XP[\s\S]*aria-valuenow="40"[\s\S]*60 XP to SIGNAL ANALYST/);
   const none = v.renderInstruments({ integrity: null, previous: null, history: [null], bars: {}, rank: v.rankOf(v.emptyDeck()) });
   assert.match(none, /<b>—<\/b>/);
   assert.doesNotMatch(none, /<b>\d+%<\/b>/);

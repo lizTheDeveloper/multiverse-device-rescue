@@ -5,8 +5,8 @@
 import { findingsToCity, DISTRICTS, findingIdentity } from './findings-to-city.js';
 import { splitHeld, heldOnly, briefingNote, heldPanelHtml, HELD_MODULES, HELD_LABEL } from './held.js';
 import { loadProgress, saveProgress, reconcile, setStatus, setLessonDone, lessonDone, ranOkModules, recheckOutcome, setDeck } from './progress.js';
-import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds } from './signals.js';
-import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES,
+import { buildSignals, compareSignals, queueOf, cityIntegrity, districtHeat, sweepCounts, heldDistrictIds } from './signals.js';
+import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, POINTS, MONITORING_MODULES,
   isWatchKey, sessionTag, withSessionTags } from './ledger.js';
 import { cluesFor, drillClues, scoutRead, drillRead, COULDNT_READ } from './clues.js';
 import { loadDrills, chooseDrills, mixDrills, drillSignal, pickDrills } from './drills.js';
@@ -49,7 +49,17 @@ import { noteMarked } from './ledger.js';
 import { renderYours, yoursTileHtml, mineRowHtml, bulkBarHtml, toastHtml, confirmHtml } from './views/yours.js';
 // How much detail is shown (level.js): never what is safe.
 import { readLevel, levelOf, writeLevel, levelPolicy, LEVELS, canTestOut } from './level.js';
-import { renderLevelPicker, levelButton, evidenceHtml } from './views/level.js';
+import { renderLevelPicker, evidenceHtml } from './views/level.js';
+// Found during the sweep (live.js) and the guided walkthrough (guided.js).
+import { liveInit, liveApply, liveDoc, liveSignals } from './live.js';
+import { guideMode, guideSteps } from './guided.js';
+import { guidedPanelHtml, catPickerHtml, arrivalsHtml, caseBadgeHtml, inlineCaseHtml, inlineCatHtml, doneHtml } from './views/guided.js';
+// The incident report (case-file.js): leads, open doors, upkeep, blind spots.
+import { caseOf, compareCases, mergeEchoes, caseReport } from './case-file.js';
+import { renderScoreboard, reportHtml, recapText } from './views/scoreboard.js';
+import { suggestCategory, OWN_CATEGORY_IDS, OWN_CATEGORIES, radarOf } from './own-categories.js';
+import { renderRadar } from './views/radar.js';
+import { countSort, restoreTag } from './ledger.js';
 import { sweepLine, sweepDoneLine, fixRcControls, focusScreenHeading } from './a11y.js';
 import { attachDisplayPanel } from './display-panel.js';
 // The technical level's triage queue (triage-screen.js): every case, keyboard first, live during the sweep.
@@ -119,7 +129,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   const say = (text) => { if (text && live && live !== frame) live.textContent = text; };
   // A new screen starts at its top, TEXT & MOTION included, not where the last one was scrolled to.
   const bar = shadow.getElementById('display-bar');
-  attachDisplayPanel({ bar: bar !== frame ? bar : null, host, storage, win });
+  // SETTINGS holds the detail level too: picking one there redraws the city.
+  attachDisplayPanel({ bar: bar !== frame ? bar : null, host, storage, win, level: () => levelOf(storage),
+    setLevel: (lv) => { if (writeLevel(storage, lv)) render(); } });
   const toTop = () => { if (bar && bar !== frame && typeof bar.scrollIntoView === 'function') bar.scrollIntoView({ block: 'start' }); };
   const scout = (feeling, size) => scoutSprite(feeling, { size });
   const now = () => new Date().toISOString();
@@ -139,9 +151,15 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     sideTicket: 0, sideNotice: false, heldOpen: false,
     // The connection watch, and its findings' tags (memory only: ledger sessionTag).
     watch: idleWatch(), watchTags: {},
-    // The DETAIL panel (level.js) is open. The level itself is in storage.
-    levelOpen: false };
+    // What this sweep found so far (live.js), and how many of those were sorted on the sweep. Memory only.
+    live: liveInit(), liveSorted: 0,
+    // The last verdict in a row, for its done line and UNDO; a CHECK AGAIN running in place.
+    done: null, checking: null,
+    // THIS SESSION on the scoreboard: calls made after looking, the run of them, the best run; lessons done. Memory only.
+    session: { sorted: 0, run: 0, best: 0, lessons: 0 },
+  };
   let drawnScreen = null; // the screen the last render drew
+  let sweepKeys0 = null; // the sweep's award keys when a game sweep started (showBoss)
   let drawnKey = null; // ...and which one of it (a district, a lesson question, a game route)
   let sweepSaid = 0; // the last quarter of the sweep said aloud (a11y.js sweepLine)
 
@@ -170,11 +188,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // The detail level (level.js): how much is shown, never what is safe.
   const level = () => levelOf(storage);
   const policy = () => levelPolicy(level());
-  const levelHtml = () => levelButton(level());
-  // The cards: when DETAIL is open, or (on the Training Grounds, where city
-  // mode starts) once, until a level is chosen.
-  const pickerHtml = (askHere = false) => (s.levelOpen ? renderLevelPicker({ chosen: readLevel(storage) })
-    : askHere && readLevel(storage) === null ? renderLevelPicker({ chosen: null, first: true }) : '');
+  // The cards: on the Training Grounds, where city mode starts, once, until a
+  // level is chosen. After that the level lives in SETTINGS (display-panel.js).
+  const pickerHtml = (askHere = false) => (askHere && readLevel(storage) === null ? renderLevelPicker() : '');
   const evidenceFor = (finding, clues) => (policy().evidence && finding ? evidenceHtml(finding, platform(), clues || cluesFor(finding)) : '');
 
   // loadLessons never rejects: a lesson that fails to load is left out.
@@ -358,7 +374,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       routerHtml: () => (win.RouterLink ? win.RouterLink.gameLinkHtml(routerFor()) : '') }) : '';
     return renderBoss({ boss: s.boss, scout, tips: s.tips, tipsOpen: s.tipsOpen, learn: learnFor(), lessonHtml,
       offer: inline || !s.lessonsLoaded ? null : sweepOfferNow(), lessonsLoaded: s.lessonsLoaded,
-      lessonsDone: s.lessons.filter((l) => lessonDone(s.progress, l.id)).length, lessonsTotal: s.lessons.length, triageHtml: triageButton() });
+      lessonsDone: s.lessons.filter((l) => lessonDone(s.progress, l.id)).length, lessonsTotal: s.lessons.length,
+      // Calm levels open a case right in FOUND SO FAR; technical's panel sits over the sweep.
+      arrivalsHtml: arrivalsNow(), panelHtml: s.signal && !inlineOn() ? signalPanelHtml() : '', calm: inlineOn(), triageHtml: triageButton() });
   }
 
   // Lessons show before any scan, so the platform falls back to what preload says.
@@ -432,7 +450,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // --- Triage (technical level): the same deck, ledger and desk, keyboard first.
   const triageOn = () => level() === 'technical';
   const triage = createTriageScreen({ frame, now, scanning: () => s.scan.running, boss: () => s.boss,
-    signals: () => (s.city ? signalsNow() : []), quiet: (d) => quietDoc(d), platform: () => platform(),
+    signals: () => (s.city ? signalsNow() : []), live: () => s.live, quiet: (d) => quietDoc(d), platform: () => platform(),
     tagsDeck: () => withSessionTags(s.progress.deck, s.watchTags), changed: () => s.changedTags, ctx: () => programCtx, desk,
     held: () => s.held, closedIds: () => new Set(Object.keys(s.progress.deck.confirmed || {})),
     // Its words are the city's own: city mode names only the generated district.
@@ -441,15 +459,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     clearChanged: (id) => s.changedTags.delete(id), award: (kind, key) => commitAward(award(s.progress.deck, kind, key)),
     opened: (id) => openedFor(id), cluesOf: (sig) => cluesOf(sig), log: logEntry,
     evidence: (sig) => triageEvidence(sig),
-    // CHECK AGAIN: that one check, read-only, the way a mark's re-check runs. null: the app's gate took over.
-    recheck: async (name) => {
-      let r = null;
-      try { r = await win.rescue.recheckModule(name); } catch (_) { r = null; }
-      if (!r || !r.ok) return false;
-      if (!win.RescueHost.docChanged(r.doc)) return null;
-      rebuild(r.doc);
-      return true;
-    },
+    // CHECK AGAIN: the same path as a case's own (checkSignalAgain).
+    recheck: (sig) => checkSignalAgain(sig),
+    // A first sort counts the same as on the deck: the lifetime count, the sweep's tally, the run.
+    firstSort: (sig) => { commitDeck(countSort(s.progress.deck)); noteFirstSort(sig); },
     render: () => render(), back: () => { s.screen = s.scan.running ? 'boss' : s.city ? 'map' : 'training'; render(); } });
   const triageEvidence = (sig) => {
     if (sig.kind === 'couldnt') return `<p class="intel">${esc(sig.description || COULDNT_READ)}</p>`;
@@ -460,7 +473,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   const triageButton = () => (triageOn() ? `<button type="button" class="btn-s tri-go" data-go="triage">TRIAGE ▶ <b>${esc(triage.openCount())}</b></button>` : '');
   // The quick MINE control for one signal, where it is shown (a queue row, the panel, the briefing).
   function quickControl(sig, inRow) {
-    const qm = desk.qmOf(sig);
+    // Found during the sweep: marking it in Reclaim City waits for the finished scan.
+    const qm = sig && !sig.live ? desk.qmOf(sig) : null;
     if (!qm) return '';
     const watch = desk.isWatch(sig);
     if (desk.saving.has(sig.id)) return mineRowHtml(sig, qm, { saving: true });
@@ -527,8 +541,54 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const d = s.drillBank.find((x) => x.id === id.slice(6));
       return d ? drillSignal(d) : null;
     }
-    return signalsNow().find((x) => x.id === id) || null;
+    return signalsNow().find((x) => x.id === id) || (s.scan.running ? liveNow().find((x) => x.id === id) : null) || null;
   }
+  // The sweep's live signals: what the finished checks found, built the way
+  // rebuild() builds the city (held split off, the list's own quieting), but
+  // never reconciled or stored. Rebuilt only when another check lands.
+  let liveMemo = { n: -1, list: [] };
+  function liveNow() {
+    const d = s.scan.running ? liveDoc(s.live, platform()) : null;
+    if (!d) return [];
+    if (liveMemo.n === d.modules.length) return liveMemo.list;
+    const city = findingsToCity(quietDoc(splitHeld(d).doc));
+    const list = liveSignals(buildSignals(city, withSessionTags(s.progress.deck, s.watchTags), s.changedTags)).sort(compareSignals);
+    liveMemo = { n: d.modules.length, list };
+    return list;
+  }
+  // FOUND SO FAR on the sweep: technical opens each at once; new and everyday
+  // see one at a time, guided, once a lesson is done.
+  // Calm: cases, not severities. Leads (is this yours?) and open doors come
+  // first, the same door said by several checks is one, and upkeep waits for the deck.
+  function arrivalsNow() {
+    const all = liveNow();
+    const open = all.filter((x) => !x.tag || x.tag === 'closer');
+    const calm = level() !== 'technical';
+    const unlocked = !calm || s.lessons.some((l) => lessonDone(s.progress, l.id)) || !s.lessons.length;
+    if (!calm) return arrivalsHtml({ items: open, calm, unlocked, sortedNow: s.liveSorted });
+    const cases = calmCases(open);
+    const openHtml = s.signal && s.screen === 'boss' ? signalPanelHtml() : '';
+    return arrivalsHtml({ items: cases, calm, unlocked, sortedNow: s.liveSorted, badge: (x) => caseBadgeHtml(x.case), openHtml,
+      done: !openHtml ? doneHtml(s.done) : '' });
+  }
+  const calmCases = (list) => mergeEchoes(list.map((x) => ({ ...x, case: caseFor(x) }))
+    .filter((x) => x.case.type === 'lead' || x.case.type === 'door').sort(compareCases));
+  // YOUR COMPUTER'S RADAR (views/radar.js): what the things called MINE are
+  // for, and how many of each are running now, from the deck's own tags.
+  function radarHtml() {
+    const deck = s.progress.deck;
+    const running = {};
+    for (const x of signalsNow()) {
+      const t = deck.tags[x.id];
+      if (!t || t.tag !== 'mine' || !t.cat || x.kind !== 'real') continue;
+      if (kindsOf(x.finding, programCtx).some((k) => k.id === 'running')) running[t.cat] = (running[t.cat] || 0) + 1;
+    }
+    return renderRadar({ counts: radarOf(deck), running });
+  }
+  // The incident report's counts for the HUD, at every level.
+  const calmReport = () => (s.city ? caseReport(mergeEchoes(signalsNow().filter((x) => x.kind === 'real' || x.kind === 'couldnt')
+    .map((x) => ({ ...x, case: caseFor(x) })))) : null);
+  const caseFor = (sig) => caseOf(sig, { kinds: sig.kind === 'real' ? kindsOf(sig.finding, programCtx) : [] });
   // A district's note opens its signal on the deck, when the note is one (a
   // grouped connection-watch note isn't on its own).
   function noteSignalGo() {
@@ -547,17 +607,103 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // The quick MINE step comes first; MarkFlow's own panel only where the quick one can't be offered.
     const quick = quickControl(sig, false);
     const mine = !quick && sig.kind === 'real' && sig.missionId && !sig.marked ? win.MarkFlow.markControlsHtml(sig.finding, watchedOpts()) : '';
+    const onSweep = s.screen === 'boss';
+    // After MINE: what is it for? (own-categories.js). Never for the watch's session-only tags.
+    const c = sig.kind === 'real' || sig.kind === 'couldnt' ? caseFor(sig) : null;
+    // New and everyday read the case (case-file.js) where the severity was.
+    const caseHtml = c ? caseBadgeHtml(c) : '';
+    const cat = c && c.type === 'lead' && sig.kind === 'real' && !isWatchKey(sig.id) ? catPickerHtml({ picked: s.signal.cat,
+      suggested: suggestCategory(sig.finding, kindsOf(sig.finding, programCtx).map((k) => k.id)), looked: openedFor(sig.id).length > 0 }) : '';
+    const door = !!c && c.type === 'door';
+    if (s.signal.guided === 'full') return guidedHtml(sig, { quick, mine, cat, onSweep, caseHtml, door });
+    if (inlineFor(sig)) return inlineHtml(sig, { c, caseHtml, door });
+    if (s.signal.guided === 'light') return guidedHtml(sig, { quick, mine, cat, onSweep, caseHtml, door });
     return renderSignalPanel({ signal: sig, districtName: nameOf(sig.districtId), clues: cluesOf(sig), opened: openedFor(sig.id),
       tagged: s.signal.tagged, right: s.signal.right, read: s.signal.read, points: s.signal.points, scout, mineHtml: mine,
       range: s.screen === 'range' ? { hasCity: !!s.city } : null, quickHtml: quick, chipsHtml: chipsFor(sig),
-      fold: policy().foldRaw, evidenceHtml: sig.kind === 'real' ? evidenceFor(sig.finding, cluesOf(sig)) : '' });
+      fold: policy().foldRaw, evidenceHtml: sig.kind === 'real' ? evidenceFor(sig.finding, cluesOf(sig)) : '', catHtml: cat, onSweep, caseHtml });
+  }
+
+  // New and everyday open a case in its own row, not in a panel across the
+  // screen (Fitts): the verdict under the title, the next case in the same
+  // place after it. Drills and the drill range keep their panel.
+  const inlineOn = () => level() !== 'technical';
+  const inlineFor = (sig) => inlineOn() && s.screen !== 'range' && !!sig && (sig.kind === 'real' || sig.kind === 'couldnt');
+  // (Marking it in Reclaim City itself stays on its briefing and in YOURS.)
+  function inlineHtml(sig, { c, caseHtml, door }) {
+    const g = s.signal;
+    const lead = !!c && c.type === 'lead' && sig.kind === 'real' && !isWatchKey(sig.id);
+    const asking = g.asking && lead
+      ? inlineCatHtml({ suggested: suggestCategory(sig.finding, kindsOf(sig.finding, programCtx).map((k) => k.id)), looked: openedFor(sig.id).length > 0 }) : null;
+    const offered = !sig.live && sig.kind === 'real' && !!sig.module && !MONITORING_MODULES.has(sig.module);
+    return inlineCaseHtml({ sig, clues: sig.kind === 'real' ? cluesOf(sig) : [], districtName: nameOf(sig.districtId), caseHtml,
+      chipsHtml: chipsFor(sig), door, couldnt: sig.kind === 'couldnt', asking, done: s.done, earned: g.points,
+      hint: g.guided === 'light' ? 'Read who made it and what it does, then make your call.' : '',
+      stepsHtml: sig.missionId && !sig.live ? `<button type="button" class="btn-t" data-go="mission:${esc(sig.missionId)}">${sig.fixable ? 'SEE THE FIX ▶' : 'SEE THE STEPS ▶'}</button>` : '',
+      check: { offered, busy: s.checking === sig.id, text: g.check || '' }, fold: true });
+  }
+
+  // The guided walkthrough's panel (guided.js): the steps, then after the
+  // call the same read, XP and optional steps as the ordinary panel.
+  function guidedHtml(sig, { quick, mine, cat, onSweep, caseHtml, door }) {
+    const g = s.signal;
+    let after = '';
+    if (g.tagged) {
+      after = `${g.read ? `<div class="scout-row">${scout('happy', 54)}<p class="say">${esc(g.read)}</p></div>` : ''}
+        ${g.points > 0 ? `<p class="points g-xp">+${esc(g.points)} INCIDENT RESPONSE XP</p>` : '<p class="intel faint">Sorted. Open the clues before your call to earn XP.</p>'}
+        ${g.tagged === 'mine' && (quick || mine) ? `<details class="panel g-optional"><summary class="label">OPTIONAL: TELL RECLAIM CITY TOO</summary>
+          <p class="intel">This asks Reclaim City itself to stop flagging it. It asks first, and you can undo it.</p>${quick || mine}</details>` : ''}
+        ${g.tagged === 'threat' ? `<p class="intel">${door ? 'To close it, follow its steps' : 'It’s on your THREAT BOARD'}${sig.live ? ' on the deck when the checkup is done.' : '. They’re one click away there.'}</p>` : ''}
+        ${g.tagged === 'closer' ? '<p class="intel">It stays in your queue for later.</p>' : ''}`;
+    }
+    const next = g.tagged ? nextGuided(sig.id) : null;
+    return guidedPanelHtml({ sig, mode: g.guided, steps: guideSteps(cluesOf(sig)), step: g.step || 0, districtName: nameOf(sig.districtId),
+      tagged: g.tagged, fold: true, chipsHtml: chipsFor(sig), earned: g.points, after, onSweep, caseHtml, door,
+      afterMore: g.tagged === 'mine' ? cat : '',
+      inline: inlineFor(sig), doneHtml: doneHtml(s.done),
+      nextHtml: next ? '<button type="button" class="btn-p" data-act="guide-another">NEXT ONE ▶</button>' : '' });
+  }
+  // The next signal still to sort after this one: on the sweep, what it found
+  // so far; on the deck, the queue (drills aside).
+  function nextGuided(afterId) {
+    const base = s.screen === 'boss' ? liveNow() : deckQueue().items.filter((x) => x.kind === 'real');
+    const list = level() === 'technical' ? base : calmCases(base);
+    return list.find((x) => x.id !== afterId && (!x.tag || x.tag === 'closer')) || null;
+  }
+  // A guided step's clue pays as it's shown, like SCAN CLUE: once per finding per sweep.
+  function payStep(sig, i) {
+    const st = guideSteps(cluesOf(sig))[i];
+    if (!st || !st.clue) return;
+    const opened = openedFor(sig.id);
+    if (opened.includes(st.clue.kind)) return;
+    opened.push(st.clue.kind);
+    s.signal.points += commitAward(award(s.progress.deck, 'clue', `${sig.id}#${st.clue.kind}`));
   }
 
   function deckHtml() {
-    const { sigs, q, items } = deckQueue();
+    const { sigs, q, items: raw } = deckQueue();
+    // Every level reads an incident report (case-file.js): leads and open
+    // doors first, echoes merged, blind spots after, upkeep in its own corner,
+    // drills still one in every few. Technical gets the same words, denser,
+    // and TRIAGE ▶ for working through them; `calm` is only the inline rows.
+    const calm = inlineOn();
+    let items = raw;
+    let upkeep = [];
+    {
+      const real = raw.filter((x) => x.kind !== 'drill').map((x) => ({ ...x, case: caseFor(x) }));
+      upkeep = real.filter((x) => x.case.type === 'upkeep');
+      const blind = real.filter((x) => x.case.type === 'blind');
+      const main = [...calmCases(real), ...blind];
+      const drills = raw.filter((x) => x.kind === 'drill');
+      items = main.flatMap((x, i) => ((i + 1) % 4 === 0 && drills.length ? [x, drills.shift()] : [x])).concat(drills);
+    }
+    const openSig = s.signal ? findSignal(s.signal.id) : null;
+    const inlineRow = openSig && inlineFor(openSig) ? signalPanelHtml() : '';
+    const rowShown = !!inlineRow && [...items, ...upkeep, ...(s.lowOpen ? q.low : [])].some((x) => x.id === openSig.id);
+    // Counted as shown: the same door said by several checks is one case.
+    const report = caseReport(mergeEchoes(sigs.filter((x) => x.kind === 'real' || x.kind === 'couldnt').map((x) => ({ ...x, case: caseFor(x) }))));
     const integ = cityIntegrity(s.city, sigs, s.heldCity);
     const deck = s.progress.deck;
-    const history = deck.sweeps.map(sweepPercent);
     const c = counts();
     const goFor = (d) => `filter:${d.id}`;
     const heat = districtHeat(s.city, sigs, s.heldCity);
@@ -582,29 +728,37 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       lastSweep: deck.sweeps.length ? deck.sweeps[deck.sweeps.length - 1] : null,
       // Marked as yours: in YOURS, not the KNOWN AND NOTED pile. Each queue row carries MINE ✓ and its kind.
       items, low: q.low, lowOpen: s.lowOpen, threats: q.threats, known: [...q.known.filter((x) => !x.marked), ...q.noted],
-      rowParts: (x) => ({ extra: quickControl(x, true), chips: chipsFor(x) }), levelHtml: levelHtml(), pickerHtml: pickerHtml(),
-      queueTop: triageButton() + toastHtml(desk.toast) + bulkBarHtml({ count: desk.picked.size, confirming: !!(desk.confirm && desk.confirm.target === '*'),
+      // "new": rows only open, so a first signal is looked at before it's marked; the row controls come with "everyday".
+      rowParts: (x) => (inlineRow && x.id === s.signal.id ? { open: inlineRow }
+        : { extra: level() === 'new' ? '' : quickControl(x, true), chips: chipsFor(x), badge: x.case ? caseBadgeHtml(x.case) : '' }), pickerHtml: pickerHtml(),
+      reportHtml: report ? reportHtml(report) : '', upkeep,
+      // An open case whose row isn't showing (or the last one's done line) tops the queue.
+      queueTop: triageButton() + (inlineRow && !rowShown ? `<div class="open-row">${inlineRow}</div>` : '') + (!inlineRow && s.done ? doneHtml(s.done) : '') + toastHtml(desk.toast) + bulkBarHtml({ count: desk.picked.size, confirming: !!(desk.confirm && desk.confirm.target === '*'),
         watch: !!(desk.confirm && desk.confirm.watch) }),
       filter: fd ? { id: fd.id, name: fd.name } : null, cityHtml,
-      instrumentsHtml: renderInstruments({ integrity: integ.percent, previous: history.length > 1 ? history[history.length - 2] : null,
-        history, bars: { sorted: sortedCount(sigs), confirmed: c.confirmed, reported: c.reported }, rank: rankOf(deck) })
+      instrumentsHtml: renderScoreboard({ report, rank: rankOf(deck), session: s.session, confirmed: c.confirmed, reported: c.reported, integrity: integ.percent })
         + (watchOffered(s.doc) ? renderWatch(s.watch) : ''),
-      log: s.log, moments, panelHtml: s.signal ? signalPanelHtml() : '', nothingChecked: integ.percent === null,
+      log: s.log, moments, panelHtml: s.signal && !inlineRow ? signalPanelHtml() : '', nothingChecked: integ.percent === null,
       scanRunning: s.scan.running, watching: s.watch.state === 'running', districtName: nameOf, notice: heldNotice() + s.linkNotice,
       // With something held, an empty queue points to it instead of saying "clear".
       heldLine: s.held.length ? (inCity() ? `Something new in ${side().name}.` : 'There’s a note above the map.') : '' });
   }
 
-  function openSignal(id) {
+  // `keepDone`: the last verdict's done line stays (advance); any other open clears it.
+  function openSignal(id, { keepDone = false } = {}) {
+    if (!keepDone) s.done = null;
     const sig = findSignal(id);
-    s.signal = sig ? { id: sig.id, tagged: null, right: false, read: '', points: 0 } : null;
+    // New and everyday: the first few real signals not yet sorted are walked through (guided.js).
+    const guided = sig && (!sig.tag || sig.tag === 'closer') ? guideMode(level(), s.progress.deck, sig) : 'none';
+    s.signal = sig ? { id: sig.id, tagged: null, right: false, read: '', points: 0, guided, step: 0, cat: null } : null;
     // A drill already answered this sweep opens with that answer: it takes one.
     const was = sig && sig.kind === 'drill' ? s.drillAnswers[sig.drill.id] : null;
     if (was) s.signal = { ...s.signal, tagged: was.tag, right: was.right, read: drillRead(sig.drill, was.right) };
     // FixFlow and MarkFlow results re-check s.missionId. An info signal has no mission.
     if (sig) s.missionId = sig.missionId || null;
-    if (sig && sig.kind === 'real') lookAtClues(sig);
-    s.screen = 'map';
+    if (sig && sig.kind === 'real') { if (guided === 'full') payStep(sig, 0); else lookAtClues(sig); }
+    // Opened from FOUND SO FAR: the panel sits over the sweep, which keeps running.
+    s.screen = s.screen === 'boss' && s.scan.running ? 'boss' : 'map';
     render();
     const title = s.signal ? frame.querySelector('#sig-title') : null;
     if (title && typeof title.focus === 'function') title.focus();
@@ -651,7 +805,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // on the signal's row in the queue, or else INVESTIGATE NEXT.
   function closeSignal() {
     const id = s.signal && s.signal.id;
-    s.signal = null; s.screen = 'map';
+    s.done = null;
+    s.signal = null; s.screen = s.screen === 'boss' && s.scan.running ? 'boss' : 'map';
     render();
     if (id && focusEl(findByAttr(frame, 'data-go', `signal:${id}`))) return;
     if (focusEl(findByAttr(frame, 'data-act', 'investigate-next'))) return;
@@ -667,18 +822,139 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
 
   // A tag is game sorting only. The bonus is for looking first (two or more
   // clues), never for which tag was picked.
-  function tagSignal(tag) {
+  // `cat`: what a MINE item is for (own-categories.js), from "what is it for?".
+  function tagSignal(tag, cat = null) {
     const sig = s.signal && findSignal(s.signal.id);
     if (!sig) return;
     if (sig.kind === 'drill') { answerDrill(sig, tag); return; }
     if (!(sig.kind === 'couldnt' ? ['noted'] : ['mine', 'threat', 'closer']).includes(tag)) return;
-    commitDeck(tagOne(s.progress.deck, sig, tag));
+    const inline = inlineFor(sig) && s.signal.guided !== 'full';
+    // In a row, MINE on a lead asks "what is it for?" in the verdict's place
+    // first; the tag is only kept once a chip (or SKIP) is picked, so the
+    // case stays in its row until then.
+    if (inline && tag === 'mine' && !s.signal.asking && sig.kind === 'real' && !isWatchKey(sig.id) && caseFor(sig).type === 'lead') {
+      s.signal = { ...s.signal, asking: true };
+      render();
+      focusEl(frame.querySelector('.cat-chip')) || focusEl(frame.querySelector('[data-act="cat-skip"]'));
+      return;
+    }
+    // Where the next one comes from: the order as it is before this one leaves it.
+    const order = inline ? nextCandidates().map((x) => x.id) : [];
+    const prev = (s.progress.deck.tags || {})[sig.id] || null;
+    // A real signal sorted for the first time counts toward the walkthrough's fading (guided.js).
+    const first = sig.kind === 'real' && (!sig.tag || sig.tag === 'closer') && tag !== 'closer';
+    const filed = tag === 'mine' && OWN_CATEGORY_IDS.has(cat) && sig.kind === 'real' && !isWatchKey(sig.id) ? cat : null;
+    const base = first ? countSort(s.progress.deck) : s.progress.deck;
+    commitDeck(filed ? setTag(base, sig.id, 'mine', sig.fp, now(), filed) : tagOne(base, sig, tag));
+    if (first) noteFirstSort(sig);
+    liveMemo = { n: -1, list: [] }; // its tag changes what FOUND SO FAR shows
     s.changedTags.delete(sig.id);
     if (sig.kind === 'real' && openedFor(sig.id).length >= 2) s.signal.points += commitAward(award(s.progress.deck, 'tagBonus', sig.id));
-    s.signal = { ...s.signal, tagged: tag, read: sig.kind === 'couldnt' ? COULDNT_READ : scoutRead(sig, tag) };
+    // Saying what it is for pays once per thing, and only after looking (fileCategory).
+    if (filed && openedFor(sig.id).length > 0) s.signal.points += commitAward(award(s.progress.deck, 'identify', sig.id));
+    s.signal = { ...s.signal, tagged: tag, cat: filed, asking: false, read: sig.kind === 'couldnt' ? COULDNT_READ : scoutRead(sig, tag) };
     logEntry('TAG', `${TAG_WORD[tag]}: ${sig.title}`);
+    if (inline) { advance(sig, tag, prev, order); return; }
     render();
     focusRead();
+  }
+
+  // A real signal's first sort, after its deck count: the sweep's tally and this session's run.
+  function noteFirstSort(sig) {
+    if (sig.live) s.liveSorted += 1;
+    const looked = openedFor(sig.id).length > 0;
+    const run = looked ? s.session.run + 1 : 0;
+    s.session = { ...s.session, sorted: s.session.sorted + (looked ? 1 : 0), run, best: Math.max(s.session.best, run) };
+  }
+
+  // The cases a verdict moves on through: on the sweep, what it found so far;
+  // on the deck, the queue as shown (drills aside); the calm order below technical.
+  function nextCandidates() {
+    const base = s.screen === 'boss' ? liveNow() : deckQueue().items.filter((x) => x.kind === 'real');
+    return level() === 'technical' ? base : calmCases(base);
+  }
+  // Same spot, next case: the one after it in the order it had (so it sits
+  // where this one was), already open, with a small done line and UNDO.
+  function advance(sig, tag, prev, order) {
+    const c = OWN_CATEGORIES.find((x) => x.id === s.signal.cat);
+    s.done = { id: sig.id, tag, title: sig.title, xp: s.signal.points, cat: c ? c.label : '', door: caseFor(sig).type === 'door', prev };
+    const open = new Set(nextCandidates().filter((x) => !x.tag || x.tag === 'closer').map((x) => x.id));
+    const at = order.indexOf(sig.id);
+    const after = [...order.slice(at + 1), ...order.slice(0, Math.max(0, at))];
+    const next = after.find((id) => open.has(id) && id !== sig.id);
+    if (next) { openSignal(next, { keepDone: true }); return; }
+    s.signal = null;
+    render();
+  }
+
+  // UNDO on the done line: the tag goes back to what it was, and the case opens again.
+  // (XP already paid stays paid; paying again is never possible: ledger keys.)
+  function undoSort() {
+    const d = s.done;
+    if (!d) return;
+    commitDeck(restoreTag(s.progress.deck, d.id, d.prev));
+    liveMemo = { n: -1, list: [] };
+    s.done = null;
+    logEntry('TAG', 'Undone');
+    openSignal(d.id);
+  }
+
+  // "What is it for?" after MINE in the guided walkthrough (the call came
+  // first there): the category goes on the MINE tag (ledger setTag). It pays
+  // INCIDENT RESPONSE XP once per thing, ever, and only when its clues were
+  // opened first. Monitoring is never a signal, so it never gets here; the
+  // watch's session-only tags take no category.
+  function fileCategory(cat) {
+    const sig = s.signal && findSignal(s.signal.id);
+    if (!sig || sig.kind !== 'real' || isWatchKey(sig.id) || !OWN_CATEGORY_IDS.has(cat)) return;
+    if (s.signal.asking) { tagSignal('mine', cat); return; }
+    if (s.signal.tagged !== 'mine' || s.signal.cat) return;
+    commitDeck(setTag(s.progress.deck, sig.id, 'mine', sig.fp, now(), cat));
+    if (openedFor(sig.id).length > 0) s.signal.points += commitAward(award(s.progress.deck, 'identify', sig.id));
+    s.signal = { ...s.signal, cat };
+    render();
+  }
+
+  // CHECK AGAIN on a case open in its row: just its check, run again, and
+  // the answer in place. Gone from a check that ran is CONFIRMED (the fix
+  // XP, once ever, as on the briefing); still there says so on the case.
+  // Its check, run again (read-only), and the scan rebuilt from it. Gone
+  // from a check that ran is CONFIRMED: the fix XP, once ever. null when
+  // app.js took over (its gate asked a follow-up).
+  async function checkSignalAgain(sig) {
+    let r;
+    try { r = await win.rescue.recheckModule(sig.module); } catch (_) { r = null; }
+    if (r && r.ok) {
+      if (!win.RescueHost.docChanged(r.doc)) return null;
+      rebuild(r.doc);
+    }
+    const ran = !!(r && r.ok && r.module && r.module.status === 'ok' && r.module.supported !== false);
+    const still = signalsNow().some((x) => x.id === sig.id);
+    let paid = 0;
+    if (ran && !still) {
+      paid = sig.missionId ? commitAward(confirmFix(s.progress.deck, sig.missionId, now())) : 0;
+      logEntry('CONFIRMED', sig.title);
+    }
+    return { ran, still, paid };
+  }
+  async function checkInPlace() {
+    const sig = s.signal && findSignal(s.signal.id);
+    if (!sig || sig.live || sig.kind !== 'real' || !sig.module || MONITORING_MODULES.has(sig.module) || s.busy || s.scan.running) return;
+    s.busy = true; s.checking = sig.id;
+    render();
+    const out = await checkSignalAgain(sig);
+    s.busy = false; s.checking = null;
+    if (!out) return; // app.js asked the follow-up instead
+    const { ran, still, paid } = out;
+    if (ran && !still) {
+      s.done = { id: sig.id, text: `Checked again: gone. ${sig.title}${paid ? ` · +${paid} XP` : ''}` };
+      const next = nextCandidates().find((x) => !x.tag || x.tag === 'closer');
+      if (next) { openSignal(next.id, { keepDone: true }); return; }
+      s.signal = null;
+    } else if (s.signal && s.signal.id === sig.id) {
+      s.signal = { ...s.signal, check: ran ? 'Checked again: still there.' : 'That check couldn’t run just now, so nothing changed.' };
+    }
+    render();
   }
 
   // After a tag, keyboard and screen-reader users land on Scout's read (an
@@ -743,9 +1019,22 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // The mark stays until the monitoring checks ran and found nothing held:
     // a sweep where one timed out or couldn't look (fog) keeps it.
     const carry = heldDistrictIds(s.heldCity).size > 0 || (s.progress.deck.sweep.carry === true && !monitoringRanClear(doc));
+    // XP paid on the sweep for what it found (FOUND SO FAR) stays paid in the
+    // sweep that starts now, so the same clue can't pay again on the deck.
+    const earned = sweepKeys0 ? Object.keys(s.progress.deck.sweep.keys).filter((k) => !(k in sweepKeys0)) : [];
+    sweepKeys0 = null;
     const r = recordSweep(s.progress.deck, counts, now(), { carry });
     commitAward(r);
+    if (earned.length) {
+      const d = s.progress.deck;
+      commitDeck({ ...d, sweep: { ...d.sweep, keys: { ...d.sweep.keys, ...Object.fromEntries(earned.map((k) => [k, true])) } } });
+    }
     logEntry('SWEEP', `${counts.checks} check${counts.checks === 1 ? '' : 's'}: ${counts.critical} critical, ${counts.warning} warning, ${counts.fog} couldn’t check.`);
+    // The recap, in one line: what the sweep did and what the person did meanwhile.
+    if (inlineOn()) {
+      const cases = calmCases(sigs.filter((x) => x.kind === 'real' && (!x.tag || x.tag === 'closer'))).length;
+      addMoment({ kind: 'recap', title: 'SWEEP DONE', text: recapText({ checks: counts.checks, cases, sortedOnSweep: s.liveSorted, lessons: s.session.lessons }) });
+    }
     if (r.clean) {
       addMoment({ kind: 'clean', title: 'CLEAN SWEEP', text: 'No critical or warning signal is open in any district that could be checked.' });
       logEntry('CLEAN SWEEP', 'Every district that could be checked is secured.');
@@ -754,7 +1043,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     for (const p of prev) {
       if (p.kind === 'real' && (p.tag || p.severity !== 'info') && !here.has(p.id)) logEntry('NO LONGER SEEN', p.title);
     }
-    s.opened = {};
+    // Clues opened on the sweep stay opened (their XP is already paid); drills start over.
+    s.opened = earned.length ? Object.fromEntries(Object.entries(s.opened).filter(([id]) => !id.startsWith('drill:'))) : {};
     s.drillAnswers = {};
     s.sweepDrills = s.drillsLoaded ? sweepDrillsNow() : null;
     // A new checkup replaces the watch's results (one can't start while a watch runs).
@@ -858,7 +1148,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       s.screen = s.city ? 'map' : 'training';
     }
     if (s.screen === 'yours') {
-      if (s.city) return renderYours({ inv: yoursNow(), picked: desk.ypicked, scout, toast: desk.toast, fold: policy().foldRaw });
+      if (s.city) return renderYours({ inv: yoursNow(), picked: desk.ypicked, scout, toast: desk.toast, fold: policy().foldRaw, radarHtml: radarHtml() });
       s.screen = 'training';
     }
     if (s.screen === 'range') return rangeHtml();
@@ -870,7 +1160,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (s.screen === 'training') {
       return sideTile() + renderTraining({ ordered: orderLessons(s.lessons, s.situation && s.situation.id), progress: s.progress,
         worryTitle: s.situation && s.situation.title, scan: s.scan, scout, pendingCity: cityWaiting(),
-        lessonsLoaded: s.lessonsLoaded, scanFinished: !!s.city, level: level(), levelHtml: levelHtml(), pickerHtml: pickerHtml(true),
+        lessonsLoaded: s.lessonsLoaded, scanFinished: !!s.city, level: level(), pickerHtml: pickerHtml(true),
         testOut: policy().lessonsOptional ? canTestOut : () => false });
     }
     if (s.screen === 'lesson') {
@@ -951,7 +1241,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const body = screenHtml();
       // The deck has its own top bar; the training and range screens have theirs.
       const hud = NO_CITY_SCREENS.has(s.screen) || s.screen === 'map' || s.screen === 'side' || s.screen === 'yours' ? ''
-        : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts(), levelHtml: levelHtml() })
+        : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts(), report: calmReport() })
           + pickerHtml() + s.linkNotice;
       // game.css reads the level for density (technical) and the folded details (new).
       frame.className = `frame level-${level()}`;
@@ -991,7 +1281,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   }
 
   // `trigger` is what asked for the re-check: fix | undo | mark | unmark |
-  // i-did-it. `also` lists other modules to re-check (a mark that covered
+  // i-did-it | check (CHECK AGAIN). `also` lists other modules to re-check (a mark that covered
   // findings in more than one check). The outcome is for this mission only.
   async function recheck(missionId, trigger = 'i-did-it', also = []) {
     const m = mission(missionId) || s.outcomeMission;
@@ -1019,7 +1309,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // Only a re-check proves a fix: CONFIRMED, and the fix points pay once per finding, ever.
     // Nothing about monitoring software is scored or logged (confirmFix refuses it too).
     const monitoring = MONITORING_MODULES.has(m.module);
-    if (outcome === 'reclaimed' && (trigger === 'fix' || trigger === 'i-did-it') && !monitoring) {
+    // CHECK AGAIN ('check') is the same evidence as I DID IT: gone when looked at again.
+    if (outcome === 'reclaimed' && (trigger === 'fix' || trigger === 'i-did-it' || trigger === 'check') && !monitoring) {
       commitAward(confirmFix(s.progress.deck, m.id, now()));
       logEntry('CONFIRMED', m.title);
     }
@@ -1105,18 +1396,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     // The connection watch runs alongside everything else, re-checks included.
     if (act && act.startsWith('watch-')) { watchAct(act); return; }
-    // DETAIL (level.js): only how much is shown changes, so it works any time.
-    if (act === 'level-open' || act === 'level-close') {
-      s.levelOpen = act === 'level-open' ? !s.levelOpen : false;
-      render();
-      if (!s.levelOpen || !focusEl(frame.querySelector('.level-card.on') || frame.querySelector('.level-card'))) {
-        focusEl(findByAttr(frame, 'data-act', 'level-open'));
-      }
-      return;
-    }
+    // The first-run cards (level.js): only how much is shown changes, so it works any time.
     if (act && act.startsWith('level:')) {
       const lv = act.slice(6);
-      if (LEVELS.includes(lv)) { writeLevel(storage, lv); s.levelOpen = false; render(); focusEl(findByAttr(frame, 'data-act', 'level-open')); }
+      if (LEVELS.includes(lv)) { writeLevel(storage, lv); render(); focusScreenHeading(frame); }
       return;
     }
     if (s.busy) return;
@@ -1161,6 +1444,21 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (act && act.startsWith('clue:')) { scanClue(act.slice(5)); return; }
     if (act && act.startsWith('tag:')) { tagSignal(act.slice(4)); return; }
+    if (act && act.startsWith('cat:')) { fileCategory(act.slice(4)); return; }
+    if (act === 'cat-skip' && s.signal && s.signal.asking) { tagSignal('mine'); return; }
+    if (act === 'sort-undo') { undoSort(); return; }
+    // The guided walkthrough (guided.js): the next step, straight to the call, or the next signal.
+    if ((act === 'guide-next' || act === 'guide-call') && s.signal && s.signal.guided === 'full' && !s.signal.tagged) {
+      const sig = findSignal(s.signal.id);
+      if (!sig) return;
+      const last = guideSteps(cluesOf(sig)).length - 1;
+      s.signal.step = act === 'guide-call' ? last : Math.min(last, (s.signal.step || 0) + 1);
+      payStep(sig, s.signal.step);
+      render();
+      focusEl(frame.querySelector('#g-step-title')) || focusEl(frame.querySelector('#sig-title'));
+      return;
+    }
+    if (act === 'guide-another' && s.signal) { const n = nextGuided(s.signal.id); if (n) openSignal(n.id); return; }
     if (act === 'close-signal') { closeSignal(); return; }
     if (act === 'toggle-low') { s.lowOpen = !s.lowOpen; render(); return; }
     if (act === 'batch-fine') { batchFine(); return; }
@@ -1252,6 +1550,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       if (!lessonDone(s.progress, s.lesson.id)) {
         s.progress = setLessonDone(s.progress, s.lesson.id, now());
         saveProgress(storage, s.progress);
+        s.session = { ...s.session, lessons: s.session.lessons + 1 };
       }
       // A lesson opened from the sweep goes back to the sweep (whose WHILE YOU
       // WAIT then offers the next one), or, once the checkup has finished, to
@@ -1272,6 +1571,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (go && go.startsWith('milestone:')) { s.screen = 'milestone'; s.districtId = go.slice(10); render(); return; }
     if (go && go.startsWith('mission:')) { s.screen = 'mission'; s.missionId = go.slice(8); render(); return; }
     if (act === 'i-did-it') { recheck(s.missionId, 'i-did-it'); return; }
+    // CHECK AGAIN: just this check, again. On the briefing, the same re-check as I DID IT;
+    // on a case open in the queue, in place (checkInPlace).
+    if (act === 'check-again') { if (s.screen === 'mission') recheck(s.missionId, 'check'); else if (s.signal) checkInPlace(); return; }
     if (act === 'recheck') { recheck(s.outcomeMission && s.outcomeMission.id, s.trigger, s.recheckModules); return; }
     if (act === 'later') {
       const m = mission(s.missionId);
@@ -1479,6 +1781,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     showBoss() {
       s.boss = bossInit();
       triage.reset();
+      s.live = liveInit(); s.liveSorted = 0; liveMemo = { n: -1, list: [] };
+      // Clue and tag XP earned on the sweep belongs to the sweep it found (newSweep keeps it).
+      sweepKeys0 = { ...s.progress.deck.sweep.keys };
       s.sweepOffer = null; s.sweepPassed = [];
       s.scan = { running: true, index: 0, total: 0, error: null };
       s.pendingCity = false;
@@ -1497,13 +1802,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       if (!s.scan.running) return;
       s.boss = bossApply(s.boss, ev);
       s.scan = { ...s.scan, index: s.boss.index, total: s.boss.total };
+      s.live = liveApply(s.live, ev);
       const line = sweepLine(s.boss, sweepSaid);
       sweepSaid = line.said;
       say(line.text);
-      // A finished check's findings feed the triage queue (technical), redrawn in place.
-      triage.feed(ev);
+      // A signal open over the sweep isn't redrawn under the person while they read it.
+      if ((s.screen === 'boss' && !s.signal) || s.screen === 'training') render();
+      // The triage queue (technical) redraws its rows in place from the same live findings.
       if (s.screen === 'triage') triage.live();
-      if (s.screen === 'boss' || s.screen === 'training') render();
     },
     // Mid-lesson, the person stays in the lesson with a banner; otherwise the city.
     scanDone(doc, situation) {

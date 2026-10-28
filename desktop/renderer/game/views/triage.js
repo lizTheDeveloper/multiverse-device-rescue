@@ -52,8 +52,7 @@ function actionsCell(r, i, { canCheck }) {
   if (r.held) return '<span class="tri-acts held-note">Not sorted here</span>';
   const name = r.name;
   if (r.couldnt) {
-    return `<span class="tri-acts">${btn(`tri-tag:noted:${i}`, 'NOTED', `Noted: ${name}`, 'btn-t tri-v')}
-      ${canCheck ? btn(`tri-check:${i}`, '⟳', `Check again: ${name}`, 'btn-t tri-v tri-chk') : ''}</span>`;
+    return `<span class="tri-acts">${btn(`tri-tag:noted:${i}`, 'NOTED', `Noted: ${name}`, 'btn-t tri-v')}</span>`;
   }
   if (r.marked) return `<span class="tri-acts"><span class="badge yours">IN YOURS</span>${canCheck ? btn(`tri-check:${i}`, '⟳', `Check again: ${name}`, 'btn-t tri-v tri-chk') : ''}</span>`;
   const lead = r.case.type === 'lead';

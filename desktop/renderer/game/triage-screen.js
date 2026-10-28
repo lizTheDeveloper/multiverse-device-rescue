@@ -13,7 +13,7 @@ import { buildSignals } from './signals.js';
 import { caseReport } from './case-file.js';
 import { programContext } from './program-kinds.js';
 import { OWN_CATEGORY_IDS } from './own-categories.js';
-import { liveModuleOf, liveCity, rowsOf, heldRow, viewOf, keyAction, rangeIds, selectable, planTag, groupCategory,
+import { liveCity, rowsOf, heldRow, viewOf, keyAction, rangeIds, selectable, planTag, groupCategory,
   restoreTags, restoreWatchTags, defaultFilters, groupMineable, SKIP_WHY, SORTS, GROUPS, UNDO_KEEP, TYPE_IDS } from './triage.js';
 import { renderTriage, bodyHtml, statsHtml, toastHtml, helpHtml } from './views/triage.js';
 
@@ -23,23 +23,27 @@ const LIVE_DELAY = 120; // ms: progress lines come in bursts; one redraw per bur
 
 // `frame`: the city's frame (its clicks and keys arrive through the controller;
 // selects and the search box are listened to here). See controller.js for the rest.
-export function createTriageScreen({ frame, now, scanning, boss, signals, quiet, platform, tagsDeck, changed, ctx, desk, held, heldSpec,
-  closedIds, deck, commitDeck, watchTags, setWatchTags, clearChanged, award, opened, cluesOf, log, evidence, recheck, render, back,
+export function createTriageScreen({ frame, now, scanning, boss, signals, live = () => null, quiet, platform, tagsDeck, changed, ctx, desk, held, heldSpec,
+  closedIds, deck, commitDeck, firstSort = () => {}, watchTags, setWatchTags, clearChanged, award, opened, cluesOf, log, evidence, recheck, render, back,
   timer = (f, ms) => setTimeout(f, ms) }) {
-  const st = { live: new Map(), cursorId: null, cursorAt: 0, anchor: null, selected: new Set(), expanded: new Set(), ask: null,
+  const st = { cursorId: null, cursorAt: 0, anchor: null, selected: new Set(), expanded: new Set(), ask: null,
     toast: null, help: false, filters: defaultFilters(), sort: 'case', group: 'none', undo: [] };
   let view = { items: [], count: 0, total: 0, report: caseReport([]) };
   let liveTimer = null;
 
   // --- Rows -------------------------------------------------------------------
-  const isLive = () => scanning() && st.live.size > 0;
+  // While sweeping, the controller's live findings (live.js: `rescue scan --live`).
+  // Once a monitoring check holds something, nothing more arrives: the held row alone.
   function liveParts() {
-    const mods = [...st.live.values()];
-    const { city, held: h } = liveCity(mods, platform(), quiet);
-    return { sigs: buildSignals(city, tagsDeck(), changed()), held: h, ctx: programContext({ modules: mods }) };
+    const l = scanning() ? live() : null;
+    if (!l) return null;
+    if (l.held) return { sigs: [], held: [{ module: 'held' }], ctx: null };
+    if (!l.modules.length) return null;
+    const { city, held: h } = liveCity(l.modules, platform(), quiet);
+    return { sigs: buildSignals(city, tagsDeck(), changed()), held: h, ctx: programContext({ modules: l.modules }) };
   }
   function compute() {
-    const live = isLive() ? liveParts() : null;
+    const live = liveParts();
     const sigs = live ? live.sigs : signals() || [];
     // Main marks only what its last finished scan offered: no real marks mid-sweep.
     const qmOf = live ? () => null : (x) => desk.qmOf(x);
@@ -149,6 +153,8 @@ export function createTriageScreen({ frame, now, scanning, boss, signals, quiet,
   function applyTags(rows, tag, cat) {
     const all = echoes(rows);
     const prev = all.map((r) => recOf(r.id));
+    // A first sort (not just LOOK CLOSER) counts toward the same totals as the deck's.
+    for (const r of rows) if (r.sig.kind === 'real' && (!r.tag || r.tag === 'closer') && tag !== 'closer') firstSort(r.sig);
     let d = deck();
     let w = watchTags();
     const at = now();
@@ -274,12 +280,14 @@ export function createTriageScreen({ frame, now, scanning, boss, signals, quiet,
   }
 
   async function checkAgain(r) {
-    if (!r || r.held || r.head || !r.sig || !r.sig.module || scanning()) return;
+    if (!r || r.held || r.head || !r.sig || r.sig.kind !== 'real' || !r.sig.module || scanning()) return;
     st.toast = { text: `Checking ${r.name} again…` };
     refresh();
-    const ok = await recheck(r.sig.module);
-    st.toast = { text: ok === false ? 'That check couldn’t run again. Nothing changed.' : `Checked again: ${r.name}.` };
-    if (ok !== null) refresh();
+    const out = await recheck(r.sig);
+    if (!out) return; // the app took over
+    st.toast = { text: !out.ran ? 'That check couldn’t run just now, so nothing changed.'
+      : out.still ? `Checked again: still there. ${r.name}` : `Checked again: gone. ${r.name}${out.paid ? ` · +${out.paid} XP` : ''}` };
+    refresh();
   }
 
   function toggleSelect(id) {
@@ -443,20 +451,13 @@ export function createTriageScreen({ frame, now, scanning, boss, signals, quiet,
     click,
     act,
     refresh,
-    // A sweep's "done" line with its check's findings (rescue scan --progress `result`).
-    feed(ev) {
-      const m = liveModuleOf(ev);
-      if (!m) return false;
-      st.live.set(m.name, m);
-      return true;
-    },
     // A redraw of the rows for the live sweep, at most once per burst.
     live() {
       if (liveTimer) return;
       liveTimer = timer(() => { liveTimer = null; refresh(); }, LIVE_DELAY);
     },
-    // A new sweep: the live findings start again; the verdicts are in the deck.
-    reset() { st.live.clear(); st.ask = null; st.selected.clear(); st.expanded.clear(); st.undo = []; st.toast = null; },
+    // A new sweep: the verdicts are in the deck; the rest starts again.
+    reset() { st.ask = null; st.selected.clear(); st.expanded.clear(); st.undo = []; st.toast = null; },
     // The count for TRIAGE ▶: open cases (held included).
     openCount() { compute(); return view.report.open + (view.items[0] && view.items[0].held ? 1 : 0); },
     state: st,

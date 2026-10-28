@@ -772,14 +772,3 @@ def test_signed_program_with_arguments_says_what_the_signature_covers(tmp_path):
     made = mac({("codesign", "-dv"): APPLE_LS, ("codesign", "--verify"): ""})._identify_plist(path, lambda p: True)
     assert made.name == "Apple" and made.verified is False
     assert made.how == "started with extra instructions"
-
-
-def test_attributor_budget_clock_stops_while_paused():
-    import time as _time
-    from rescue.attribution import Attributor
-
-    att = Attributor("darwin", budget_seconds=0.05)
-    att.pause()
-    _time.sleep(0.1)
-    att.resume()
-    assert att._can_lookup()

@@ -65,28 +65,28 @@ test('a drill: stamped, practice-only, its setup shown, and never the real “It
   assert.doesNotMatch(after, /<b>MARK<\/b>/);
   assert.match(after, /The tell: Because\./);
   assert.match(after, /aria-disabled="true" disabled/, 'a drill takes one answer, and the keyboard cannot re-answer');
-  assert.doesNotMatch(after, /POINTS/, 'a wrong answer scores nothing');
+  assert.doesNotMatch(after, /RESPONSE XP/, 'a wrong answer scores nothing');
 });
 
 test('after tagging: Scout’s read, the points, and each tag’s next step', async () => {
   const mine = await panel({ tagged: 'mine', read: 'The checkup marked this critical.', points: 20, mineHtml: '<div data-mark-card>MARK IT</div>' });
   assert.match(mine, /The checkup marked this critical\./);
-  assert.match(mine, /\+20 POINTS for looking at the clues/);
+  assert.match(mine, /\+20 INCIDENT RESPONSE XP for looking at the clues/);
   assert.match(mine, /OPTIONAL: TELL RECLAIM CITY TOO[\s\S]*It asks first, and you can undo it\.[\s\S]*MARK IT/);
   assert.match(mine, /data-act="tag:mine" aria-pressed="true"/);
   const threat = await panel({ tagged: 'threat', read: 'r' });
   assert.match(threat, /ON YOUR THREAT BOARD[\s\S]*data-go="mission:m\|c\|program=\/tmp\/x"[^>]*>SEE THE FIX ▶/);
   assert.doesNotMatch(threat, /MARK IT/);
-  assert.doesNotMatch(threat, /POINTS/);
+  assert.doesNotMatch(threat, /RESPONSE XP/);
   assert.match(await panel({ tagged: 'closer', read: 'r' }), /It stays in your queue/);
 });
 
 test('points show as soon as clues are looked at, before any tag; a drill’s only after its answer', async () => {
   const looked = await panel({ opened: ['maker', 'where', 'what'], points: 15 });
-  assert.match(looked, /\+15 POINTS for looking at the clues/);
-  assert.ok(looked.indexOf('POINTS') < looked.indexOf('YOUR CALL'), 'the points sit with the clues');
-  assert.doesNotMatch(await panel({ opened: ['maker'], points: 0 }), /POINTS/);
-  assert.doesNotMatch(await panel({ signal: drillSig, points: 15 }), /POINTS/, 'a drill pays on its answer');
+  assert.match(looked, /\+15 INCIDENT RESPONSE XP for looking at the clues/);
+  assert.ok(looked.indexOf('RESPONSE XP') < looked.indexOf('YOUR CALL'), 'the points sit with the clues');
+  assert.doesNotMatch(await panel({ opened: ['maker'], points: 0 }), /RESPONSE XP/);
+  assert.doesNotMatch(await panel({ signal: drillSig, points: 15 }), /RESPONSE XP/, 'a drill pays on its answer');
 });
 
 test('network clues: code lines are copyable code, no how-to-read filler, and the next step offers the steps', async () => {

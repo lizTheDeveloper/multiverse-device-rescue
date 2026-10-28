@@ -5,7 +5,11 @@ const test = require('node:test');
 const assert = require('node:assert');
 
 const STORE = 'device-rescue.game.v1';
-const memStore = () => { const s = {}; return { getItem: (k) => (k in s ? s[k] : null), setItem: (k, v) => { s[k] = String(v); } }; };
+// Seeded past the guided walkthrough's first signals (guided.js), so a signal
+// opens in the ordinary panel; game-guided.test.js covers the walkthrough.
+const SEASONED = JSON.stringify({ version: 3, missions: {}, lessons: {}, deck: { points: 0, rank: 0, drills: { right: 0, tried: 0 }, tags: {},
+  confirmed: {}, once: {}, sweep: { at: null, keys: {} }, sweeps: [], sorts: 50 } });
+const memStore = () => { const s = { 'device-rescue.game.v1': SEASONED, 'device-rescue.level': 'technical' }; return { getItem: (k) => (k in s ? s[k] : null), setItem: (k, v) => { s[k] = String(v); } }; };
 const tick = () => new Promise((r) => setTimeout(r, 0));
 const f = (title, severity, data = {}, extra = {}) => ({ title, description: `${title}: what it is.`, severity, category: 'security', data, ...extra });
 const mod = (name, findings, extra = {}) => ({ name, category: 'security', status: 'ok', error: null, supported: true, findings, ...extra });
@@ -86,7 +90,7 @@ test('the deck is the city’s home: queue, city, instruments, log, and its own 
   assert.match(html, /data-act="investigate-next"/);
   assert.match(html, /aria-label="Your computer as a city"/);
   assert.match(html, /data-go="filter:gatehouse"/);
-  assert.match(html, /City integrity/);
+  assert.match(html, /Districts secured/);
   assert.match(html, /OPS LOG/);
   assert.match(html, /LOW-PRIORITY SIGNALS \(1\)/);
   assert.match(html, /data-act="resweep"/);
@@ -101,7 +105,7 @@ test('opening a real signal shows every clue and pays for looking at once, befor
   assert.match(t.html(), /WHO MADE IT[\s\S]*Unknown maker, not verified \(unsigned\)[\s\S]*How to read this/);
   assert.match(t.html(), /WHERE IT LIVES[\s\S]*WHAT IT DOES/);
   assert.strictEqual(t.saved().deck.points, 15, 'three clues, five points each');
-  assert.match(t.html(), /\+15 POINTS for looking at the clues/);
+  assert.match(t.html(), /\+15 INCIDENT RESPONSE XP for looking at the clues/);
   t.click({ 'data-act': 'clue:maker' });
   t.click({ 'data-act': 'clue:when' });
   t.click({ 'data-act': 'close-signal' });
@@ -109,7 +113,7 @@ test('opening a real signal shows every clue and pays for looking at once, befor
   t.click({ 'data-act': 'investigate-next' });
   assert.match(t.html(), /Unknown maker, not verified/);
   assert.strictEqual(t.saved().deck.points, 15, 'looking again pays nothing more this scan');
-  assert.doesNotMatch(t.html(), /POINTS for looking/, 'and claims nothing');
+  assert.doesNotMatch(t.html(), /XP for looking/, 'and claims nothing');
 });
 
 test('tagging after looking pays a bonus once; tags are keyed by identity; re-tagging pays nothing more', async () => {
@@ -197,7 +201,7 @@ test('low-priority signals stay folded; THESE ARE ALL FINE sorts every one and p
   assert.strictEqual(Object.keys(saved.deck.tags).length, 120);
   assert.strictEqual(saved.deck.points, 0);
   assert.doesNotMatch(t.html(), /LOW-PRIORITY SIGNALS/);
-  assert.match(t.html(), /<b>120<\/b> <small>SORTED<\/small>/);
+  assert.match(t.html(), /CASES CLOSED/, 'notes aren’t cases: the case count is the incident report’s');
 });
 
 test('marked by the person: out of the queue and into YOURS, still listed; changed since: back in the queue', async () => {
@@ -209,7 +213,7 @@ test('marked by the person: out of the queue and into YOURS, still listed; chang
   assert.match(queue, /CHANGED SINCE YOU MARKED IT[\s\S]*Stale/);
   assert.doesNotMatch(t.html(), /KNOWN AND NOTED/, 'YOURS holds it, not the game-sorting pile');
   assert.match(t.html(), /data-go="yours"[^>]*>YOURS <b class="yours-count">1<\/b>[\s\S]*1 CHANGED/);
-  assert.match(t.html(), /<b>1<\/b> <small>SORTED<\/small>/);
+  assert.match(t.html(), /CASES CLOSED<\/h2>\s*<p class="sb-big"><b>1<\/b>/);
   t.click({ 'data-go': 'yours' });
   assert.match(t.html(), /CHANGED SINCE YOU MARKED IT[\s\S]*Stale[\s\S]*>Mine</);
 });
@@ -233,7 +237,7 @@ test('drills join the queue: about one per four real signals, from the same dist
 test('a drill: right pays drill points, wrong pays nothing and gives the tell; neither touches integrity or the bars', async () => {
   const five = scan(mod('a_mod', Array.from({ length: 5 }, (_, i) => f(`W${i}`, 'warning', { plist: `/w${i}` }))));
   const t = await deckSetup(five);
-  const integrity = () => t.html().match(/City integrity[^<]*/)[0];
+  const integrity = () => t.html().match(/Districts secured <b>[^<]*/)[0];
   const before = integrity();
   t.click({ 'data-go': 'signal:drill:gate-1' });
   assert.match(t.html(), /DRILL[\s\S]*Practice\. This isn’t on your computer\./);
@@ -253,7 +257,7 @@ test('a drill: right pays drill points, wrong pays nothing and gives the tell; n
   assert.strictEqual(t.saved().deck.points, 20);
   t.click({ 'data-act': 'close-signal' });
   assert.strictEqual(integrity(), before);
-  assert.match(t.html(), /<b>0<\/b> <small>SORTED<\/small>/);
+  assert.match(t.html(), /CASES CLOSED<\/h2>\s*<p class="sb-big"><b>0<\/b>/);
   assert.deepStrictEqual(t.saved().deck.tags, {}, 'drills are never tagged in the store');
 });
 
@@ -282,7 +286,7 @@ test('every check errored: no reading, never a clear board, and the couldn’t-c
     { ...mod('b', [], { supported: false, unsupported_reason: 'Mac only' }), category: 'network' }));
   const html = t.html();
   assert.match(html, /NOTHING COULD BE CHECKED/);
-  assert.match(html, /City integrity: no reading/);
+  assert.doesNotMatch(html, /Districts secured/, 'no reading');
   assert.doesNotMatch(html, /CLEAR BOARD|100%/);
   assert.match(html, /data-go="signal:couldnt\|a"/);
   assert.doesNotMatch(html, /signal:drill:/, 'no drills without real signals');
@@ -391,8 +395,8 @@ test('a re-sweep: tags carry over, a gone finding is NO LONGER SEEN with no poin
   assert.strictEqual(saved.deck.sweeps.length, 2);
   assert.ok(saved.deck.sweeps.every((w) => Object.keys(w).every((k) => k === 'at' || typeof w[k] === 'number')), 'dates and counts only');
   assert.match(t.html(), /NO LONGER SEEN<\/span> B/);
-  assert.match(t.html(), /<b>0<\/b> <small>CONFIRMED<\/small>/);
-  assert.match(t.html(), /City integrity 0%, the same as last sweep\./);
+  assert.doesNotMatch(t.html(), /<b>[1-9]\d*<\/b> <small>CONFIRMED<\/small>/);
+  assert.match(t.html(), /Districts secured <b>0%<\/b>/);
 });
 
 test('the same scan shown twice is one sweep', async () => {
@@ -715,7 +719,7 @@ test('city mode: a held monitoring finding has no signal and no points, and inte
   assert.doesNotMatch(JSON.stringify(t.saved()), /stalkerware|Monitoring app/);
   // Integrity: its district was checked and is not secure while it is there.
   assert.match(t.html(), /<b>0%<\/b>/);
-  assert.match(t.html(), /City integrity 0%/);
+  assert.match(t.html(), /Districts secured <b>0%<\/b>/);
   t.ctl.show(scan(mod('stalkerware_scan', [])), { id: 'unsure' });
   assert.match(t.html(), /<b>100%<\/b>/, 'once it is gone, the district is secure');
   // Its going is not a win: no DISTRICT SECURED, no CLEAN SWEEP, no points,
@@ -747,12 +751,10 @@ test('city mode: I DID IT on a held finding re-checks nothing and confirms nothi
   assert.doesNotMatch(t.html().split('OPS LOG')[1], /CONFIRMED|MARKED|SECURED|Monitoring app/);
 });
 
-test('DETAIL: the level picker opens from the top bar, stores one key, and changes only how a signal is shown', async () => {
+test('the level: stored in one key, and it changes only how a signal is shown', async () => {
   const t = await deckSetup(DOC);
-  assert.match(t.html(), /data-act="level-open"[^>]*>DETAIL: EVERYDAY</);
+  assert.doesNotMatch(t.html(), /level-open|DETAIL:/, 'the level is in SETTINGS, above the frame, not in the HUD');
   assert.doesNotMatch(t.html(), /level-pick/, 'the deck never asks on its own');
-  t.click({ 'data-act': 'level-open' });
-  assert.match(t.html(), /DETAIL LEVEL[\s\S]*data-act="level:new"[\s\S]*data-act="level:technical"/);
   t.click({ 'data-act': 'level:technical' });
   assert.strictEqual(t.storage.getItem('device-rescue.level'), 'technical');
   assert.doesNotMatch(t.html(), /level-pick/, 'picking closes it');
@@ -768,13 +770,15 @@ test('DETAIL: the level picker opens from the top bar, stores one key, and chang
 });
 
 test('the Training Grounds ask the level once, until one is picked', async () => {
-  const t = await deckSetup(null);
+  const fresh = memStore();
+  fresh.setItem('device-rescue.level', ''); // never asked
+  const t = await deckSetup(null, { storage: fresh });
   t.ctl.showTraining({ id: 'unsure', title: 'Not sure' });
   assert.match(t.html(), /HOW MUCH DETAIL DO YOU WANT\?/);
   t.click({ 'data-act': 'level:everyday' });
   assert.strictEqual(t.storage.getItem('device-rescue.level'), 'everyday');
   assert.doesNotMatch(t.html(), /HOW MUCH DETAIL/);
-  assert.match(t.html(), /DETAIL: EVERYDAY/);
+  assert.doesNotMatch(t.html(), /DETAIL:/, 'after that it lives in SETTINGS'); 
 });
 
 test('TEST OUT (technical only): every answer right marks the lesson done; a miss marks nothing', async () => {

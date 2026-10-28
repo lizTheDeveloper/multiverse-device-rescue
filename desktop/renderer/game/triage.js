@@ -24,16 +24,6 @@ const DISTRICT_LIST = [...DISTRICTS, OUTSKIRTS];
 export const districtLabel = (id) => (DISTRICT_LIST.find((d) => d.id === id) || OUTSKIRTS).name.replace(/^The /, '');
 
 // --- The live sweep -----------------------------------------------------------
-// The engine's "done" progress line carries that check's findings (rescue
-// scan --json --progress: `result`), in the scan's own shape. Only a module
-// entry that looks like one is kept, by name, so a re-run check replaces itself.
-const NAME_RE = /^[a-z][a-z0-9_]{0,63}$/;
-export function liveModuleOf(ev) {
-  const m = ev && ev.type === 'progress' && ev.phase === 'done' ? ev.result : null;
-  if (!m || typeof m !== 'object' || typeof m.name !== 'string' || !NAME_RE.test(m.name) || !Array.isArray(m.findings)) return null;
-  return m;
-}
-
 // A city from the checks finished so far, the same way the controller builds
 // one from a whole scan: held findings set aside first, then the same text
 // as the list (`quiet`). Memory only; nothing about it is stored or reconciled.

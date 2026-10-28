@@ -74,12 +74,9 @@ test('range select skips heads and the held row; undo puts tags back or removes 
   assert.deepStrictEqual(restoreWatchTags({ w: { tag: 'mine' } }, [{ id: 'w', watch: true, rec: null }]), {});
 });
 
-test('live sweep: only a progress line that carries its check is kept', async () => {
-  const { liveModuleOf, liveCity } = await game('triage.js');
-  assert.strictEqual(liveModuleOf({ type: 'progress', phase: 'start', result: {} }), null);
-  assert.strictEqual(liveModuleOf({ type: 'progress', phase: 'done', result: { name: 'Bad Name', findings: [] } }), null);
+test('live sweep: held findings never become rows', async () => {
+  const { liveCity } = await game('triage.js');
   const m = { name: 'launch_agents_audit', category: 'security', status: 'ok', supported: true, findings: [finding(1)] };
-  assert.strictEqual(liveModuleOf({ type: 'progress', phase: 'done', result: m }), m);
   const spy = { name: 'stalkerware_scan', category: 'security', status: 'ok', supported: true,
     findings: [{ title: 'Found', severity: 'critical', code: 'security.stalkerware_scan.found', data: {} }] };
   const { city, held } = liveCity([m, spy]);
@@ -100,7 +97,7 @@ function screen(game0, { signals, held = [] }) {
     heldSpec: () => ({ label: 'Held', act: 'list' }), closedIds: () => new Set(), deck: () => store.deck, commitDeck: (d) => { store.deck = d; },
     watchTags: () => store.watch, setWatchTags: (m) => { store.watch = m; }, clearChanged: () => {},
     award: (kind, key) => { store.awards.push(`${kind}:${key}`); return 1; }, opened: (id) => { store.opened[id] = store.opened[id] || []; return store.opened[id]; },
-    cluesOf: () => [{ kind: 'where' }, { kind: 'what' }], log: () => {}, evidence: () => '', recheck: async () => true, render: () => {}, back: () => {},
+    cluesOf: () => [{ kind: 'where' }, { kind: 'what' }], log: () => {}, evidence: () => '', recheck: async () => ({ ran: true, still: true, paid: 0 }), render: () => {}, back: () => {},
     timer: () => 0 });
   return { t, store };
 }

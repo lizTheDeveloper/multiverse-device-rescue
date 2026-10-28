@@ -35,7 +35,7 @@ export function renderInstruments({ integrity, previous, history, bars, rank }) 
   const b = bars || {};
   const max = Math.max(1, Number(b.sorted) || 0, Number(b.confirmed) || 0, Number(b.reported) || 0);
   const toward = rank.next ? pct(((rank.points - rank.min) / (rank.next.min - rank.min)) * 100) : 100;
-  const next = rank.next ? `${rank.toNext} points to ${rank.next.name}.` : 'Top rank.';
+  const next = rank.next ? `${rank.toNext} XP to ${rank.next.name}.` : 'Top rank.';
   return `
   <section class="panel instruments">
     <div class="label">CITY INTEGRITY</div>
@@ -46,7 +46,7 @@ export function renderInstruments({ integrity, previous, history, bars, rank }) 
     ${bar(b.sorted, max, 'SORTED', 'cyan')}${bar(b.confirmed, max, 'CONFIRMED', 'lime')}${bar(b.reported, max, 'YOU REPORTED', 'amb')}
     <p class="intel">Confirmed means Reclaim City checked again and it’s gone. You reported is your word for it. They’re counted apart.</p>
     <div class="label">RANK</div>
-    <p class="rank-name"><b>${esc(rank.name)}</b> <small>${esc(rank.points)} POINTS</small></p>
+    <p class="rank-name"><b>${esc(rank.name)}</b> <small>${esc(rank.points)} XP</small></p>
     <div class="bar" role="progressbar" aria-label="Rank progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${toward}"><i style="--pct: ${toward}%"></i></div>
     <p class="intel">${esc(next)}</p>
   </section>`;

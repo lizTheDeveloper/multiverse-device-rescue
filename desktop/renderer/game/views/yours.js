@@ -18,15 +18,16 @@ export function confirmHtml({ target, count = 1, watch = false }) {
     <button type="button" class="btn-t" data-act="mine-no">CANCEL</button></div></div>`;
 }
 
-// The row's own controls in the queue: a checkbox (unticked) and MINE ✓.
+// The row's own controls in the queue: a checkbox (unticked) and MARK AS MINE ✓,
+// both with their words on screen.
 // `qm`: quickMarkOf(…). `state`: {picked, confirming, saving, watch}.
 export function mineRowHtml(sig, qm, { picked = false, confirming = false, saving = false, watch = false } = {}) {
   if (!qm) return '';
   if (saving) return '<span class="mine-saving" role="status"><span aria-hidden="true">✓</span> SORTING…</span>';
   if (confirming) return confirmHtml({ target: sig.id, watch });
   return `<span class="mine-row">
-    <label class="pick"><input type="checkbox" data-act="pick:${esc(sig.id)}"${picked ? ' checked' : ''} aria-label="${esc(`Select: ${sig.title}`)}"></label>
-    <button type="button" class="btn-mine" data-act="mine:${esc(sig.id)}" aria-label="${esc(`Mine: ${sig.title}`)}">MINE ✓</button></span>`;
+    <label class="pick"><input type="checkbox" data-act="pick:${esc(sig.id)}"${picked ? ' checked' : ''} aria-label="${esc(`Select: ${sig.title}`)}"> <span aria-hidden="true">SELECT</span></label>
+    <button type="button" class="btn-mine" data-act="mine:${esc(sig.id)}" aria-label="${esc(`Mark as mine: ${sig.title}`)}">MARK AS MINE ✓</button></span>`;
 }
 
 // The selection bar, above the queue, once something is ticked.
@@ -72,7 +73,8 @@ function itemRow(it, picked, act, pickable = true, fold = false) {
     ${act(it)}</li>`;
 }
 
-export function renderYours({ inv, picked = new Set(), scout = () => '', toast = null, fold = false }) {
+// `radarHtml`: YOUR COMPUTER'S RADAR (views/radar.js), or ''.
+export function renderYours({ inv, picked = new Set(), scout = () => '', toast = null, fold = false, radarHtml = '' }) {
   const back = (it) => `<button type="button" class="btn-t" data-act="unmine:${esc(it.id)}" aria-label="${esc(`Not mine: ${it.name}`)}">NOT MINE ↩</button>`;
   const look = (it) => `<button type="button" class="btn-s" data-go="signal:${esc(it.id)}">LOOK AGAIN ▶</button>`;
   const changed = inv.changed.length ? `
@@ -93,6 +95,6 @@ export function renderYours({ inv, picked = new Set(), scout = () => '', toast =
       <button type="button" class="btn-p" data-act="yours-back">BACK TO THE DECK</button></header>
     <div class="scout-row">${scout('happy', 54)}<p class="say">Your own programs and settings, and what they do. Still listed, not warned about.</p></div>
     <p class="intel"><button type="button" class="btn-t" data-go="lesson:${esc(KIND_LESSON)}">WHAT DO THE LABELS MEAN? ▶</button></p>
-    ${toastHtml(toast)}${changed}${bar}${groups}${empty}
+    ${toastHtml(toast)}${radarHtml}${changed}${bar}${groups}${empty}
   </section>`;
 }

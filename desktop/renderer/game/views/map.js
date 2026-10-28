@@ -1,6 +1,7 @@
 import { esc } from '../escape.js';
 import { SCOUT, mapScoutLine } from '../scout-lines.js';
 import { reclaimedIn } from '../progress.js';
+import { caseOf } from '../case-file.js';
 
 const SKYLINE = {
   hot: ['iso_tower_occ', 'iso_occupied', 'iso_tower_occ'],
@@ -33,12 +34,19 @@ export function heldView(d, held) {
   return held && typeof held.has === 'function' && held.has(d.id) && d.status === 'clear' ? { ...d, status: 'partial', held: true } : d;
 }
 
+// Counted as cases (case-file.js), not by severity: an unidentified program
+// isn't critical until someone knows whose it is.
 export function districtBadges(d, reclaimed = 0) {
-  const crit = d.missions.filter((m) => m.severity === 'critical').length;
-  const warn = d.missions.length - crit;
+  const open = { lead: 0, door: 0, upkeep: 0 };
+  for (const m of d.missions) {
+    const c = caseOf({ kind: 'real', severity: m.severity, module: m.module, districtId: d.id,
+      finding: m.primary || {}, tag: m.marked ? 'mine' : null });
+    if (c.open && open[c.type] !== undefined) open[c.type] += 1;
+  }
   const out = [];
-  if (crit) out.push(`<span class="badge crit">${crit} CRITICAL</span>`);
-  if (warn) out.push(`<span class="badge warn">${warn} WARNING</span>`);
+  if (open.lead) out.push(`<span class="badge warn">${open.lead} ${open.lead === 1 ? 'LEAD' : 'LEADS'}</span>`);
+  if (open.door) out.push(`<span class="badge crit">${open.door} OPEN ${open.door === 1 ? 'DOOR' : 'DOORS'}</span>`);
+  if (open.upkeep) out.push(`<span class="badge skip">${open.upkeep} UPKEEP</span>`);
   if (d.notes.length) out.push(`<span class="badge skip">${d.notes.length} NOTES</span>`);
   if (d.fog.length) out.push(`<span class="badge fog">${d.fog.length} COULDN’T CHECK</span>`);
   if (d.held) return out.join('');
