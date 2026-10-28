@@ -1,6 +1,7 @@
 # Digital security reset
 
-**`digital_security_reset`** — 15 modules, a 6-phase guide.
+**`digital_security_reset`** — 20 modules, a 6-phase guide, and in the desktop
+app an account checklist played as missions.
 
 ## Who this is for
 
@@ -8,9 +9,8 @@ You have been hacked, or you strongly suspect it. Someone got into an account,
 or the machine is doing things you did not ask for, and you need to work out
 what is true and then take your accounts back.
 
-This is the profile for the immediate aftermath: the first hour through the
-first month. It assumes you are stressed, and its first phase is about that
-rather than about computers.
+This is the profile for the immediate aftermath. It assumes you are stressed,
+and its first phase is about that rather than about computers.
 
 Use [identity theft recovery](identity-theft-recovery.md) instead if the damage
 is financial — credit opened in your name, tax fraud, benefits fraud. Use
@@ -20,7 +20,7 @@ Wi-Fi.
 ## What to run
 
 ```console
-$ rescue --auto --profile digital_security_reset    # the device checks
+$ rescue scan --profile digital_security_reset      # the device checks (read-only)
 $ rescue guide digital_security_reset               # the recovery walkthrough
 ```
 
@@ -38,7 +38,7 @@ $ rescue guide digital_security_reset --complete 1
 
 ## What the tool does
 
-Fifteen read-only checks, in a deliberate order. `evidence_bundle` runs
+Twenty read-only checks, in a deliberate order. `evidence_bundle` runs
 first — repairs destroy the record of what happened, so evidence readiness is
 assessed before anything else reports a problem to fix.
 
@@ -59,13 +59,18 @@ assessed before anything else reports a problem to fix.
 | `keylogger_indicators` | Is anything set up to record your typing | macOS |
 | `privacy_permissions_audit` | Which apps hold monitoring permissions | macOS |
 | `session_revocation_scan` | What stays logged in after a password change | macOS, Windows |
+| `network_proxy_check` | Is your traffic sent through a proxy you didn't set up | macOS |
+| `hosts_file_check` | Does the hosts file send a site's name somewhere else | macOS |
+| `win_remote_access_audit` | Are remote-access tools (TeamViewer, AnyDesk, VNC) installed | Windows |
+| `win_rdp_check` | Is Remote Desktop turned on | Windows |
+| `win_proxy_detect` | Is your traffic sent through a proxy you didn't set up | Windows |
 
-The last one is the device-side half of account recovery. It answers *what is
-still signed in* — nothing more. The tool doesn't check or teach passwords and
-two-step sign-in; for that, see [Learn it properly](#learn-it-properly) below.
+`session_revocation_scan` is the device-side half of account recovery. It
+answers *what is still signed in on this computer* — nothing more. The account
+half is in [Your accounts, in order](#your-accounts-in-order) below.
 
 !!! info "This profile is strongest on macOS"
-    Twelve of the fifteen modules are macOS-only. On Windows you get three; on
+    Fourteen of the twenty modules are macOS-only. On Windows you get six; on
     Linux you get one. The guide is platform-independent and is the larger half of
     the work regardless — but if you are on Linux, pair it with the
     [Linux security checkup](linux-security-checkup.md).
@@ -87,16 +92,16 @@ to do about it, in what order, and why that order.
 
 ## The phases
 
-Six phases, roughly three hours of active work spread over days.
+Six phases, spread over several sessions.
 
-| Phase | Title | Time | Steps |
-| --- | --- | --- | --- |
-| 0 | Emergency Grounding | 10 min | Ground yourself · Check whether you can still get in · Write down what you've already noticed |
-| 1 | Reality Check | 20 min | **Run a full device scan** · List every account tied to this identity · Check recent sign-in activity |
-| 2 | Immediate Protective Actions | 30 min | Change your primary email password · Turn on two-step sign-in for email · Revoke sessions and connected apps · **Run the stalkerware and remote-access scan** |
-| 3 | Systematic Cleanup | 45 min | Change passwords on the accounts that matter most · Contact your bank · Write down your progress |
-| 4 | Rebuilding Security | 40 min | Make your passwords and sign-ins stronger, at your own pace · Review phone app permissions |
-| 5 | Mental Health Maintenance | ongoing | Acknowledge the effort this took · Tell someone you trust · Schedule a one-week check-in |
+| Phase | Title | Steps |
+| --- | --- | --- |
+| 0 | Emergency Grounding | Ground yourself · Check whether you can still get in · Write down what you've already noticed |
+| 1 | Reality Check | **Run a full device scan** · List every account tied to this identity · Check recent sign-in activity |
+| 2 | Immediate Protective Actions | **Sort out what lets someone in, or use another device** · Change your email password · Sign out devices you don't recognize · Check the recovery phone and email · Check forwarding and mail rules · Remove connected apps and app passwords · Turn on two-step sign-in · Use your provider's own hacked-account page |
+| 3 | Systematic Cleanup | Change passwords on the accounts that matter most · Contact your bank (and your mobile carrier) · Write down your progress |
+| 4 | Rebuilding Security | Make your passwords and sign-ins stronger, at your own pace · Review phone app permissions |
+| 5 | Mental Health Maintenance | Acknowledge the effort this took · Tell someone you trust · Schedule a one-week check-in |
 
 Steps in **bold** are the automatable ones — a module does that part. Every
 other step is yours.
@@ -106,6 +111,58 @@ because your email is the recovery path for almost every other account;
 securing anything else first is building on sand. And **Phase 5 is not
 filler** — recovering from a compromise is genuinely stressful and
 time-consuming, and the guide treats finishing well as part of the job.
+
+## Your accounts, in order
+
+This is the same list the desktop app shows as missions when you pick
+"I think I've been hacked" and play it as a game ("Take your accounts back").
+One decision per step: done, doesn't apply, or need help. The app saves only
+which kind of email you use and your answers, on your computer; never an
+address, a password or a code.
+
+**First**
+
+1. **Could this be someone you know?** If it may be a partner, ex, family
+   member or housemate, talk to an advocate before you change account
+   settings: signing them out or changing a password shows them you noticed
+   (US National DV Hotline: 1-800-799-7233, or text START to 88788). The app
+   asks this each time and never saves the answer.
+2. **Use a device you trust.** If the device checks found remote access, a
+   browser extension that can read sign-in pages, a proxy or a background task
+   you don't recognize, do the account steps on your phone or another device
+   you trust until those are sorted.
+
+**Your email** (its password resets reach almost every other account)
+
+3. Which email do your accounts use: Google, Microsoft, Apple, or something else.
+4. Can you still sign in? If not, use the provider's own account recovery.
+5. Change the password.
+6. Sign out every device you don't recognize.
+7. Check the recovery phone and email.
+8. Check forwarding and mail rules (and, in Gmail, who has been granted access).
+9. Remove apps you don't recognize.
+10. Remove app passwords.
+11. Turn on two-step sign-in, and remove any phone or app on it that isn't yours.
+
+**Your other accounts, in this order**
+
+12. Your password manager: its main password, and devices you don't recognize.
+13. Your bank and cards: payments you didn't make.
+14. Your phone's account (Apple Account or Google): devices you don't recognize.
+15. Your mobile carrier: confirm nobody set up forwarding of your texts.
+16. Social media and messaging: new password, sign out other devices, check what was sent as you.
+
+**Afterwards**
+
+17. Write down what happened, on paper or another device you trust.
+
+For Google, Microsoft and Apple, the app shows where each setting lives,
+copied from their help pages, and links to those pages. Their own
+hacked-account pages:
+
+- Google: [Secure a hacked or compromised Google Account](https://support.google.com/accounts/answer/6294825)
+- Microsoft: [How to recover a hacked or compromised Microsoft account](https://support.microsoft.com/en-us/help/10494)
+- Apple: [If you think your Apple Account has been compromised](https://support.apple.com/en-us/102560)
 
 ## Learn it properly
 

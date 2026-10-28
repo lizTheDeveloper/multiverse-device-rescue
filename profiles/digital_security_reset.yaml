@@ -37,6 +37,14 @@ modules:
     # logged in. The account-side work remains human-led in the guide;
     # teaching passwords and two-step sign-in is left to Reclaim City.
     - session_revocation_scan
+    # Ways traffic or control can be redirected to someone else: a proxy or
+    # a hosts-file entry can send sign-ins to a look-alike site, and on
+    # Windows, remote-access tools and Remote Desktop let someone else drive.
+    - network_proxy_check
+    - hosts_file_check
+    - win_remote_access_audit
+    - win_rdp_check
+    - win_proxy_detect
   exclude: []
 module_config:
   malware_scan_indicators:
