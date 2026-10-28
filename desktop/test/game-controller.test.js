@@ -905,7 +905,7 @@ const answerAll = (t, id, { finish = true } = {}) => t.lesson(id).questions.forE
   if (n < all.length - 1) t.click({ 'data-act': 'next-question' });
   else if (finish) t.click({ 'data-act': 'finish-lesson' });
 });
-const GATEHOUSE = ['password-asker', 'starts-on-its-own', 'browser-add-ons', 'locked-door', 'poisoned-packages'];
+const GATEHOUSE = ['password-asker', 'starts-on-its-own', 'browser-add-ons', 'locked-door', 'poisoned-packages', 'taking-accounts-back'];
 
 test('a DONE ✓ district mid-scan opens no quiz; the review is a separate, optional button', async () => {
   const storage = memStore();

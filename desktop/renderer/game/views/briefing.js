@@ -7,7 +7,10 @@ import { SCOUT } from '../scout-lines.js';
 // safety_note alone doesn't give (stalkerware has none); in 'city' the safety
 // note in full, or on monitoring software the hold line and its help, and then
 // no steps and nothing to act on.
-export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, wantsSafety, learned, note }) {
+// `forHack`: the person picked "I think I've been hacked" and this check can
+// let someone in or read what's typed, so Scout says to sort it before
+// changing passwords here, with the way back to the account missions.
+export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, wantsSafety, learned, note, forHack = false }) {
   const held = !!note && note.kind === 'held';
   const steps = m.steps.map((s) => `
       <li class="step"><span class="step-n">${esc(s.number)}</span>
@@ -38,6 +41,7 @@ export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, 
       ${actions}
     </div>
     <aside class="brief-side">${scout(m.severity === 'critical' ? 'worried' : 'thinkingA', 72)}
-      <span class="scout-name">SCOUT</span><p class="say">${esc(SCOUT.briefing[m.severity])}</p></aside>
+      <span class="scout-name">SCOUT</span><p class="say">${esc(forHack ? SCOUT.briefingForHack : SCOUT.briefing[m.severity])}</p>
+      ${forHack && !held ? '<button type="button" class="btn-s" data-go="accounts">YOUR ACCOUNTS ▶</button>' : ''}</aside>
   </section>`;
 }
