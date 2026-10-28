@@ -128,6 +128,7 @@ nav:
       - iPhone / iPad spyware check: scenarios/iphone-spyware-check.md
       - Linux security checkup: scenarios/linux-security-checkup.md
       - Home for the holidays: scenarios/home-for-the-holidays.md
+      - Infected computer, kept offline: scenarios/infected-device.md
       - Walkthrough - check an iPhone for spyware: CHECK_IPHONE_FOR_SPYWARE.md
   - Reference:
       - CLI reference: cli.md
