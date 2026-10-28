@@ -50,13 +50,17 @@ const DOOR_MODULES = new Set([
   'login_password_policy',
 ]);
 const DOOR_DISTRICTS = new Set(['gatehouse', 'wires']);
+// Marks that are the person's answer about a setting, not a claim on a thing
+// whose owner is unknown: "I back up another way" keeps a door open on purpose.
+const ANSWER_MARKS = new Set(['backup_elsewhere']);
 
 function typeOf(sig, kinds, held) {
   if (held) return 'lead';
   if (sig.kind === 'couldnt') return 'blind';
   if (sig.severity === 'info') return 'note';
   const f = sig.finding || {};
-  if ((kinds && kinds.length) || f.markable || LEAD_MODULES.has(sig.module)) return 'lead';
+  const leadMark = f.markable && !ANSWER_MARKS.has(f.markable.kind);
+  if ((kinds && kinds.length) || leadMark || LEAD_MODULES.has(sig.module)) return 'lead';
   if (DOOR_MODULES.has(sig.module) || DOOR_DISTRICTS.has(sig.districtId)) return 'door';
   return 'upkeep';
 }

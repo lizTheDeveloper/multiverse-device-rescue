@@ -940,9 +940,9 @@
     "where": "`sudo powermetrics`, `ioreg` AppleSMC and AppleSMCFan, `pmset -g thermlog`, `sysctl`"
   },
   "time_machine_check": {
-    "what": "Whether Time Machine backups are set up and recent",
+    "what": "Whether this Mac is backed up, by Time Machine or not",
     "why": "A recent backup means files can be recovered if the Mac is lost, broken or needs a reset.",
-    "where": "`tmutil destinationinfo`, `tmutil latestbackup`, `tmutil status`, com.apple.TimeMachine"
+    "where": "`tmutil destinationinfo`, `tmutil latestbackup`, backup and sync app names"
   },
   "time_machine_exclusions": {
     "what": "Important folders left out of Time Machine",

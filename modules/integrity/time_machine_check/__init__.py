@@ -14,7 +14,9 @@ from rescue.models import (
     Severity,
     SystemProfile,
 )
+from rescue import backup_tools
 from rescue.module_base import ModuleBase
+
 
 
 class Module(ModuleBase):
@@ -25,6 +27,13 @@ class Module(ModuleBase):
     priority = 50
     depends_on = []
     estimated_duration = "5s"
+    # This check owns "is anything backing this Mac up?". time_machine_health
+    # and backup_status only look at a Time Machine disk that exists.
+    emits_codes = [
+        "integrity.time_machine_check.no_backup",
+        "integrity.time_machine_check.other_backup_tool",
+        "integrity.time_machine_check.sync_only",
+    ]
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
@@ -48,22 +57,7 @@ class Module(ModuleBase):
             )
             return CheckResult(module_name=self.name, findings=findings)
         if not is_configured:
-            findings.append(
-                Finding(
-                    title="Your Mac is not automatically backing up your files",
-                    description=(
-                        "We could not find a backup destination set up on this Mac. "
-                        "This means if you accidentally delete a file or your drive fails, "
-                        "you might not be able to get your data back. "
-                        "\n\n"
-                        "What to do: Plug in an external drive, open System Settings > "
-                        "General > Time Machine, click Add Backup Disk, and choose it."
-                    ),
-                    severity=Severity.CRITICAL,
-                    category=self.category,
-                    data={"check": "not_configured"},
-                )
-            )
+            findings.append(self._not_configured_finding(backup_tools.detect()))
             return CheckResult(module_name=self.name, findings=findings)
 
         # Check last backup date
@@ -194,13 +188,99 @@ class Module(ModuleBase):
 
         return CheckResult(module_name=self.name, findings=findings)
 
+    def _not_configured_finding(self, tools: list[dict]) -> Finding:
+        """No Time Machine disk: how serious that is depends on what else is here.
+
+        Another backup tool: info, naming it (we can't see inside it). Only
+        sync tools: a warning, because sync is not a backup. Nothing: critical.
+        """
+        backups = backup_tools.names(tools, backup_tools.BACKUP)
+        syncs = backup_tools.names(tools, backup_tools.SYNC)
+        data = {"backup_tools": backups, "sync_tools": syncs}
+        if backups:
+            named = backup_tools.join(backups)
+            verb = "is" if len(backups) == 1 else "are"
+            also = (
+                f" {backup_tools.join(syncs)} {'is' if len(syncs) == 1 else 'are'} here too, "
+                "but that is sync, not a backup."
+                if syncs else ""
+            )
+            return Finding(
+                title=f"Time Machine isn't set up, but {named} {verb} installed",
+                description=(
+                    f"Time Machine isn't set up. {named} {verb} installed, which may be how "
+                    f"you back up.{also} Reclaim City can't look inside "
+                    f"{'it' if len(backups) == 1 else 'them'}, so it can't tell when your "
+                    "last backup finished.\n\n"
+                    f"What to do: Open {named} and check that the last backup finished "
+                    "recently and includes the files you care about."
+                ),
+                severity=Severity.INFO,
+                category=self.category,
+                code="integrity.time_machine_check.other_backup_tool",
+                data={"check": "other_backup_tool", **data},
+            )
+        if syncs:
+            named = backup_tools.join(syncs)
+            return Finding(
+                title=f"No backup found, only sync ({named})",
+                description=(
+                    f"Time Machine isn't set up, and the only other tools found are {named}. "
+                    "Sync isn't a backup: deleting a file deletes it everywhere, and a file "
+                    "that gets damaged or scrambled is copied everywhere too.\n\n"
+                    "What to do: Plug in an external drive, open System Settings > General > "
+                    "Time Machine, click Add Backup Disk, and choose it. If you already back "
+                    "up another way, tell Reclaim City so (\"I back up another way\") and "
+                    "this stops being a warning."
+                ),
+                severity=Severity.WARNING,
+                category=self.category,
+                code="integrity.time_machine_check.sync_only",
+                data={"check": "sync_only", **data},
+            )
+        return Finding(
+            title="Your Mac is not automatically backing up your files",
+            description=(
+                "We could not find a backup destination set up on this Mac, or any "
+                "other backup app we know. "
+                "This means if you accidentally delete a file or your drive fails, "
+                "you might not be able to get your data back. "
+                "\n\n"
+                "What to do: Plug in an external drive, open System Settings > "
+                "General > Time Machine, click Add Backup Disk, and choose it. If you "
+                "back up with something else, open it and check that it is still running."
+            ),
+            severity=Severity.CRITICAL,
+            category=self.category,
+            code="integrity.time_machine_check.no_backup",
+            data={"check": "not_configured", **data},
+        )
+
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:
         actions = []
 
         for finding in findings.findings:
             check = finding.data.get("check")
 
-            if check == "not_configured":
+            if check == "sync_only":
+                actions.append(
+                    Action(
+                        title="Add a backup next to your sync",
+                        description=(
+                            "Sync keeps the same files on every device, so a deleted or damaged "
+                            "file is gone everywhere. To keep older copies as well: "
+                            "1. Plug in an external drive "
+                            "2. Open System Settings > General > Time Machine "
+                            "3. Click Add Backup Disk and choose the drive "
+                            "Or use an online backup service. If you already back up another way, "
+                            "choose \"I back up another way\" on this warning."
+                        ),
+                        risk_level=RiskLevel.SAFE,
+                        success=True,
+                    )
+                )
+
+            elif check == "not_configured":
                 actions.append(
                     Action(
                         title="Enable Time Machine in System Settings",

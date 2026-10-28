@@ -27,7 +27,7 @@ const BACKGROUND_TASK = 'background_task';
 // Settings and installed items (rescue/known_items.py ITEM_KINDS).
 const ITEM_KINDS = new Set([
   'sharing_service', 'network_proxy', 'system_extension', 'browser_extension',
-  'app_permissions', 'ssh_authorized_keys', 'ai_tooling',
+  'app_permissions', 'ssh_authorized_keys', 'ai_tooling', 'backup_elsewhere',
 ]);
 // Checks for monitoring software: never markable, whatever the engine says.
 const NEVER_MARKABLE_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
