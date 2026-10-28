@@ -454,6 +454,7 @@ if (typeof document !== 'undefined') {
       city: document.getElementById('screen-city'),
     };
     const stepDots = document.querySelectorAll('[data-step-dot]');
+    const appRoot = document.getElementById('app');
 
     let permissionsContent = null;
     let lastKnownPlatform = null; // e.g. "darwin" | "win32" | "linux", once we have a scan result
@@ -469,6 +470,8 @@ if (typeof document !== 'undefined') {
     let wantsCity = false; // came in through "Play it as a game"
     let leftGame = false; // chose "Plain view" during game mode
     let scanRunning = false;
+    let scanToGame = false; // the running scan reports to the game's sweep screen
+    let visitedCity = false; // the city has been on screen this session
     let lastScanSituation = null; // the worry lastScanDoc was run for
     // Monitoring software seen in any scan or re-check this session (noteMonitoring).
     // Memory only: never written to storage.
@@ -573,6 +576,10 @@ if (typeof document !== 'undefined') {
         if (!screens[key]) return;
         screens[key].hidden = key !== name;
       });
+      // The city fills the window; styles.css drops the plain header for it.
+      appRoot.dataset.screen = name;
+      if (name === 'city') visitedCity = true;
+      renderBackToCity();
       // The question screen keeps the step the person was on (worry, or the checkup's follow-up).
       const dotName = name === 'question' ? activeDot : name === 'city' ? 'results' : name;
       activeDot = dotName;
@@ -939,13 +946,14 @@ if (typeof document !== 'undefined') {
       // A click handler passes an Event here; only {game: true} from the game counts.
       const inGame = !!(opts && opts.game === true && window.RescueGame && window.RescueGame.isReady);
       if (inGame) leftGame = false;
+      scanToGame = inGame;
       const scanSituation = situation;
       setScanBusy(true);
       resetProgress();
       if (inGame) window.RescueGame.showBoss();
       const unsubscribe = window.rescue.onScanEvent((ev) => {
         onScanEvent(ev);
-        if (inGame && !leftGame && ev.type === 'progress') window.RescueGame.scanEvent(ev);
+        if (scanToGame && !leftGame && ev.type === 'progress') window.RescueGame.scanEvent(ev);
       });
       try {
         const doc = await window.rescue.runScan(situation ? situation.profile : null);
@@ -962,7 +970,7 @@ if (typeof document !== 'undefined') {
         renderCitySwitch(doc);
         const land = () => {
           const view = postScanView({
-            inGame, left: leftGame, wantsCity, rememberedCity: rememberedView() === 'city',
+            inGame: scanToGame, left: leftGame, wantsCity, rememberedCity: rememberedView() === 'city',
             offered: gameOfferedFor(situation), ready: !!(window.RescueGame && window.RescueGame.isReady), mode,
           });
           if (view === 'boss-city') {
@@ -987,7 +995,7 @@ if (typeof document !== 'undefined') {
       } catch (err) {
         setScanBusy(false);
         const message = scanErrorText(err && err.message ? err.message : String(err));
-        if (inGame && !leftGame) {
+        if (scanToGame && !leftGame) {
           if (window.RescueGame.scanFailed(message) === false) showScanError(message);
           else showScreen('city');
         } else {
@@ -1058,6 +1066,30 @@ if (typeof document !== 'undefined') {
     });
     document.getElementById('btn-see-city').addEventListener('click', () => {
       if (lastScanDoc) showCity(lastScanDoc);
+    });
+
+    // "Back to the city", in the plain header once the city has been on screen:
+    // the sweep if a scan is running, this worry's city if it has one, or the
+    // Training Grounds.
+    function renderBackToCity() {
+      document.getElementById('btn-back-to-city').hidden = !(visitedCity
+        && window.RescueGame && window.RescueGame.isReady
+        && (!situation || gameOfferedFor(situation)));
+    }
+    document.getElementById('btn-back-to-city').addEventListener('click', () => {
+      if (!(window.RescueGame && window.RescueGame.isReady)) return;
+      leftGame = false;
+      wantsCity = true;
+      if (!situation) situation = CITY_SITUATION;
+      if (scanRunning) {
+        scanToGame = true;
+        window.RescueGame.showBoss();
+        showScreen('city');
+      } else if (lastScanDoc && lastScanSituation === situation) {
+        showCity(lastScanDoc);
+      } else if (window.RescueGame.showTraining(situation) !== false) {
+        showScreen('city');
+      }
     });
 
     async function goToScan() {

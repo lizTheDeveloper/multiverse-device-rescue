@@ -84,7 +84,8 @@ button.district { display: grid; width: 100%; }
 .btn-s { font-family: var(--font-display); font-size: 10px; font-weight: 600; letter-spacing: 1px; color: var(--cyan); background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.3); padding: 10px 16px; display: inline-block; }
 .btn-s.mag { color: var(--magenta); background: rgba(255,45,155,0.08); border-color: rgba(255,45,155,0.35); }
 .btn-s.lime { color: var(--lime); background: rgba(198,255,0,0.07); border-color: rgba(198,255,0,0.35); }
-.btn-t { font-size: 13px; color: var(--faint); }
+.btn-t { font-size: 13px; color: var(--dim); text-underline-offset: 3px; }
+.btn-t:hover, .btn-t:focus-visible { color: var(--cyan); text-decoration: underline; }
 .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 
 .badge { font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: 0.5px; padding: 3px 7px; border: 1px solid; white-space: nowrap; }
@@ -121,7 +122,9 @@ button.district { display: grid; width: 100%; }
 .brief-main { padding: 22px; display: grid; gap: 18px; align-content: start; min-width: 0; }
 .brief-side { padding: 22px; border-left: 1px solid rgba(0,229,255,0.1); background: rgba(26,31,43,0.4); display: grid; gap: 14px; align-content: start; justify-items: center; }
 @media (max-width: 720px) { .brief-side { border-left: 0; border-top: 1px solid rgba(0,229,255,0.1); } }
-.crumbs { font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; color: var(--faint); }
+.crumbs { font-family: var(--font-mono); font-size: 12px; letter-spacing: 1px; color: var(--faint); }
+.crumbs button { color: var(--cyan); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(0,229,255,0.4); padding: 6px 0; }
+.crumbs button::before { content: '◂ '; text-decoration: none; }
 .crumbs b { color: var(--dim); font-weight: 400; }
 .m-title { font-family: var(--font-display); font-size: clamp(18px, 2.4vw, 24px); font-weight: 800; letter-spacing: 1px; line-height: 1.35; margin: 0; overflow-wrap: anywhere; }
 .m-title span { color: var(--cyan); text-shadow: 0 0 14px rgba(0,229,255,0.3); }
@@ -133,7 +136,17 @@ button.district { display: grid; width: 100%; }
 .step { display: grid; grid-template-columns: 28px minmax(0,1fr) auto; gap: 10px; align-items: start; }
 .step-n { font-family: var(--font-mono); font-weight: 700; color: var(--cyan); text-align: center; text-shadow: 0 0 8px rgba(0,229,255,0.4); }
 .step-t { font-size: 14px; line-height: 1.5; }
+.step-t { font-weight: 600; }
 .step-t small { display: block; color: var(--dim); font-size: 12.5px; margin-top: 2px; }
+/* A walkthrough step's body: the catalog's own paragraphs and lists. */
+.step-body { font-weight: 400; color: rgba(237,239,243,0.78); font-size: 14px; line-height: 1.6; margin-top: 4px; max-width: 72ch; }
+.step-body p, .step-body ul, .step-body ol, .step-body pre { margin: 0 0 10px; }
+.step-body > :last-child { margin-bottom: 0; }
+.step-body ul, .step-body ol { padding-left: 20px; display: grid; gap: 4px; }
+.step-body strong { color: var(--offwhite); }
+.step-body code { font-family: var(--font-mono); font-size: 12.5px; color: var(--cyan); background: rgba(0,229,255,0.07); padding: 1px 5px; overflow-wrap: anywhere; }
+.step-body pre { background: rgba(0,0,0,0.35); border: 1px solid var(--line); padding: 10px 12px; overflow-x: auto; }
+.step-body pre code { background: none; padding: 0; color: var(--offwhite); }
 @media (max-width: 520px) { .step { grid-template-columns: 24px minmax(0,1fr); } .step .badge { grid-column: 2; justify-self: start; } }
 .outcome { background: #0b0e15; padding: 20px; display: grid; gap: 12px; align-content: start; justify-items: start; }
 .outcome h5 { margin: 0; font-family: var(--font-display); font-size: 16px; font-weight: 900; letter-spacing: 2px; }
@@ -146,6 +159,10 @@ button.district { display: grid; width: 100%; }
 .choice.sel { border-color: rgba(0,229,255,0.5); color: var(--offwhite); background: rgba(0,229,255,0.06); }
 .scout-row { display: flex; gap: 12px; align-items: flex-start; }
 .mission-row { display: flex; gap: 10px; align-items: center; width: 100%; padding: 10px 0; }
+/* An open mission row says it opens; a reclaimed one has nothing to open. */
+.mission-row:not(.lit)::after { content: '▶'; margin-left: auto; padding-left: 12px; font-size: 11px; color: rgba(0,229,255,0.45); }
+.mission-row:not(.lit):hover .mission-text, .mission-row:not(.lit):focus-visible .mission-text { color: var(--cyan); }
+.mission-row:not(.lit):hover::after { color: var(--cyan); }
 /* a reclaimed mission: checked again and gone, nothing left to open */
 .mission-row.lit .mission-text { color: var(--lime); }
 
@@ -162,6 +179,10 @@ button.district { display: grid; width: 100%; }
 .o-yours h2 { color: #b49cff; }
 .district-screen { padding: 22px 18px 26px; display: grid; gap: 18px; }
 .missions, .notes, .fog-list { list-style: none; margin: 8px 0 0; padding: 0; }
+details.panel > summary.label { cursor: pointer; list-style: none; min-height: 24px; display: flex; align-items: center; }
+details.panel > summary.label::-webkit-details-marker { display: none; }
+details.panel > summary.label::before { content: '▸'; margin-right: 8px; font-size: 12px; }
+details.panel[open] > summary.label::before { content: '▾'; }
 .notes li, .fog-list li { font-size: 13px; color: var(--dim); padding: 4px 0; }
 .missions li + li { border-top: 1px solid var(--line); }
 .mission-text { flex: 1 1 140px; min-width: 0; }
@@ -263,6 +284,9 @@ code { font-family: var(--font-mono); font-size: 0.92em; background: rgba(0,229,
 .district.heat-warn { box-shadow: 0 0 18px rgba(255,159,0,0.3); }
 .district[aria-current="true"] { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .integrity b { font-family: var(--font-display); font-size: 28px; color: var(--cyan); }
+.instruments .integrity { margin: 6px 0 0; }
+.instruments .label:not(:first-child) { margin-top: 20px; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .spark { display: block; width: 100%; height: 36px; color: var(--cyan); }
 .ibar { display: grid; gap: 4px; margin: 6px 0; }
 .ibar-track { height: 8px; border: 1px solid var(--line); position: relative; }
@@ -295,11 +319,16 @@ code { font-family: var(--font-mono); font-size: 0.92em; background: rgba(0,229,
 .clue.locked { width: 100%; min-height: 44px; padding: 10px 12px; text-align: left; border: 1px dashed rgba(0,229,255,0.4); font-family: var(--font-display); font-size: 12px; letter-spacing: 1px; color: var(--cyan); }
 .clue.open { border-left: 2px solid var(--cyan); padding: 4px 12px; }
 .clue-line { margin: 2px 0; font-family: var(--font-mono); font-size: 15px; overflow-wrap: anywhere; }
+/* Prose clues read as prose; paths, addresses and makers stay monospaced. */
+.clue[data-clue="what"] .clue-line { font-family: var(--font-body); line-height: 1.6; }
 .reading { font-size: 15px; color: var(--dim); }
 .tags { display: flex; flex-wrap: wrap; gap: 8px; }
 .tags [aria-pressed="true"] { background: var(--cyan); color: var(--midnight); }
 .points { font-family: var(--font-mono); color: var(--lime); }
 .faint { color: var(--faint); }
+/* A signal's or mission's title is the finding's own sentence, often long:
+   body type reads better than the display face at this length. */
+.brief .m-title, .sig-panel .m-title { font-family: var(--font-body); font-weight: 700; letter-spacing: 0; font-size: clamp(19px, 2.2vw, 23px); line-height: 1.3; }
 .sig-panel .intel, .range .intel { font-size: 15px; }
 .sig-panel .say { font-size: 16px; }
 .sig-panel .btn-s, .sig-panel .btn-p, .sig-panel .btn-t, .range .btn-s, .range .btn-p, .range .btn-t { min-height: 40px; font-size: 12px; }

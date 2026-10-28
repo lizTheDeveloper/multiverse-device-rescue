@@ -1345,10 +1345,20 @@ h3 {
 }
 
 /* Game mode: the results switch and the city screen's host */
-.btn--game { background: #0b0e15; color: #00E5FF; border: 1px solid #0b0e15; }
+.btn--game { background: #0b0e15; color: #00E5FF; border: 1px solid #0b0e15; padding: 0.6rem 1.2rem; font-size: 0.95rem; }
+.btn--game:hover { border-color: #00E5FF; }
+.header-city { padding: 0.45rem 0.9rem; font-size: 0.85rem; white-space: nowrap; }
+.header-city[hidden] { display: none; }
 .btn--game small { display: block; font-weight: 400; font-size: 12px; color: rgba(237,239,243,0.65); }
 .screen--city { padding: 0; }
 #city-host { min-height: 70vh; }
+/* The city is its own world: no plain header, stepper or light margins
+   around it. The background matches the city's, so overscroll stays dark. */
+#app[data-screen="city"] { background: #090B10; color-scheme: dark; }
+body:has(#app[data-screen="city"]) { background: #090B10; }
+#app[data-screen="city"] .app-header { display: none; }
+#app[data-screen="city"] #screens { padding: 0; }
+#app[data-screen="city"] #city-host { width: 100%; min-height: 100vh; }
 
 /* ---------- Open in System Settings (opens a page; changes nothing) ---------- */
 
@@ -1367,7 +1377,7 @@ h3 {
 
 /* The one question after the worry screen, and the follow-up after a scan */
 .question-answers { list-style: none; padding: 0; margin: 1.25rem 0; display: grid; gap: 0.75rem; }
-.question-answer { width: 100%; text-align: left; }
+.question-answer { width: 100%; text-align: left; padding: 0.85rem 1.25rem; font-size: 1rem; border-radius: var(--radius-md); }
 .worry-change { margin-top: 1rem; text-align: right; }
 .link-button { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; opacity: 0.75; }
 .link-button:hover, .link-button:focus-visible { opacity: 1; }

@@ -1,4 +1,5 @@
 import { esc } from '../escape.js';
+import { miniMarkdown } from '../mini-markdown.js';
 import { SCOUT } from '../scout-lines.js';
 
 // `note` (held.js briefingNote) is what the list says about removing it:
@@ -10,7 +11,7 @@ export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, 
   const held = !!note && note.kind === 'held';
   const steps = m.steps.map((s) => `
       <li class="step"><span class="step-n">${esc(s.number)}</span>
-        <span class="step-t">${esc(s.title)}${s.body ? `<small>${esc(s.body)}</small>` : ''}</span></li>`).join('');
+        <div class="step-t">${esc(s.title)}${s.body ? `<div class="step-body">${miniMarkdown(s.body)}</div>` : ''}</div></li>`).join('');
   const also = m.findings.length > 1
     ? `<div class="panel"><div class="label">ALSO REPORTED AS</div><ul class="notes">${m.findings.slice(1).map((f) => `<li>${esc(f.title)}</li>`).join('')}</ul></div>` : '';
   const safety = note && note.html ? `<div class="panel safety">${note.html}</div>`

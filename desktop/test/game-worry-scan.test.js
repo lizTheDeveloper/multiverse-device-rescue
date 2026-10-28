@@ -67,3 +67,77 @@ test('PLAIN VIEW mid-scan: the plain scan screen, then the list when it finishes
   assert.deepStrictEqual(p.shown(), ['results']);
   assert.ok(!p.calls.game.includes('scanDone'));
 });
+
+// "Plain view" from the game, then "Back to the city" in the plain header.
+const cityStore = { 'device-rescue.display': 'city' };
+
+test('"Back to the city" is hidden until the city has been on screen', () => {
+  const p = page();
+  assert.strictEqual(p.byId('btn-back-to-city').hidden, true);
+  p.byId('btn-get-started').click();
+  p.pick('wifi');
+  assert.strictEqual(p.byId('btn-back-to-city').hidden, true, 'plain all the way: nothing to go back to');
+});
+
+test('Plain view from the Training Grounds, then back: the Training Grounds again', () => {
+  const p = page({ store: cityStore });
+  assert.deepStrictEqual(p.shown(), ['city']);
+  p.sandbox.RescueHost.leaveGame();
+  assert.deepStrictEqual(p.shown(), ['scan']);
+  assert.strictEqual(p.byId('btn-back-to-city').hidden, false);
+  p.calls.game.length = 0;
+  p.byId('btn-back-to-city').click();
+  assert.deepStrictEqual(p.calls.game, ['showTraining']);
+  assert.deepStrictEqual(p.shown(), ['city']);
+  assert.deepStrictEqual(p.calls.scans, [], 'going back starts no scan');
+});
+
+test('Plain view after a sweep, then back: the same city, no new scan', async () => {
+  const p = page();
+  p.byId('btn-play-game').click();
+  p.pick('wifi');
+  await p.finish(clean);
+  p.sandbox.RescueHost.leaveGame();
+  assert.deepStrictEqual(p.shown(), ['results']);
+  p.byId('btn-back-to-city').click();
+  assert.strictEqual(p.calls.last.name, 'show');
+  assert.strictEqual(p.calls.last.args[0], clean);
+  assert.deepStrictEqual(p.shown(), ['city']);
+  assert.strictEqual(p.calls.scans.length, 1);
+});
+
+test('Plain view during a sweep, then back: the sweep screen, and the scan lands in the city', async () => {
+  const p = page();
+  p.byId('btn-play-game').click();
+  p.pick('wifi');
+  p.sandbox.RescueHost.leaveGame();
+  assert.deepStrictEqual(p.shown(), ['scan']);
+  p.byId('btn-back-to-city').click();
+  assert.strictEqual(p.calls.last.name, 'showBoss');
+  assert.deepStrictEqual(p.shown(), ['city']);
+  await p.finish(clean);
+  assert.strictEqual(p.calls.last.name, 'scanDone');
+  assert.deepStrictEqual(p.shown(), ['city']);
+  assert.strictEqual(p.calls.scans.length, 1);
+});
+
+test('a scan started in plain view can still be watched from the city', async () => {
+  const p = page({ store: cityStore });
+  p.sandbox.RescueHost.leaveGame();
+  p.byId('btn-run-scan').click();
+  p.byId('btn-back-to-city').click();
+  assert.strictEqual(p.calls.last.name, 'showBoss');
+  await p.finish(clean);
+  assert.strictEqual(p.calls.last.name, 'scanDone');
+  assert.deepStrictEqual(p.shown(), ['city']);
+});
+
+test('no "Back to the city" for the iPhone check, which has no city', () => {
+  const p = page({ store: cityStore });
+  p.sandbox.RescueHost.leaveGame();
+  p.byId('btn-start-over').click();
+  p.byId('btn-get-started').click();
+  p.pick('phone');
+  assert.deepStrictEqual(p.shown(), ['scan']);
+  assert.strictEqual(p.byId('btn-back-to-city').hidden, true);
+});
