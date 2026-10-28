@@ -1744,8 +1744,8 @@ export const CHECK_NOTES = {
   "platforms": [
    "macOS"
   ],
-  "what": "Whether Time Machine backups are set up and recent",
-  "where": "`tmutil destinationinfo`, `tmutil latestbackup`, `tmutil status`, com.apple.TimeMachine",
+  "what": "Whether this Mac is backed up, by Time Machine or not",
+  "where": "`tmutil destinationinfo`, `tmutil latestbackup`, backup and sync app names",
   "why": "A recent backup means files can be recovered if the Mac is lost, broken or needs a reset."
  },
  "time_machine_exclusions": {
