@@ -105,6 +105,21 @@ test('the boss screen: sweep states, progress, a way to the lessons, escaped tip
   assert.doesNotMatch(html.replace(/<[^>]+>/g, ' '), /\b(safe|clear|nothing found|infected|hacked)\b/i);
 });
 
+test('the briefing doesn’t repeat “What to do” above YOUR MOVE when the steps came from it', async () => {
+  const v = await views();
+  const { missionSteps } = await import('../renderer/game/findings-to-city.js');
+  const description = 'Your Mac is not backing up. What to do: Plug in a drive and choose it.';
+  const mission = { id: 'm1', districtId: 'foundations', severity: 'critical', title: 'T', description, steps: missionSteps({ description }),
+    walkthroughTitle: null, safetyNote: null, findings: [{}], primary: {} };
+  const html = v.renderBriefing({ mission, status: 'open', controlsHtml: '', scout, busy: false, wantsSafety: false });
+  assert.strictEqual((html.match(/Plug in a drive and choose it\./g) || []).length, 1);
+  assert.match(html, /WHAT IT IS<\/div><p class="intel">Your Mac is not backing up\.<\/p>/);
+  // Steps from somewhere else (the remediation catalog): the description stays whole.
+  const own = { ...mission, steps: [{ number: 1, title: 'Open Time Machine settings', body: '' }] };
+  assert.strictEqual(v.whatItIs(own), description);
+  assert.strictEqual(v.whatItIs({ ...mission, description: 'Just a note.' }), 'Just a note.');
+});
+
 test('the briefing links back to a finished lesson only when given one', async () => {
   const v = await views();
   const mission = { id: 'm1', districtId: 'gatehouse', severity: 'warning', title: 'T', description: 'D', steps: [{ number: 1, title: 'S', body: '' }],

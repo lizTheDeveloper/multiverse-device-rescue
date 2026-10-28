@@ -1,6 +1,18 @@
 import { esc } from '../escape.js';
 import { miniMarkdown } from '../mini-markdown.js';
 import { SCOUT } from '../scout-lines.js';
+import { missionSteps } from '../findings-to-city.js';
+
+// WHAT IT IS without the "What to do: …" tail when YOUR MOVE was made from
+// that very tail (findings-to-city.js missionSteps), so it isn't said twice.
+export function whatItIs(m) {
+  const text = String(m.description || '');
+  const head = text.split(/what to do:?/i)[0].trim();
+  if (!head || head === text.trim()) return text;
+  const fromText = missionSteps({ description: text }).map((x) => x.title);
+  const shown = (m.steps || []).map((x) => x.title);
+  return fromText.length === shown.length && fromText.every((t, i) => t === shown[i]) ? head : text;
+}
 
 // `note` (held.js briefingNote) is what the list says about removing it:
 // in 'standard' the one line with the full note behind it, which the engine's
@@ -30,7 +42,7 @@ export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, 
     <div class="brief-main">
       <div class="crumbs"><button type="button" data-go="district:${esc(m.districtId)}">Back</button> / <b>${m.severity === 'critical' ? 'CRITICAL' : 'WARNING'}</b>${status === 'later' ? ' · saved for later' : ''}</div>
       <h2 class="m-title"><span>${esc(m.title)}</span></h2>
-      <div class="panel"><div class="label">WHAT IT IS</div><p class="intel">${esc(held ? note.description : m.description)}</p></div>
+      <div class="panel"><div class="label">WHAT IT IS</div><p class="intel">${esc(held ? note.description : whatItIs(m))}</p></div>
       ${learned ? `<p class="from"><button type="button" class="link" data-go="lesson:${esc(learned.id)}">You learned about this in the Training Grounds: ${esc(learned.title)} →</button></p>` : ''}
       ${safety}
       ${held ? '' : `<div class="panel active"><div class="label">YOUR MOVE</div>
