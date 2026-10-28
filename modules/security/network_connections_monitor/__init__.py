@@ -301,10 +301,20 @@ def _process_details(pids, platform: str) -> dict:
 # program's name is kept, plus, for ssh and its kin, the destination host and
 # port (what ~/.ssh/config is matched on), or a script path a program runs.
 _SSH_LIKE = {"ssh", "scp", "sftp", "mosh", "autossh"}
-# ssh options that take a value (man ssh); the destination is the first word after them.
-_SSH_VALUE_OPTS = set("bcDEeFIiJLlmOoPpQRSWw")
+# Options that take a value, per program (man ssh, scp, sftp, autossh); mosh's
+# short options are ssh's. The port option is -p for ssh, -P for scp and sftp.
+_VALUE_OPTS = {
+    "ssh": set("BbcDEeFIiJLlmOoPpQRSWw"),
+    "mosh": set("BbcDEeFIiJLlmOoPpQRSWw"),
+    "autossh": set("BbcDEeFIiJLlMmOoPpQRSWw"),
+    "scp": set("cDFiJlLoPSX"),
+    "sftp": set("BbcDFiJlLoPRSs"),
+}
+_PORT_OPT = {"scp": "P", "sftp": "P"}
 _SCRIPT_EXTS = (".sh", ".bash", ".zsh", ".py", ".js", ".mjs", ".rb", ".pl", ".ps1")
-_HOST_RE = re.compile(r"^[A-Za-z0-9._-]+$|^\[[0-9A-Fa-f:.]+\]$")
+_HOST_RE = re.compile(r"^(?:[A-Za-z0-9][A-Za-z0-9._-]*|\[[0-9A-Fa-f:.]+\])$")
+_SSH_URL_RE = re.compile(r"^ssh://(?:[^@/]*@)?([^:/@]+|\[[0-9A-Fa-f:.]+\])(?::(\d{1,5}))?/?$")
+_NONE = (None, None)
 
 
 def _words(text: str) -> list[str]:
@@ -314,31 +324,75 @@ def _words(text: str) -> list[str]:
         return text.split()
 
 
+def _host_of(word: str, exe: str) -> tuple[str | None, str | None]:
+    """(host, port in the word) for one destination word, or _NONE when it's unclear."""
+    if word.startswith("ssh://"):
+        m = _SSH_URL_RE.match(word)
+        return (m.group(1), m.group(2)) if m and _HOST_RE.match(m.group(1)) else _NONE
+    if "://" in word:
+        return _NONE
+    if exe in ("scp", "sftp"):
+        word = word.split(":", 1)[0] if not word.startswith("[") else word
+    host = word.rsplit("@", 1)[-1]  # never the user
+    return (host, None) if _HOST_RE.match(host) else _NONE
+
+
 def _ssh_destination(exe: str, args: list[str]) -> tuple[str | None, str | None]:
-    """(host, port) from an ssh-like command line; never a user name or anything else."""
-    host = port = None
+    """(host, port) from an ssh-like command line, parsed the way getopt does.
+
+    Only the host and port are ever returned, never a user or an option's value.
+    Anything unclear (a long option, two candidates for scp, odd characters)
+    gives _NONE, and the summary is then the bare program name.
+    """
+    value_opts = _VALUE_OPTS.get(exe, _VALUE_OPTS["ssh"])
+    port_opt = _PORT_OPT.get(exe, "p")
+    port = None
+    operands: list[str] = []
     i = 0
     while i < len(args):
         a = args[i]
+        i += 1
+        if a == "--":
+            operands.extend(args[i:])
+            break
+        if a.startswith("--"):
+            return _NONE  # long options (mosh's) aren't parsed: keep nothing
         if a.startswith("-") and len(a) > 1:
-            opt = a[1:2]
-            if opt in _SSH_VALUE_OPTS:
-                value = a[2:] or (args[i + 1] if i + 1 < len(args) else "")
-                if opt == ("P" if exe == "scp" else "p") and value.isdigit():
-                    port = value
-                i += 1 if a[2:] else 2
-                continue
-            i += 1
+            for j in range(1, len(a)):
+                c = a[j]
+                if c in value_opts:
+                    value = a[j + 1:]
+                    if not value:
+                        if i >= len(args):
+                            return _NONE
+                        value = args[i]
+                        i += 1
+                    if c == port_opt:
+                        if not value.isdigit():
+                            return _NONE
+                        port = value
+                    break
+                if not c.isalnum():
+                    return _NONE
             continue
-        if exe == "scp" and ":" not in a:
-            i += 1
-            continue
-        target = a.split(":", 1)[0] if exe == "scp" else a
-        target = target.rsplit("@", 1)[-1]
-        if "://" not in a and _HOST_RE.match(target):
-            host = target
-        break
-    return host, port
+        operands.append(a)
+        if exe not in ("scp", "sftp"):
+            # ssh and its kin: the first operand is the destination; the rest is the remote command.
+            operands.extend(args[i:])
+            break
+    if not operands:
+        return _NONE
+    if exe == "scp":
+        remote = [w for w in operands if ":" in w and not w.startswith(("/", "./", "~"))]
+        if len(remote) != 1:
+            return _NONE
+        dest = remote[0]
+    else:
+        dest = operands[0]
+    host, url_port = _host_of(dest, exe)
+    if host is None:
+        return _NONE
+    return host, url_port or port
 
 
 def _command_summary(text: str) -> str | None:

@@ -751,6 +751,26 @@ SECRET = "S3cr3tV4lue"
     (f"ssh -T vast-tests bash -c 'echo {SECRET}'", "ssh vast-tests"),
     (f"scp -P 2222 ./f {SECRET}@host.example:/tmp/x", "scp host.example -p 2222"),
     (f"python3 /opt/tools/run.py --token {SECRET}", "python3 /opt/tools/run.py"),
+    # Clustered and attached option values (getopt rules): a value is never the destination.
+    ("ssh -vp2222 vast-tests", "ssh vast-tests -p 2222"),
+    (f"ssh -4l{SECRET} vast-tests", "ssh vast-tests"),
+    (f"ssh -4 -l {SECRET} vast-tests", "ssh vast-tests"),
+    (f"ssh -oProxyCommand=nc_{SECRET} vast-tests", "ssh vast-tests"),
+    (f"ssh -o ProxyCommand={SECRET} vast-tests", "ssh vast-tests"),
+    (f"ssh -oUser={SECRET} vast-tests", "ssh vast-tests"),
+    (f"ssh -i~/key_{SECRET} vast-tests", "ssh vast-tests"),
+    (f"ssh -vi key_{SECRET} vast-tests", "ssh vast-tests"),
+    (f"ssh -l {SECRET} vast-tests", "ssh vast-tests"),
+    (f"ssh -p 22 -l {SECRET} vast-tests", "ssh vast-tests -p 22"),
+    (f"ssh -- {SECRET}@vast-tests uptime", "ssh vast-tests"),
+    (f"ssh ssh://{SECRET}:{SECRET}@vast-tests:22", "ssh vast-tests -p 22"),
+    (f"ssh ssh://vast-tests", "ssh vast-tests"),
+    # Unclear: keep only the program.
+    (f"ssh -l", "ssh"),
+    (f"ssh -p {SECRET} vast-tests", "ssh"),
+    (f"mosh --ssh='ssh -l {SECRET}' vast-tests", "mosh"),
+    (f"ssh {SECRET}:x@bad/host", "ssh"),
+    (f"scp {SECRET}@a.example:/x {SECRET}@b.example:/y", "scp"),
     (f"node --inspect {SECRET}.js", f"node {SECRET}.js"),  # a script path is kept; its name isn't a credential form
 ])
 def test_command_line_keeps_only_the_program_and_ssh_destination(tmp_path, cmdline, kept):
