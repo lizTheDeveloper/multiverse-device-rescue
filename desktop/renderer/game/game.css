@@ -407,3 +407,51 @@ code { font-family: var(--font-mono); font-size: 0.92em; background: rgba(0,229,
 .sweep-log .log li code { grid-column: 2 / span 2; }
 .sweep-log .badge.amb { color: var(--amber); background: rgba(255,159,0,0.1); border-color: rgba(255,159,0,0.3); }
 .sweep-log code { font-size: 11px; color: var(--faint); background: none; padding: 0; }
+/* --- This is mine and the YOURS district (mark-desk.js, views/yours.js) ---
+   The "done" beat stays small: a tick, a line that slides in, the YOURS count
+   bumping once. Smaller than DISTRICT SECURED; the global reduced-motion rule
+   above turns every animation here off. */
+.kinds { display: flex; flex-wrap: wrap; gap: 2px 0; font-size: 11px; color: var(--dim); }
+.kind { white-space: nowrap; }
+.kind span[aria-hidden] { color: #b49cff; }
+.kind-sep { color: var(--faint); margin: 0 5px; }
+.queue li.has-mine { display: grid; gap: 0; }
+.mine-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 8px 6px 12px; border: 1px solid var(--line); border-top: 0; background: var(--panel); }
+.mine-row .pick input, .y-item .pick input { width: 16px; height: 16px; accent-color: #b49cff; }
+.btn-mine { font-family: var(--font-display); font-size: 9px; font-weight: 700; letter-spacing: 1px; color: #b49cff; background: rgba(180,156,255,0.08); border: 1px solid rgba(180,156,255,0.35); padding: 6px 10px; }
+.btn-mine:hover, .btn-mine:focus-visible { background: rgba(180,156,255,0.18); color: #fff; }
+.mine-saving { display: block; padding: 6px 12px; border: 1px solid var(--line); border-top: 0; font-family: var(--font-display); font-size: 9px; letter-spacing: 1px; color: #b49cff; animation: mine-pop 260ms ease-out both; }
+.mine-confirm { padding: 10px 12px; border: 1px solid rgba(180,156,255,0.45); background: rgba(180,156,255,0.06); }
+.queue li.has-mine > .mine-confirm { border-top: 0; }
+.mine-confirm__q, .mine-confirm__why { margin: 0 0 8px; font-size: 13px; line-height: 1.5; }
+.mine-confirm .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.mine-confirm .btn-p { padding: 9px 14px; font-size: 10px; }
+.mine-bulk { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 1px dashed rgba(180,156,255,0.45); font-family: var(--font-display); font-size: 9px; letter-spacing: 1px; color: #b49cff; }
+.mine-bulk .mine-confirm { flex: 1 1 100%; border: 0; padding: 0; background: none; font-family: var(--font-body); letter-spacing: 0; color: var(--offwhite); }
+.mine-toast { display: block; line-height: 1.5; padding: 8px 12px; border-left: 3px solid #b49cff; background: rgba(180,156,255,0.08); font-size: 13px; animation: mine-slide 320ms ease-out both; }
+.mine-toast .tick { color: #b49cff; font-weight: 700; display: inline-block; animation: mine-pop 320ms ease-out both; }
+.mine-toast.all-done { border-left-width: 4px; font-weight: 600; box-shadow: 0 0 14px rgba(180,156,255,0.25); }
+.mine-toast.error { border-left-color: var(--amber); background: rgba(255,159,0,0.07); }
+.yours-tile { display: flex; gap: 8px; align-items: center; margin: 0 0 12px; }
+.yours-btn { color: #b49cff; background: rgba(180,156,255,0.08); border-color: rgba(180,156,255,0.35); }
+.yours-count { display: inline-block; min-width: 1.4em; text-align: center; }
+.yours-count.bump { animation: mine-bump 420ms ease-out both; }
+.mine-one { margin: 0 0 10px; }
+@keyframes mine-pop { from { transform: scale(0.6); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes mine-slide { from { transform: translateX(-10px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes mine-bump { 0% { transform: scale(1); } 40% { transform: scale(1.45); color: #fff; } 100% { transform: scale(1); } }
+.yours-screen { padding: 0 18px 18px; }
+.yours-screen .hud { display: flex; align-items: center; gap: 12px; }
+.yours-screen .hud-title { color: #b49cff; }
+.yours-screen .hud-title small { color: var(--dim); margin-left: 6px; }
+.yours-screen .panel { margin-top: 12px; }
+.yours-screen .label { color: rgba(180,156,255,0.85); }
+.y-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.y-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 8px 10px; border: 1px solid var(--line); background: var(--panel); }
+.y-item.stale { grid-template-columns: minmax(0, 1fr) auto; border-left: 3px solid var(--amber); }
+.y-item.pending { border-style: dashed; }
+.y-name { font-weight: 600; overflow-wrap: anywhere; }
+.y-meta { font-size: 12px; color: var(--dim); display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 2px; }
+.y-meta code { font-family: var(--font-mono); font-size: 11px; overflow-wrap: anywhere; user-select: all; }
+.y-maker.ok { color: #8FD694; }
+.y-maker.unknown { color: var(--faint); }

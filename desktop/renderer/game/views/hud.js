@@ -5,7 +5,8 @@ import { countReclaimed } from '../progress.js';
 // confirmed and what the person reported. Without it, Plan A's RECLAIMED.
 export function renderHud({ title, city, progress, counts }) {
   const t = (city && city.totals) || { critical: 0, warning: 0, fog: 0 };
-  const open = (city.districts || []).reduce((n, d) => n + d.missions.length, 0);
+  // Marked as yours isn't to do: it's in YOURS.
+  const open = (city.districts || []).reduce((n, d) => n + d.missions.filter((m) => !m.marked).length, 0);
   const done = countReclaimed(progress);
   return `
   <header class="hud">

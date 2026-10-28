@@ -41,6 +41,12 @@ import { SIX_ROSES } from './side-district.js';
 import { renderSide, sideTileHtml, heldNoticeHtml } from './views/side-district.js';
 import { createAccountsScreen, ACCOUNT_SCREENS } from './accounts-screen.js';
 import { HACK_MODULES } from './account-recovery.js';
+// "This is mine", the fast way, and the YOURS district.
+import { createMarkDesk } from './mark-desk.js';
+import { yoursInventory } from './yours.js';
+import { kindsOf, kindChipsHtml, programContext } from './program-kinds.js';
+import { noteMarked } from './ledger.js';
+import { renderYours, yoursTileHtml, mineRowHtml, bulkBarHtml, toastHtml, confirmHtml } from './views/yours.js';
 
 // Specifiers resolve against this file (app://rescue/game/controller.js).
 const loadLessonsHere = () => loadLessons((spec) => import(spec));
@@ -48,7 +54,7 @@ const idleScan = () => ({ running: false, index: 0, total: 0, error: null });
 const TRAINING_SCREENS = new Set(['training', 'lesson', 'boss']);
 // Screens drawn without a city, and screens whose redraws keep keyboard focus.
 const NO_CITY_SCREENS = new Set([...TRAINING_SCREENS, 'range']);
-const KEEP_FOCUS = new Set([...TRAINING_SCREENS, 'map', 'range']);
+const KEEP_FOCUS = new Set([...TRAINING_SCREENS, 'map', 'range', 'yours']);
 const LOG_MAX = 100;
 const MOMENTS_MAX = 4;
 const TAG_WORD = { mine: 'MINE', threat: 'THREAT', closer: 'LOOK CLOSER', noted: 'NOTED' };
@@ -180,6 +186,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const before = s.city ? cityIntegrity(s.city, signalsNow(), s.heldCity) : null;
     const heldBefore = heldDistrictIds(s.heldCity);
     s.doc = doc;
+    programCtx = programContext(doc); // what each program does (program-kinds.js)
     // Monitoring software never becomes a mission or a signal (held.js).
     const split = splitHeld(doc);
     s.held = split.held;
@@ -367,7 +374,78 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     return r.points || 0;
   }
-  const signalsNow = () => (s.city ? buildSignals(s.city, withSessionTags(s.progress.deck, s.watchTags), s.changedTags) : []);
+  const rawSignals = () => (s.city ? buildSignals(s.city, withSessionTags(s.progress.deck, s.watchTags), s.changedTags) : []);
+  // This session's marks and unmarks are laid over the scan until a re-check confirms them (mark-desk.js).
+  const signalsNow = () => desk.overlay(rawSignals());
+
+  // --- This is mine (mark-desk.js, views/yours.js) ---------------------------
+  let programCtx = programContext(null);
+  const desk = createMarkDesk({
+    api: win.rescue, MarkFlow: win.MarkFlow, signals: rawSignals,
+    // City mode, or monitoring software held this checkup: every mark asks first.
+    opts: () => ({ watched: hostMode() === 'city', held: s.held.length > 0 }),
+    docChanged: (d) => win.RescueHost.docChanged(d),
+    rebuild: (d) => rebuild(d),
+    // Only screens that show marks redraw; a half-filled form elsewhere is left alone.
+    render: () => { if (['map', 'yours', 'district'].includes(s.screen) && !s.busy) render(); },
+    log: logEntry,
+    noteMarked: () => commitDeck(noteMarked(s.progress.deck)),
+    modulesFor: (ids) => modulesCoveredBy(ids),
+  });
+  const yoursNow = () => yoursInventory(signalsNow(), programCtx);
+  const chipsFor = (sig) => (sig && sig.kind === 'real' ? kindChipsHtml(kindsOf(sig.finding, programCtx)) : '');
+  // The quick MINE control for one signal, where it is shown (a queue row, the panel, the briefing).
+  function quickControl(sig, inRow) {
+    const qm = desk.qmOf(sig);
+    if (!qm) return '';
+    const watch = desk.isWatch(sig);
+    if (desk.saving.has(sig.id)) return mineRowHtml(sig, qm, { saving: true });
+    // The question shows once: in the open panel when there is one, else in the row.
+    const panelHas = inRow && s.signal && s.signal.id === sig.id;
+    if (desk.confirm && desk.confirm.target === sig.id && !panelHas) return confirmHtml({ target: sig.id, watch });
+    if (inRow) return mineRowHtml(sig, qm, { picked: desk.picked.has(sig.id) });
+    return `<div class="row mine-one"><button type="button" class="btn-s lime" data-act="mine:${esc(sig.id)}">THIS IS MINE ✓</button></div>`;
+  }
+  // Every action the desk answers. true when it was one of them.
+  function deskAct(act) {
+    const after = (id) => act.slice(id.length);
+    if (act.startsWith('mine:')) {
+      const id = after('mine:');
+      const fromPanel = s.signal && s.signal.id === id;
+      const fromBriefing = s.screen === 'mission';
+      desk.ask(id).then(() => {
+        const sig = signalsNow().find((x) => x.id === id);
+        if (!sig || !sig.marked) return;
+        if (fromPanel) s.signal = null;
+        if (fromBriefing || fromPanel) { s.screen = 'map'; render(); }
+      });
+      return true;
+    }
+    if (act.startsWith('mine-yes:')) {
+      const id = after('mine-yes:');
+      const fromBriefing = s.screen === 'mission';
+      desk.yes(id).then(() => {
+        if (id === '*') return;
+        const sig = signalsNow().find((x) => x.id === id);
+        if (!sig || !sig.marked) return;
+        if (s.signal && s.signal.id === id) s.signal = null;
+        if (fromBriefing || s.screen === 'map') { s.screen = 'map'; render(); }
+      });
+      return true;
+    }
+    if (act === 'mine-no') { desk.no(); if (s.screen === 'mission') render(); return true; }
+    if (act === 'mine-picked') { desk.askPicked(); return true; }
+    if (act === 'mine-undo') { desk.undo(); return true; }
+    if (act.startsWith('pick:')) { desk.pick(after('pick:')); render(); return true; }
+    if (act === 'pick-none') { desk.pickNone(); render(); return true; }
+    if (act.startsWith('ypick:')) { desk.ypick(after('ypick:')); render(); return true; }
+    if (act === 'ypick-none') { desk.ypicked.clear(); render(); return true; }
+    if (act.startsWith('unmine:')) { desk.unmine([after('unmine:')]); return true; }
+    if (act === 'unmine-picked') { desk.unmine([...desk.ypicked]); return true; }
+    if (act === 'yours-back') { s.screen = 'map'; render(); return true; }
+    return false;
+  }
+  // ---------------------------------------------------------------------------
   // This sweep's drills: about one per four real signals, from their districts.
   function sweepDrillsNow() {
     const real = queueOf(signalsNow(), null).urgent.filter((x) => x.kind === 'real');
@@ -396,10 +474,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const sig = s.signal && findSignal(s.signal.id);
     if (!sig) { s.signal = null; return ''; }
     // The real "It's mine" step, offered only for a finding that has one. MarkFlow asks its own question.
-    const mine = sig.kind === 'real' && sig.missionId && !sig.marked ? win.MarkFlow.markControlsHtml(sig.finding, watchedOpts()) : '';
+    // The quick MINE step comes first; MarkFlow's own panel only where the quick one can't be offered.
+    const quick = quickControl(sig, false);
+    const mine = !quick && sig.kind === 'real' && sig.missionId && !sig.marked ? win.MarkFlow.markControlsHtml(sig.finding, watchedOpts()) : '';
     return renderSignalPanel({ signal: sig, districtName: nameOf(sig.districtId), clues: cluesOf(sig), opened: openedFor(sig.id),
       tagged: s.signal.tagged, right: s.signal.right, read: s.signal.read, points: s.signal.points, scout, mineHtml: mine,
-      range: s.screen === 'range' ? { hasCity: !!s.city } : null });
+      range: s.screen === 'range' ? { hasCity: !!s.city } : null, quickHtml: quick, chipsHtml: chipsFor(sig) });
   }
 
   function deckHtml() {
@@ -418,7 +498,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const heldIn = heldDistrictIds(s.heldCity);
     // City mode has no note above the map: a held district points to the generated one.
     const heldAt = inCity() ? side().name : null;
-    const cityHtml = sideTile() + acct.tileHtml() + held + (s.rc || s.accountsError
+    const inv = yoursNow();
+    const cityHtml = sideTile() + acct.tileHtml() + yoursTileHtml({ count: inv.count, changed: inv.changed.length, bump: desk.bump }) + held + (s.rc || s.accountsError
       ? renderOneCityMap({ city: s.city, progress: s.progress, scout, cameBack: s.cameBack, focus: focusFor(s.situation),
         accountCards: s.rc ? accountDistrictCards({ rc: s.rc, rcState: s.rcState, doc: s.doc }) : [],
         accountsError: s.accountsError, goFor, heat, selected: s.filter, held: heldIn, heldAt })
@@ -428,7 +509,11 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.moments = []; // a moment shows once
     return renderDeck({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', rank: rankOf(deck),
       lastSweep: deck.sweeps.length ? deck.sweeps[deck.sweeps.length - 1] : null,
-      items, low: q.low, lowOpen: s.lowOpen, threats: q.threats, known: [...q.known, ...q.noted],
+      // Marked as yours: in YOURS, not the KNOWN AND NOTED pile. Each queue row carries MINE ✓ and its kind.
+      items, low: q.low, lowOpen: s.lowOpen, threats: q.threats, known: [...q.known.filter((x) => !x.marked), ...q.noted],
+      rowParts: (x) => ({ extra: quickControl(x, true), chips: chipsFor(x) }),
+      queueTop: toastHtml(desk.toast) + bulkBarHtml({ count: desk.picked.size, confirming: !!(desk.confirm && desk.confirm.target === '*'),
+        watch: !!(desk.confirm && desk.confirm.watch) }),
       filter: fd ? { id: fd.id, name: fd.name } : null, cityHtml,
       instrumentsHtml: renderInstruments({ integrity: integ.percent, previous: history.length > 1 ? history[history.length - 2] : null,
         history, bars: { sorted: sortedCount(sigs), confirmed: c.confirmed, reported: c.reported }, rank: rankOf(deck) })
@@ -688,6 +773,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       if (inCity()) return renderSide({ district: side(), held: s.held, notice: s.sideNotice, scout });
       s.screen = s.city ? 'map' : 'training';
     }
+    if (s.screen === 'yours') {
+      if (s.city) return renderYours({ inv: yoursNow(), picked: desk.ypicked, scout, toast: desk.toast });
+      s.screen = 'training';
+    }
     if (s.screen === 'range') return rangeHtml();
     if (s.screen === 'training') {
       return sideTile() + renderTraining({ ordered: orderLessons(s.lessons, s.situation && s.situation.id), progress: s.progress,
@@ -708,7 +797,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       return renderMilestone({ district: district(s.districtId), progress: s.progress, scout });
     }
     if (s.screen === 'district' && district(s.districtId)) {
-      return renderDistrict({ district: district(s.districtId), progress: s.progress, scout });
+      return renderDistrict({ district: district(s.districtId), progress: s.progress, scout,
+        yours: new Set(yoursNow().items.map((it) => it.id)) });
     }
     // During an Undo re-check the mission was reclaimed, so it isn't in the
     // city: show the checking briefing from the mission we last showed.
@@ -723,8 +813,11 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       // ever does, the briefing carries the list's own note, and in city mode
       // nothing to act on (no router button either).
       const note = briefingNote(win.QuietNotes, hostMode(), m.primary);
+      // The quick MINE step where it can be offered; MarkFlow's own panel otherwise.
+      const sigHere = note.kind === 'held' ? null : signalsNow().find((x) => x.id === m.id);
+      const quick = sigHere ? quickControl(sigHere, false) : '';
       const controls = note.kind === 'held' ? ''
-        : `${win.FixFlow.fixControlsHtml(m.primary, watchedOpts())}${win.MarkFlow.markControlsHtml(m.primary, watchedOpts())}${routerHtml(m.primary)}`;
+        : `${win.FixFlow.fixControlsHtml(m.primary, watchedOpts())}${quick || win.MarkFlow.markControlsHtml(m.primary, watchedOpts())}${routerHtml(m.primary)}`;
       return renderBriefing({ mission: m, status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: controls,
         scout, busy: s.busy, wantsSafety: win.RescueHost.wantsSafety(m.primary), learned: lessonForModule(s.lessons, s.progress, m.module), note,
         forHack: acct.offered() && HACK_MODULES.has(m.module) });
@@ -759,7 +852,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       if (s.screen === 'map' && drawnScreen === 'map') s.heldOpen = !!(frame.querySelector('.panel.held details') || {}).open;
       const body = screenHtml();
       // The deck has its own top bar; the training and range screens have theirs.
-      const hud = NO_CITY_SCREENS.has(s.screen) || s.screen === 'map' || s.screen === 'side' ? ''
+      const hud = NO_CITY_SCREENS.has(s.screen) || s.screen === 'map' || s.screen === 'side' || s.screen === 'yours' ? ''
         : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts() }) + s.linkNotice;
       frame.innerHTML = hud + body;
       // No share cards in Reclaim City’s checkup: they would describe this person's progress.
@@ -907,6 +1000,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (act && act.startsWith('watch-')) { watchAct(act); return; }
     if (s.busy) return;
     if (go) s.linkNotice = '';
+    // This is mine: the queue's MINE ✓, the selection, Undo, and the YOURS district.
+    if (!(act && act.startsWith('mine-undo'))) desk.settle();
+    if (act && deskAct(act)) return;
+    if (go === 'yours') { if (s.city) { s.signal = null; s.screen = 'yours'; render(); focusEl(frame.querySelector('#yours-title')); } return; }
     const acctNext = acct.click(go, act, el);
     if (acctNext) {
       if (acctNext === 'none') return;

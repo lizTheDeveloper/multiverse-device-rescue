@@ -17,7 +17,7 @@ function clueItem(c, opened) {
 }
 
 export function renderSignalPanel({ signal: sig, districtName = '', clues = [], opened = [], tagged = null, right = false, read = '',
-  points = 0, scout, mineHtml = '', range = null }) {
+  points = 0, scout, mineHtml = '', range = null, quickHtml = '', chipsHtml = '' }) {
   const drill = sig.kind === 'drill';
   const couldnt = sig.kind === 'couldnt';
   const stamp = drill ? `<p class="drill-banner"><span class="badge drill-stamp">DRILL</span> Practice. This isn’t on your computer.</p>
@@ -56,10 +56,10 @@ export function renderSignalPanel({ signal: sig, districtName = '', clues = [], 
   <section class="sig-panel${drill ? ' drill' : ''}" role="region" aria-labelledby="sig-title">
     ${stamp}
     <div class="sig-head">${SEV_BADGE[sig.severity] || ''} <small>${esc(districtName)}</small></div>
-    <h2 class="m-title" id="sig-title" tabindex="-1">${esc(sig.title)}</h2>
+    <h2 class="m-title" id="sig-title" tabindex="-1">${esc(sig.title)}</h2>${chipsHtml}
     ${notes}
     <div class="label">CLUES</div>${clueHtml}
-    <div class="label">YOUR CALL</div>${call}
+    <div class="label">YOUR CALL</div>${quickHtml}${call}
     <p class="intel faint">${esc(drill ? 'Practice only. A drill never touches your computer.' : TAG_NOTE)}</p>
     ${after}
     ${foot}

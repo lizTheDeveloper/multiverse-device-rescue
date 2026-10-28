@@ -21,6 +21,7 @@ export const LESSON_FILES = [
   './lessons/firewall-and-sharing.js',
   './lessons/remote-access.js',
   './lessons/after-a-finding.js',
+  './lessons/what-kind-of-program.js',
 ];
 
 // Lessons teach; the scan diagnoses. None of these may appear in lesson text.

@@ -8,9 +8,13 @@ const STATUS_BADGE = {
   yours: '<span class="badge yours">YOURS</span>', reclaimed: '<span class="badge safe">RECLAIMED</span>',
 };
 
-export function renderDistrict({ district: d, progress, scout }) {
+// `yours`: the ids marked as yours (this session's included). They leave the
+// missions here for the YOURS district; a line says how many went there.
+export function renderDistrict({ district: d, progress, scout, yours = null }) {
   const status = (id) => (progress.missions[id] && progress.missions[id].status) || 'open';
-  const missions = d.missions.map((m) => `
+  const isYours = (m) => !!(yours && yours.has(m.id));
+  const mine = d.missions.filter(isYours).length;
+  const missions = d.missions.filter((m) => !isYours(m)).map((m) => `
       <li><button type="button" class="mission-row" data-go="mission:${esc(m.id)}">
         <span class="badge ${m.severity === 'critical' ? 'crit' : 'warn'}">${m.severity === 'critical' ? 'CRITICAL' : 'WARNING'}</span>
         <span class="mission-text">${esc(m.title)}</span>
@@ -37,6 +41,7 @@ export function renderDistrict({ district: d, progress, scout }) {
     ${skyline(d.status)}
     <p class="intel">${esc(districtLine(d, reclaimedIn(progress, d).length))}</p>
     ${rows ? `<div class="panel active"><div class="label">MISSIONS</div><ul class="missions">${rows}</ul></div>` : ''}
+    ${mine ? `<p class="intel"><button type="button" class="btn-t" data-go="yours">${esc(mine)} MARKED AS YOURS: SEE THEM IN YOURS ▶</button></p>` : ''}
     ${fog ? `<div class="panel fogged"><div class="label">COULDN’T CHECK HERE</div><p class="intel">That doesn’t mean it’s safe.</p><ul class="fog-list">${fog}</ul></div>` : ''}
     ${notes ? `<details class="panel"><summary class="label">NOTES (${d.notes.length})</summary><ul class="notes">${notes}</ul></details>` : ''}
     <div class="scout-row">${scout('happy', 54)}<p class="say">${esc(d.missions.length ? 'Pick one. You can stop after any of them.' : 'Nothing to do here right now.')}</p></div>
