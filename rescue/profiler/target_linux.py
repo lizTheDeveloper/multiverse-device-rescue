@@ -12,11 +12,13 @@ from rescue.models import Platform, SystemProfile
 from rescue.target import Target
 
 _INSTALLED = "install ok installed"
+# A desktop's dpkg status runs to several MB.
+DPKG_STATUS_LIMIT = 64 * 1024 * 1024
 
 
-def _read(target: Target, path: str) -> str:
+def _read(target: Target, path: str, limit: int = 1_000_000) -> str:
     try:
-        return target.read_text(path)
+        return target.read_text(path, limit)
     except OSError:
         return ""
 
@@ -39,7 +41,15 @@ def _os_release(target: Target) -> dict[str, str]:
 
 def _dpkg_packages(target: Target) -> set[str]:
     names: set[str] = set()
-    for block in _read(target, "/var/lib/dpkg/status").split("\n\n"):
+    text = _read(target, "/var/lib/dpkg/status", DPKG_STATUS_LIMIT)
+    blocks = text.split("\n\n")
+    try:
+        too_big = os.path.getsize(target.resolve("/var/lib/dpkg/status")) > DPKG_STATUS_LIMIT
+    except OSError:
+        too_big = False
+    if too_big:
+        blocks = blocks[:-1]  # the last record may be cut off
+    for block in blocks:
         name = ""
         installed = False
         for line in block.splitlines():

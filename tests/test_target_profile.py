@@ -41,3 +41,33 @@ def test_profile_refuses_windows_and_macos(linux_disk):
     for os_ in (Platform.WIN32, Platform.DARWIN):
         with pytest.raises(TargetError, match="isn't built yet"):
             gather_target_profile(linux_disk, os_)
+
+
+def test_profile_reads_dpkg_status_past_one_megabyte(linux_disk):
+    filler = "".join(
+        f"Package: filler{i}\nStatus: install ok installed\nDescription: {'x' * 200}\n\n"
+        for i in range(8000)
+    )
+    status = linux_disk / "var/lib/dpkg/status"
+    status.write_text(
+        filler + "Package: distinctive-last\nStatus: install ok installed\n"
+    )
+    assert status.stat().st_size > 1_000_000
+    sw = gather_target_profile(linux_disk, Platform.LINUX).installed_software
+    assert "distinctive-last" in sw and "filler7999" in sw
+
+
+def test_profile_refuses_root_whose_os_release_only_resolves_on_host(tmp_path):
+    (tmp_path / "etc").mkdir()
+    (tmp_path / "etc/os-release").symlink_to("/etc/hosts")
+    with pytest.raises(TargetError, match="doesn't look like a Linux system disk"):
+        gather_target_profile(tmp_path, Platform.LINUX)
+
+
+def test_profile_accepts_os_release_symlink_on_disk(tmp_path):
+    (tmp_path / "etc").mkdir()
+    (tmp_path / "usr/lib").mkdir(parents=True)
+    (tmp_path / "usr/lib/os-release").write_text('PRETTY_NAME="Debian 12"\nVERSION_ID="12"\n')
+    (tmp_path / "etc/os-release").symlink_to("/usr/lib/os-release")
+    p = gather_target_profile(tmp_path, Platform.LINUX)
+    assert p.os_name == "Debian 12"

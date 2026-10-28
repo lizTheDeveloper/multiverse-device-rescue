@@ -40,7 +40,14 @@ def gather_target_profile(root, os: Platform) -> SystemProfile:
         )
     root = Path(root)
     target = Target(root=root, os=os)
-    if not any((root / "etc" / name).exists() for name in ("os-release", "passwd")):
+    def on_disk(name: str) -> bool:
+        try:
+            target.read_text(f"/etc/{name}", 1)
+            return True
+        except OSError:
+            return False
+
+    if not any(on_disk(name) for name in ("os-release", "passwd")):
         raise TargetError(
             f"{root} doesn't look like a Linux system disk "
             "(no /etc/os-release or /etc/passwd)."
