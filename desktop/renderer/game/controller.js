@@ -3,7 +3,7 @@
 // loaded, the same map also holds the accounts' districts, and the game's own
 // screens render here (its app.js is never loaded).
 import { findingsToCity, DISTRICTS, findingIdentity } from './findings-to-city.js';
-import { splitHeld, heldOnly, briefingNote, heldPanelHtml, HELD_MODULES } from './held.js';
+import { splitHeld, heldOnly, briefingNote, heldPanelHtml, HELD_MODULES, HELD_LABEL } from './held.js';
 import { loadProgress, saveProgress, reconcile, setStatus, setLessonDone, lessonDone, ranOkModules, recheckOutcome, setDeck } from './progress.js';
 import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds } from './signals.js';
 import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES,
@@ -52,14 +52,16 @@ import { readLevel, levelOf, writeLevel, levelPolicy, LEVELS, canTestOut } from 
 import { renderLevelPicker, levelButton, evidenceHtml } from './views/level.js';
 import { sweepLine, sweepDoneLine, fixRcControls, focusScreenHeading } from './a11y.js';
 import { attachDisplayPanel } from './display-panel.js';
+// The technical level's triage queue (triage-screen.js): every case, keyboard first, live during the sweep.
+import { createTriageScreen } from './triage-screen.js';
 
 // Specifiers resolve against this file (app://rescue/game/controller.js).
 const loadLessonsHere = () => loadLessons((spec) => import(spec));
 const idleScan = () => ({ running: false, index: 0, total: 0, error: null });
 const TRAINING_SCREENS = new Set(['training', 'lesson', 'boss']);
 // Screens drawn without a city, and screens whose redraws keep keyboard focus.
-const NO_CITY_SCREENS = new Set([...TRAINING_SCREENS, 'range']);
-const KEEP_FOCUS = new Set([...TRAINING_SCREENS, 'map', 'range', 'yours']);
+const NO_CITY_SCREENS = new Set([...TRAINING_SCREENS, 'range', 'triage']);
+const KEEP_FOCUS = new Set([...TRAINING_SCREENS, 'map', 'range', 'yours', 'triage']);
 const LOG_MAX = 100;
 const MOMENTS_MAX = 4;
 const TAG_WORD = { mine: 'MINE', threat: 'THREAT', closer: 'LOOK CLOSER', noted: 'NOTED' };
@@ -356,7 +358,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       routerHtml: () => (win.RouterLink ? win.RouterLink.gameLinkHtml(routerFor()) : '') }) : '';
     return renderBoss({ boss: s.boss, scout, tips: s.tips, tipsOpen: s.tipsOpen, learn: learnFor(), lessonHtml,
       offer: inline || !s.lessonsLoaded ? null : sweepOfferNow(), lessonsLoaded: s.lessonsLoaded,
-      lessonsDone: s.lessons.filter((l) => lessonDone(s.progress, l.id)).length, lessonsTotal: s.lessons.length });
+      lessonsDone: s.lessons.filter((l) => lessonDone(s.progress, l.id)).length, lessonsTotal: s.lessons.length, triageHtml: triageButton() });
   }
 
   // Lessons show before any scan, so the platform falls back to what preload says.
@@ -419,13 +421,43 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     docChanged: (d) => win.RescueHost.docChanged(d),
     rebuild: (d) => rebuild(d),
     // Only screens that show marks redraw; a half-filled form elsewhere is left alone.
-    render: () => { if (['map', 'yours', 'district'].includes(s.screen) && !s.busy) render(); },
+    render: () => { if (['map', 'yours', 'district', 'triage'].includes(s.screen) && !s.busy) render(); },
     log: logEntry,
     noteMarked: () => commitDeck(noteMarked(s.progress.deck)),
     modulesFor: (ids) => modulesCoveredBy(ids),
   });
   const yoursNow = () => yoursInventory(signalsNow(), programCtx);
   const chipsFor = (sig) => (sig && sig.kind === 'real' ? kindChipsHtml(kindsOf(sig.finding, programCtx)) : '');
+
+  // --- Triage (technical level): the same deck, ledger and desk, keyboard first.
+  const triageOn = () => level() === 'technical';
+  const triage = createTriageScreen({ frame, now, scanning: () => s.scan.running, boss: () => s.boss,
+    signals: () => (s.city ? signalsNow() : []), quiet: (d) => quietDoc(d), platform: () => platform(),
+    tagsDeck: () => withSessionTags(s.progress.deck, s.watchTags), changed: () => s.changedTags, ctx: () => programCtx, desk,
+    held: () => s.held, closedIds: () => new Set(Object.keys(s.progress.deck.confirmed || {})),
+    // Its words are the city's own: city mode names only the generated district.
+    heldSpec: () => (inCity() ? { label: `Something new in ${side().name}`, go: 'side' } : { label: HELD_LABEL, act: 'list' }),
+    deck: () => s.progress.deck, commitDeck: (d) => commitDeck(d), watchTags: () => s.watchTags, setWatchTags: (m) => { s.watchTags = m; },
+    clearChanged: (id) => s.changedTags.delete(id), award: (kind, key) => commitAward(award(s.progress.deck, kind, key)),
+    opened: (id) => openedFor(id), cluesOf: (sig) => cluesOf(sig), log: logEntry,
+    evidence: (sig) => triageEvidence(sig),
+    // CHECK AGAIN: that one check, read-only, the way a mark's re-check runs. null: the app's gate took over.
+    recheck: async (name) => {
+      let r = null;
+      try { r = await win.rescue.recheckModule(name); } catch (_) { r = null; }
+      if (!r || !r.ok) return false;
+      if (!win.RescueHost.docChanged(r.doc)) return null;
+      rebuild(r.doc);
+      return true;
+    },
+    render: () => render(), back: () => { s.screen = s.scan.running ? 'boss' : s.city ? 'map' : 'training'; render(); } });
+  const triageEvidence = (sig) => {
+    if (sig.kind === 'couldnt') return `<p class="intel">${esc(sig.description || COULDNT_READ)}</p>`;
+    const clues = cluesOf(sig).map((c) => `<div class="tri-clue"><b>${esc(c.label)}</b> ${(c.lines || []).map((l) => esc(typeof l === 'string' ? l : l && l.text)).join(' · ')}</div>`).join('');
+    return clues + (sig.kind === 'real' ? evidenceHtml(sig.finding, platform(), cluesOf(sig)) : '');
+  };
+  // TRIAGE ▶ with the count of open cases, where the technical level gets it.
+  const triageButton = () => (triageOn() ? `<button type="button" class="btn-s tri-go" data-go="triage">TRIAGE ▶ <b>${esc(triage.openCount())}</b></button>` : '');
   // The quick MINE control for one signal, where it is shown (a queue row, the panel, the briefing).
   function quickControl(sig, inRow) {
     const qm = desk.qmOf(sig);
@@ -551,7 +583,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       // Marked as yours: in YOURS, not the KNOWN AND NOTED pile. Each queue row carries MINE ✓ and its kind.
       items, low: q.low, lowOpen: s.lowOpen, threats: q.threats, known: [...q.known.filter((x) => !x.marked), ...q.noted],
       rowParts: (x) => ({ extra: quickControl(x, true), chips: chipsFor(x) }), levelHtml: levelHtml(), pickerHtml: pickerHtml(),
-      queueTop: toastHtml(desk.toast) + bulkBarHtml({ count: desk.picked.size, confirming: !!(desk.confirm && desk.confirm.target === '*'),
+      queueTop: triageButton() + toastHtml(desk.toast) + bulkBarHtml({ count: desk.picked.size, confirming: !!(desk.confirm && desk.confirm.target === '*'),
         watch: !!(desk.confirm && desk.confirm.watch) }),
       filter: fd ? { id: fd.id, name: fd.name } : null, cityHtml,
       instrumentsHtml: renderInstruments({ integrity: integ.percent, previous: history.length > 1 ? history[history.length - 2] : null,
@@ -830,6 +862,11 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       s.screen = 'training';
     }
     if (s.screen === 'range') return rangeHtml();
+    if (s.screen === 'triage') {
+      if (triageOn() && (s.city || s.scan.running)) return triage.html();
+      s.screen = s.city ? 'map' : 'training';
+      return screenHtml();
+    }
     if (s.screen === 'training') {
       return sideTile() + renderTraining({ ordered: orderLessons(s.lessons, s.situation && s.situation.id), progress: s.progress,
         worryTitle: s.situation && s.situation.title, scan: s.scan, scout, pendingCity: cityWaiting(),
@@ -1087,6 +1124,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // This is mine: the queue's MINE ✓, the selection, Undo, and the YOURS district.
     if (!(act && act.startsWith('mine-undo'))) desk.settle();
     if (act && deskAct(act)) return;
+    if (go === 'triage') { if (triageOn()) { s.signal = null; s.screen = 'triage'; render(); } return; }
+    if (act && act.startsWith('tri-') && s.screen === 'triage') { triage.click(act, el); return; }
     if (go === 'yours') { if (s.city) { s.signal = null; s.screen = 'yours'; render(); focusEl(frame.querySelector('#yours-title')); } return; }
     const acctNext = acct.click(go, act, el);
     if (acctNext) {
@@ -1360,6 +1399,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (typeof e.preventDefault === 'function') e.preventDefault();
     closeSignal();
   });
+  // The triage queue's keys (triage.js keyAction), only on its screen.
+  frame.addEventListener('keydown', (e) => { if (s.screen === 'triage' && !s.busy) triage.key(e); });
   frame.addEventListener('keydown', (e) => {
     if (!s.rc) return;
     // Enter in a per-category number box files it, like its button.
@@ -1391,6 +1432,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   function showCityFrom(doc) {
     // A sweep that finishes while the person is in the generated district leaves them there.
     const stay = s.screen === 'side' && inCity();
+    // ...and one sorting in the triage queue stays there, the live rows becoming the scan's own.
+    const sorting = s.screen === 'triage' && triageOn();
     s.shown += 1;
     const prev = signalsNow();
     rebuild(doc);
@@ -1400,6 +1443,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     s.lesson = null; s.pendingCity = false;
     s.signal = null; s.filter = null; s.lowOpen = false; s.range = null;
     s.focusPending = !stay;
+    if (sorting) { s.screen = 'triage'; s.focusPending = false; }
   }
 
   // A new worry: no city until its scan finishes.
@@ -1434,6 +1478,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     },
     showBoss() {
       s.boss = bossInit();
+      triage.reset();
       s.sweepOffer = null; s.sweepPassed = [];
       s.scan = { running: true, index: 0, total: 0, error: null };
       s.pendingCity = false;
@@ -1455,6 +1500,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const line = sweepLine(s.boss, sweepSaid);
       sweepSaid = line.said;
       say(line.text);
+      // A finished check's findings feed the triage queue (technical), redrawn in place.
+      triage.feed(ev);
+      if (s.screen === 'triage') triage.live();
       if (s.screen === 'boss' || s.screen === 'training') render();
     },
     // Mid-lesson, the person stays in the lesson with a banner; otherwise the city.

@@ -127,7 +127,7 @@ function logPanel(boss) {
 
 // `tipsOpen`: the pop-up tips stay as the person left them across redraws.
 export function renderBoss({ boss, scout, tips, tipsOpen = true, learn = null, lessonHtml = '', offer = null,
-  lessonsLoaded = true, lessonsDone = 0, lessonsTotal = 0 }) {
+  lessonsLoaded = true, lessonsDone = 0, lessonsTotal = 0, triageHtml = '' }) {
   const ds = bossDistricts(boss);
   const pct = bossPercent(boss);
   const current = ds.find((d) => d.state === 'sweeping');
@@ -145,7 +145,7 @@ export function renderBoss({ boss, scout, tips, tipsOpen = true, learn = null, l
     <span class="stat cyan">${boss.total ? `<b>${esc(boss.index)}/${esc(boss.total)}</b> <small>CHECKS DONE</small>` : '<small>GETTING READY</small>'}</span>
     ${boss.found ? `<span class="stat amb"><b>${esc(boss.found)}</b> <small>NOTED</small></span>` : ''}
     ${boss.couldnt ? `<span class="stat grey"><b>${esc(boss.couldnt)}</b> <small>COULDN’T CHECK</small></span>` : ''}
-    <span class="switch"><button type="button" data-go="training">ALL LESSONS</button><button type="button" data-act="leave">PLAIN VIEW</button><b class="on">SWEEP</b></span>
+    ${triageHtml}<span class="switch"><button type="button" data-go="training">ALL LESSONS</button><button type="button" data-act="leave">PLAIN VIEW</button><b class="on">SWEEP</b></span>
   </header>`;
   return `${top}
   <section class="boss sweep-deck" aria-label="Your checkup is running">

@@ -565,3 +565,93 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, [role="button
 .display-group legend { font-weight: 600; padding: 0 4px; }
 .display-choice { display: flex; gap: 10px; align-items: center; min-height: 32px; cursor: pointer; }
 .display-choice input { width: 18px; height: 18px; margin: 0; accent-color: var(--cyan); flex: none; }
+
+/* Triage (technical level, triage-screen.js): one dense row per case. Every
+   row shares one grid, so the verdict buttons sit in the same column, row
+   after row, at the right edge. Columns are minmax(0, …) so larger text
+   wraps inside them instead of spilling. */
+.triage { display: flex; flex-direction: column; height: 100vh; min-height: 0; }
+.tri-top { flex-wrap: wrap; gap: 8px; }
+.tri-stats { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 auto; min-width: 0; }
+.tri-go { padding: 6px 10px; }
+.tri-go b { color: var(--lime); font-family: var(--font-mono); margin-left: 4px; }
+.tri-filters { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 6px 14px; border-bottom: 1px solid var(--line); }
+.tri-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.tri-chip { font-family: var(--font-mono); font-size: 10px; letter-spacing: .5px; padding: 3px 7px; border: 1px solid rgba(255,255,255,0.18); color: var(--faint); }
+.tri-chip.on { color: var(--cyan); border-color: rgba(0,229,255,0.45); background: rgba(0,229,255,0.08); }
+.tri-sel { display: inline-flex; gap: 4px; align-items: center; font-family: var(--font-mono); font-size: 10px; color: var(--faint); }
+.tri-sel select, .tri-search input { font: 12px var(--font-mono); color: var(--offwhite); background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.18); padding: 3px 5px; }
+.tri-search { flex: 1 1 180px; min-width: 140px; display: flex; }
+.tri-search input { width: 100%; }
+.triage { --tri-cols: 22px minmax(0, 7.5em) minmax(0, 7em) minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1.3fr) 28em; }
+.tri-colhead, .tri-row { display: grid; grid-template-columns: var(--tri-cols); gap: 0 8px; align-items: center; }
+.tri-colhead { padding: 4px 14px; font-family: var(--font-display); font-size: 8px; letter-spacing: 1px; color: var(--faint); border-bottom: 1px solid var(--line); }
+.tri-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; outline: none; }
+.tri-list:focus-visible { box-shadow: inset 0 0 0 1px rgba(0,229,255,0.4); }
+.tri-row { padding: 2px 14px; min-height: 30px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 12px; border-left: 3px solid transparent; }
+.tri-row > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tri-row:hover { background: rgba(255,255,255,0.03); }
+.tri-row.cur { background: rgba(0,229,255,0.08); border-left-color: var(--cyan); }
+.tri-row.sel { background: rgba(198,255,0,0.07); }
+.tri-row.cur.sel { background: rgba(198,255,0,0.12); }
+.tri-row.held { border-left-color: var(--amber); background: rgba(255,159,0,0.06); }
+.tri-row.held .tri-name { white-space: normal; }
+.tri-case { font-family: var(--font-mono); font-size: 10px; color: var(--dim); line-height: 1.2; }
+.tri-case small { display: block; }
+.tri-case small { font-size: 9px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; }
+.tri-pri { font-size: 9px; margin-right: 4px; }
+.pr-high .tri-pri { color: var(--magenta); }
+.pr-medium .tri-pri { color: var(--amber); }
+.pr-low .tri-pri { color: var(--faint); }
+.st-threat .tri-case small { color: var(--magenta); }
+.st-yours .tri-case small, .st-kept .tri-case small { color: var(--lime); }
+.tri-where { color: var(--faint); font-size: 11px; }
+.tri-kind { margin-left: 3px; color: var(--cyan); }
+.tri-open { color: var(--offwhite); text-align: left; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tri-open:hover, .tri-open:focus-visible { color: var(--cyan); text-decoration: underline; }
+.tri-also, .tri-pend { color: var(--faint); font-family: var(--font-mono); font-size: 10px; }
+.tri-mk { font-size: 11px; }
+.tri-mk.ok { color: var(--lime); }
+.tri-mk.unv { color: var(--amber); }
+.tri-mk.none { color: var(--faint); }
+.tri-path code { font-size: 11px; color: var(--dim); }
+.tri-evid { color: var(--faint); font-size: 11px; font-family: var(--font-mono); }
+.tri-acts { display: flex; gap: 3px; align-items: center; justify-content: flex-end; overflow: visible; }
+.tri-acts.held-note { color: var(--amber); font-size: 11px; justify-content: flex-start; }
+.tri-v { font-family: var(--font-mono); font-size: 10px; text-decoration: none; padding: 3px 5px; white-space: nowrap; border: 1px solid rgba(255,255,255,0.14); color: var(--dim); min-width: 3.2em; text-align: center; }
+.tri-v:hover, .tri-v:focus-visible { border-color: currentColor; }
+.tri-mine { color: var(--lime); border-color: rgba(198,255,0,0.3); min-width: 4.6em; }
+.tri-threat { color: var(--magenta); border-color: rgba(255,45,155,0.3); }
+.tri-closer { color: var(--cyan); border-color: rgba(0,229,255,0.25); }
+.tri-v.on { background: rgba(255,255,255,0.08); }
+.tri-chk { min-width: 2em; }
+.tri-cats { display: inline-flex; gap: 1px; min-width: calc(9 * 1.45em); }
+.tri-cat { width: 1.45em; height: 1.7em; font-size: 11px; color: var(--faint); border: 1px solid transparent; opacity: .45; }
+.tri-row.cur .tri-cat, .tri-row:hover .tri-cat { opacity: 1; }
+.tri-cat:hover, .tri-cat:focus-visible { color: var(--lime); border-color: rgba(198,255,0,0.4); opacity: 1; }
+.tri-cat.sug { color: var(--lime); opacity: 1; }
+.tri-cats.big { flex-wrap: wrap; gap: 4px; min-width: 0; }
+.tri-cats.big .tri-cat { width: auto; height: auto; padding: 3px 7px; font-size: 11px; opacity: 1; border-color: rgba(255,255,255,0.14); }
+.tri-cats.big .tri-cat.sug { border-color: var(--lime); background: rgba(198,255,0,0.08); }
+.tri-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 14px; background: rgba(0,229,255,0.04); border-bottom: 1px solid var(--line); border-left: 3px solid transparent; }
+.tri-head.cur { border-left-color: var(--cyan); background: rgba(0,229,255,0.1); }
+.tri-head-label b { font-family: var(--font-display); font-size: 11px; letter-spacing: 1px; color: var(--offwhite); }
+.tri-head-label small { color: var(--faint); font-family: var(--font-mono); margin-left: 6px; }
+.tri-ev { padding: 6px 14px 10px 50px; background: rgba(0,0,0,0.25); border-bottom: 1px solid var(--line); font-size: 12px; }
+.tri-ev .evidence-panel { margin-top: 6px; }
+.tri-clue { color: var(--dim); margin: 2px 0; overflow-wrap: anywhere; }
+.tri-clue b { font-family: var(--font-display); font-size: 9px; letter-spacing: 1px; color: var(--cyan); margin-right: 6px; }
+.tri-ask, .tri-bulk { margin: 0 14px 0 50px; padding: 8px 12px; border: 1px solid rgba(198,255,0,0.35); background: rgba(198,255,0,0.05); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; }
+.tri-ask p { margin: 0; flex: 1 1 100%; }
+.tri-bulk .btn-s { padding: 5px 10px; }
+kbd { font-family: var(--font-mono); font-size: 10px; padding: 0 4px; border: 1px solid rgba(255,255,255,0.25); color: var(--faint); margin-left: 4px; }
+.tri-toast { margin: 0 14px; padding: 6px 10px; border-top: 1px solid rgba(198,255,0,0.35); color: var(--lime); font-size: 12px; }
+.tri-toast.error { color: var(--amber); border-color: rgba(255,159,0,0.35); }
+.tri-keys { margin: 0; padding: 4px 14px 8px; font-family: var(--font-mono); font-size: 10px; }
+.tri-empty { padding: 14px; }
+.tri-help { position: fixed; right: 18px; bottom: 48px; max-width: 520px; z-index: 5; background: var(--charcoal); }
+.tri-help dl { display: grid; grid-template-columns: minmax(0, 9em) minmax(0, 1fr); gap: 4px 10px; margin: 8px 0; font-size: 12px; }
+.tri-help dd { margin: 0; color: var(--dim); }
+/* Narrow windows: the path and the evidence give way first; the verdicts stay. */
+@media (max-width: 1100px) { .triage { --tri-cols: 22px minmax(0, 7em) minmax(0, 6em) minmax(0, 1.5fr) minmax(0, 1fr) 0 minmax(0, 1fr) 28em; } .tri-path { visibility: hidden; } }
+@media (max-width: 860px) { .triage { --tri-cols: 22px minmax(0, 6.5em) 0 minmax(0, 1.5fr) minmax(0, 1fr) 0 0 28em; } .tri-where, .tri-evid { visibility: hidden; } }
