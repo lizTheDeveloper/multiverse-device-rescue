@@ -63,7 +63,7 @@ export function renderTraining({ ordered, progress, worryTitle, scan, scout, pen
     : '<p class="intel">Getting the lessons ready.</p>'}
     </div>
     <div class="quiz">
-      <div class="scout-row">${scout('happy', 72)}<p class="say">${esc('These are short. Pick any one, or go straight to the checkup.')}</p></div>
+      <div class="scout-row">${scout('happy', 72)}<p class="say">${esc(pendingCity ? 'These are short. Pick any one, or go see your city.' : 'These are short. Pick any one, or go straight to the checkup.')}</p></div>
       <button type="button" class="btn-s lime" data-go="range">DRILL RANGE ▶</button>
       <p class="intel">Practice sorting made-up signals. Nothing in the range touches your computer.</p>
     </div>

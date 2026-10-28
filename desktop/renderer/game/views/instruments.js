@@ -1,6 +1,8 @@
 // The deck's instruments: city integrity, its sparkline, the three bars and
 // rank progress. Pure. Every graph has a text equivalent; the sparkline itself
 // is hidden from screen readers because the sentence says the same thing.
+// On a first sweep the sentence only repeats the big number, so only screen
+// readers get it.
 import { esc } from '../escape.js';
 
 const pct = (n) => Math.max(0, Math.min(100, Math.round(Number(n) || 0)));
@@ -37,9 +39,9 @@ export function renderInstruments({ integrity, previous, history, bars, rank }) 
   return `
   <section class="panel instruments">
     <div class="label">CITY INTEGRITY</div>
-    <p class="integrity"><b>${integrity == null ? '—' : `${esc(integrity)}%`}</b></p>
+    <p class="integrity" aria-hidden="true"><b>${integrity == null ? '—' : `${esc(integrity)}%`}</b></p>
     ${sparklineSvg(history)}
-    <p class="intel">${esc(integrityText(integrity, previous))}</p>
+    <p class="intel${integrity != null && previous == null ? ' sr-only' : ''}">${esc(integrityText(integrity, previous))}</p>
     <div class="label">SIGNALS</div>
     ${bar(b.sorted, max, 'SORTED', 'cyan')}${bar(b.confirmed, max, 'CONFIRMED', 'lime')}${bar(b.reported, max, 'YOU REPORTED', 'amb')}
     <p class="intel">Confirmed means Reclaim City checked again and it’s gone. You reported is your word for it. They’re counted apart.</p>

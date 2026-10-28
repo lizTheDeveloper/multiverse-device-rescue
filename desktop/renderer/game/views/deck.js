@@ -62,7 +62,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   const head = filter ? `
       <div class="row"><span class="label">SHOWING ${esc(String(filter.name).toUpperCase())}</span>
         <button type="button" class="btn-t" data-go="filter:all">SHOW ALL</button>
-        <button type="button" class="btn-t" data-go="district:${esc(filter.id)}">OPEN THE DISTRICT ▶</button></div>` : '';
+        <button type="button" class="btn-s" data-go="district:${esc(filter.id)}">OPEN THE DISTRICT ▶</button></div>` : '';
   const anything = items.length > 0 || low.length > 0;
   let blank = '';
   if (nothingChecked) {

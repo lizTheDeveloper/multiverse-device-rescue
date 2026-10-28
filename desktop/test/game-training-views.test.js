@@ -227,3 +227,21 @@ test('the lesson intro shows on question 1; each question’s own what-to-know s
   const bare = { ...LESSON, briefing: '', questions: [LESSON.questions[0]] };
   assert.doesNotMatch(v.renderLesson({ lesson: bare, qIndex: 0, picked: null, scan: idle, scout }), /WHAT TO KNOW/);
 });
+
+test('once the checkup is done, Scout points at the city, not at the checkup', async () => {
+  const v = await views();
+  const ordered = { recommended: [LESSON], other: [] };
+  const args = { ordered, progress: { lessons: {} }, worryTitle: 'x', scan: { running: false }, scout };
+  assert.match(v.renderTraining({ ...args, pendingCity: true }), /or go see your city\./);
+  assert.doesNotMatch(v.renderTraining({ ...args, pendingCity: true }), /straight to the checkup/);
+  assert.match(v.renderTraining({ ...args, pendingCity: false }), /or go straight to the checkup\./);
+});
+
+test('a walkthrough step body renders as paragraphs and lists, escaped', async () => {
+  const v = await views();
+  const mission = { title: 't', description: 'd', severity: 'warning', districtId: 'gatehouse', findings: [{}],
+    steps: [{ number: 1, title: 'Check it', body: `First line\nwraps here.\n\n- **Mac:** \`lsof -i\`\n- ${EVIL}` }] };
+  const html = v.renderBriefing({ mission, status: 'open', controlsHtml: '', scout, busy: false, wantsSafety: false });
+  assert.match(html, /<div class="step-body"><p>First line wraps here\.<\/p><ul><li><strong>Mac:<\/strong> <code>lsof -i<\/code><\/li>/);
+  assert.doesNotMatch(html, /<img/);
+});
