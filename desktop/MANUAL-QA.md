@@ -152,6 +152,18 @@ Set `device-rescue.display` to `city` in DevTools' Console and quit and reopen t
 11. Hand the app to a "glance test". Open the deck in city mode with the monitoring software held (step 6), and have someone who doesn't know what the app is for look at the screen for a few seconds, then at the Dock and Cmd-Tab. They should see only a game: the window title "Reclaim City", the heading "Take back the city", a map of districts, the generated district's tile with a place-like name, the ops log (SWEEP and "Visited …" lines), and the signals and rank panels. They must not find the words partner, safety, stalking, stalkerware, monitoring, spyware, watching, advocate, hotline or DV on the deck, the map, the window title, the Dock label or Cmd-Tab. The map's note about the held software uses its neutral label ("Something the checkup found") with the rest closed, never the software's name. **Known limit:** the list view (**LIST**) is literal by design, and the district itself names help once opened; the Esc key is the way out.
 12. Quit and delete `/tmp/fake-rescue`. In DevTools, `localStorage.removeItem('device-rescue.display')`.
 
+## "I think I've been hacked": your accounts
+
+Run `RESCUE_ENGINE="$PWD/.venv/bin/rescue" npm --prefix desktop start` on a clean slate and check:
+1. Click **Play it as a game**, then **I think I've been hacked**, and answer **No**. When the sweep finishes, **YOUR ACCOUNTS FIRST** is the first panel above the map, with "0 OF 16 DONE" and **NEXT: COULD THIS BE SOMEONE YOU KNOW? ▶**. Pick another worry (for example the Wi-Fi one): there is no such panel.
+2. Open it. Every box is unticked. **Why this order →** opens the lesson "Taking your accounts back"; finish it and you're back on the list.
+3. **Could this be someone you know?** → **NO**. **Use a device you trust** lists the device warnings that can let someone in or read typing (remote access, extensions, proxy, background tasks), each opening its mission. Open one: Scout says to sort it before changing passwords on this computer, with **YOUR ACCOUNTS ▶**.
+4. **Which email…** → **Google**. Open **Check forwarding and mail rules**: it shows "Settings › See all settings › Forwarding and POP/IMAP" and the Gmail help links. Each link opens in your browser. **I NEED HELP** adds a line and Google's hacked-account page; **DONE ✓** ticks the box, and YOU REPORTED in the top bar goes up by 1. Untick and tick it again: YOU REPORTED doesn't go up again.
+5. Switch the email to **Microsoft**, then **Something else**: each step shows that provider's paths, and for "Something else" only what to look for, never a menu name.
+6. DevTools → Local Storage → `device-rescue.game.accounts.v1` holds only `version`, `provider` (google, microsoft, apple or other) and each step's answer with a date. Nothing else, and nothing about the safety question.
+7. Start over and answer **Could this be someone you know?** with **YES, OR I'M NOT SURE**: "Talk to an advocate before you change account settings" shows on the list and every step. Quit and reopen: the question is asked again. With the monitoring fake engine from "City mode" step 6 and the hacked worry, the note shows without asking.
+8. Nowhere does the app ask for a password, a code or an email address.
+
 ## Before publishing (the owner's steps, never an agent's)
 
 Each of these is outward-facing. The plan prepares them; the owner does them. Nothing here has been done: nothing is published, tagged or pushed, and the `reclaim-city` branch is not merged.
