@@ -65,15 +65,14 @@ export const READING = {
     source: 'guides/remediation/review_launch_persistence.md', quote: 'a program path in `/tmp`, `/var/tmp`, or a hidden directory' },
   placeUnknown: { text: 'This is where the scan found it. Reclaim City has no note about this place, so the other clues matter more.',
     source: 'guides/remediation/review_launch_persistence.md', quote: 'reported in the finding' },
-  what: { text: 'This is the checkup’s own plain-language description of what it found.',
-    source: 'AGENTS.md', quote: 'plain-language explanation' },
   went: { text: 'Who runs an address is usually a hosting or cloud company, not the app’s maker. Lookups sent the addresses, not what was in them.',
     source: 'docs/cli.md', quote: 'only the address is sent' },
   when: { text: 'The date the scan recorded for it. Did you install something around then? If you didn’t, something else may have.',
     source: 'guides/remediation/review_changes_since_baseline.md', quote: "did I install something around then? If you didn't, something else may have." },
 };
 
-export const CLUE_LABEL = { maker: 'WHO MADE IT', where: 'WHERE IT LIVES', went: 'WHERE THEY WENT', what: 'WHAT IT DOES', when: 'WHEN IT SHOWED UP' };
+export const CLUE_LABEL = { maker: 'WHO MADE IT', where: 'WHERE IT LIVES', went: 'WHERE THEY WENT', what: 'WHAT IT DOES', when: 'WHEN IT SHOWED UP',
+  conn: 'THE CONNECTION', listen: 'WHAT’S LISTENING', who: 'WHO’S ON THE OTHER END', next: 'WHAT TO DO NEXT' };
 export const COULDNT_READ = 'Noted. This check couldn’t run, so nothing here was looked at. That doesn’t mean it’s safe.';
 
 // Data fields that hold the path of the thing a finding names, most useful first.
@@ -219,6 +218,8 @@ export function cluesFor(finding) {
   }
   const out = [];
   const entries = Array.isArray(finding.made_by) ? finding.made_by.filter((e) => e && typeof e === 'object') : [];
+  const net = networkClues(finding, entries);
+  if (net) return net;
   if (entries.length) out.push(makerClue(entries));
   const where = pathOf(finding);
   if (where) {
@@ -228,10 +229,157 @@ export function cluesFor(finding) {
   }
   // The description's first paragraph, before any "What to do".
   const what = String(finding.description || '').split(/\n\s*\n/)[0].split(/what to do:?/i)[0].trim().slice(0, 400);
-  if (what) out.push({ kind: 'what', label: CLUE_LABEL.what, lines: [what], reading: READING.what });
+  if (what) out.push({ kind: 'what', label: CLUE_LABEL.what, lines: [what], reading: null });
   const when = whenOf(finding);
   if (when) out.push({ kind: 'when', label: CLUE_LABEL.when, lines: [when], reading: READING.when });
+  const next = genericNextClue(finding);
+  if (next) out.push(next);
   return out;
+}
+
+// --- Network evidence: direction, program, who, next step -----------------
+// The engine's connection and listener items (network_connections_monitor
+// and open_ports_scan `data.items`). Every next-step sentence and command
+// comes from a walkthrough; desktop/test/game-clues.test.js checks each quote
+// and each command template is in its file.
+const NET_GUIDE = 'guides/remediation/review_network_connections.md';
+const PORTS_GUIDE = 'guides/remediation/review_open_ports.md';
+export const NET_NEXT = {
+  sshMine: { text: 'If you started this SSH session, it’s yours: tag it MINE. To end it, type exit in the Terminal window running it, or close that window.',
+    source: NET_GUIDE, quote: "If you started it, it's yours; to end it, type `exit` in the Terminal window running it, or close that window." },
+  outMine: { text: 'If you started this program, or it’s one you use, it’s yours: tag it MINE.',
+    source: NET_GUIDE, quote: 'Check whether the program and its documented behavior explain the port choice' },
+  inbound: { text: 'Another computer started this connection. If you don’t expect anything to connect to this computer, tag it THREAT and look closer before you change anything.',
+    source: NET_GUIDE, quote: 'A connection that came in deserves more care than one your own program started.' },
+  listenMine: { text: 'If it’s a program you use and you need it reachable this way, it’s yours: tag it MINE.',
+    source: PORTS_GUIDE, quote: 'Ask whether you actually need this service reachable from other devices' },
+  look: { text: 'If you don’t recognise it, see its full command and the program that started it:',
+    source: NET_GUIDE, quote: 'for its full command and its parent (the program that started it)' },
+  lookListen: { text: 'If you don’t recognise it, check what it is:',
+    source: PORTS_GUIDE, quote: 'For each one you don\'t immediately recognize, check what it is' },
+};
+// Commands per platform, as the walkthrough writes them; <PID> and <port> are filled in.
+export const NET_COMMANDS = {
+  conn: { source: NET_GUIDE, darwin: ['ps -p <PID> -o pid,ppid,command', 'lsof -i :<port>'], linux: ['ps -p <PID> -o args=', 'ss -tnap'],
+    win32: 'In Resource Monitor’s Network tab, look under TCP Connections for the program using the port.',
+    win32Quote: 'in Resource Monitor\'s Network tab, look under TCP Connections for the program using the port' },
+  listen: { source: PORTS_GUIDE, darwin: ['lsof -i :<port>', 'ps -p <pid> -o pid,ppid,command'], linux: ['ss -tlnp'],
+    win32: 'Open Resource Monitor, go to the Network tab and look under Listening Ports.',
+    win32Quote: 'go to the Network tab and look under Listening Ports' },
+};
+const ITEMS_SHOWN = 5;
+const code = (text) => ({ text, code: true });
+const portOf = (n) => (Number.isInteger(n) && n > 0 ? n : null);
+const addrOf = (a, port) => {
+  const s = textOf(a) || 'an unknown address';
+  return port ? `${s.includes(':') ? `[${s}]` : s}:${port}` : s;
+};
+const itemsOf = (finding) => (Array.isArray(dataOf(finding).items) ? dataOf(finding).items.filter((x) => x && typeof x === 'object') : []);
+const isConn = (x) => x.direction === 'in' || x.direction === 'out';
+const isListen = (x) => portOf(x.port) && !isConn(x);
+const programOf = (x) => {
+  const name = textOf(x.process) || 'A program Reclaim City couldn’t name';
+  const pid = Number.isInteger(x.pid) ? ` (PID ${x.pid})` : '';
+  const parent = Number.isInteger(x.ppid) ? `, started by PID ${x.ppid}` : '';
+  return `${name}${pid}${parent}`;
+};
+function fill(cmd, x, port) {
+  return cmd.replace(/<PID>|<pid>/g, Number.isInteger(x.pid) ? String(x.pid) : '<PID>').replace('<port>', port ? String(port) : '<port>');
+}
+function commandLines(kind, platform, x, port) {
+  const c = NET_COMMANDS[kind];
+  if (platform === 'win32') return [c.win32];
+  return (c[platform] || c.darwin).map((cmd) => code(fill(cmd, x, port)));
+}
+
+function connClue(items) {
+  const lines = [];
+  for (const x of items.slice(0, ITEMS_SHOWN)) {
+    const remote = addrOf(x.remote_addr);
+    lines.push(x.direction === 'in'
+      ? `Something is connecting IN to your computer on port ${portOf(x.local_port) || '?'}, from ${remote}.`
+      : `Your computer is connecting OUT to ${remote}, port ${portOf(x.remote_port) || '?'}.`);
+    lines.push(`Program: ${programOf(x)}`);
+    if (textOf(x.command)) lines.push(code(shown(x.command, 300)));
+    const local = addrOf(x.local_addr, portOf(x.local_port));
+    const far = addrOf(x.remote_addr, portOf(x.remote_port));
+    const state = textOf(x.state) ? ` · ${textOf(x.state)}` : '';
+    lines.push(code(x.direction === 'in' ? `${far} → ${local}${state}` : `${local} → ${far}${state}`));
+  }
+  if (items.length > ITEMS_SHOWN) lines.push(`And ${plural(items.length - ITEMS_SHOWN, 'more connection')}.`);
+  return { kind: 'conn', label: CLUE_LABEL.conn, lines, reading: null };
+}
+
+const SCOPE_LINE = { public: 'an address on the internet', 'local network': 'a device on your own network', 'this computer': 'this computer itself' };
+function whoClue(items) {
+  const seen = new Set();
+  const lines = [];
+  for (const x of items) {
+    const a = textOf(x.remote_addr);
+    if (!a || seen.has(a) || seen.size >= ITEMS_SHOWN) continue;
+    seen.add(a);
+    if (textOf(x.ssh_host)) lines.push(`${a}: this matches “${textOf(x.ssh_host)}” in your SSH settings (~/.ssh/config).`);
+    else lines.push(`${a}: ${SCOPE_LINE[x.remote_scope] || 'an address the checkup couldn’t place'}.`);
+  }
+  if (!lines.length) return null;
+  if (items.some((x) => x.remote_scope === 'public' && !textOf(x.ssh_host))) {
+    lines.push('A checkup doesn’t look up who runs an address. A connection watch can.');
+  }
+  return { kind: 'who', label: CLUE_LABEL.who, lines, reading: null };
+}
+
+function connNextClue(items, platform) {
+  const x = items.find((i) => textOf(i.ssh_host)) || items.find((i) => i.direction === 'in') || items[0];
+  const port = x.direction === 'in' ? portOf(x.local_port) : portOf(x.remote_port);
+  const first = textOf(x.ssh_host) ? NET_NEXT.sshMine : x.direction === 'in' ? NET_NEXT.inbound : NET_NEXT.outMine;
+  // One finding can hold both kinds: an incoming connection is never left out.
+  const also = first !== NET_NEXT.inbound && items.some((i) => i.direction === 'in') ? [NET_NEXT.inbound.text] : [];
+  return { kind: 'next', label: CLUE_LABEL.next, reading: null, move: true,
+    lines: [first.text, ...also, NET_NEXT.look.text, ...commandLines('conn', platform, x, port)] };
+}
+
+const REACH_LINE = {
+  network: (x) => `Listening on port ${x.port} for other devices on your network (${textOf(x.address) || '?'}).`,
+  'this computer': (x) => `Listening on port ${x.port}, for this computer only (${textOf(x.address) || '?'}).`,
+};
+function listenClue(items) {
+  const lines = [];
+  for (const x of items.slice(0, ITEMS_SHOWN)) {
+    const said = REACH_LINE[x.reach];
+    lines.push(said ? said(x) : `Listening on port ${x.port}.`);
+    lines.push(`Program: ${programOf(x)}${textOf(x.service) ? ` · port ${x.port} is usually ${textOf(x.service)}` : ''}`);
+  }
+  if (items.length > ITEMS_SHOWN) lines.push(`And ${plural(items.length - ITEMS_SHOWN, 'more listening port')}.`);
+  return { kind: 'listen', label: CLUE_LABEL.listen, lines, reading: null };
+}
+
+function listenNextClue(items, platform) {
+  const x = items.find((i) => i.reach === 'network') || items[0];
+  return { kind: 'next', label: CLUE_LABEL.next, reading: null, move: true,
+    lines: [NET_NEXT.listenMine.text, NET_NEXT.lookListen.text, ...commandLines('listen', platform, x, portOf(x.port))] };
+}
+
+// Network findings with items: their own clues in place of the engine's raw text.
+function networkClues(finding, entries) {
+  const items = itemsOf(finding);
+  const platform = textOf(dataOf(finding).platform) || 'darwin';
+  const conns = items.filter(isConn);
+  const listens = items.filter(isListen);
+  if (!conns.length && !listens.length) return null;
+  const out = conns.length ? [connClue(conns)] : [listenClue(listens)];
+  if (conns.length) { const who = whoClue(conns); if (who) out.push(who); }
+  if (entries.length) out.push(makerClue(entries));
+  out.push(conns.length ? connNextClue(conns, platform) : listenNextClue(listens, platform));
+  return out;
+}
+
+// Any other finding with a walkthrough: one plain next step, and the steps one press away.
+function genericNextClue(finding) {
+  const rem = finding.remediation && typeof finding.remediation === 'object' ? finding.remediation : null;
+  const steps = rem && Array.isArray(rem.steps) ? rem.steps.filter((s) => s && textOf(s.title)) : [];
+  if (!steps.length) return null;
+  return { kind: 'next', label: CLUE_LABEL.next, reading: null, move: true,
+    lines: ['If you recognise it, it’s yours: tag it MINE.', `If you don’t, start with: ${textOf(steps[0].title)}.`] };
 }
 
 export function drillClues(drill) {
@@ -249,6 +397,8 @@ function clueReason(sig) {
   const f = sig.finding || {};
   const mb = Array.isArray(f.made_by) ? f.made_by.filter((e) => e && typeof e === 'object') : [];
   if (sig.marked) return 'you told Reclaim City it’s yours';
+  const net = netReason(f);
+  if (net) return net;
   if (mb.some((e) => e.verified !== true)) return 'nobody has vouched for who made it';
   const place = placeFor(pathOf(f));
   if (place && place.risky) return `it lives in ${place.short}`;
@@ -256,12 +406,24 @@ function clueReason(sig) {
   return '';
 }
 
+// A connection's own evidence, in Scout's words.
+function netReason(f) {
+  const conns = itemsOf(f).filter(isConn);
+  const ssh = conns.find((x) => textOf(x.ssh_host));
+  if (ssh) return `it matches “${textOf(ssh.ssh_host)}” in your SSH settings`;
+  if (conns.some((x) => x.direction === 'in')) return 'another computer connected in to this one';
+  if (conns.length) return `your computer started it${textOf(conns[0].process) ? `, with ${textOf(conns[0].process)}` : ''}`;
+  return '';
+}
+
 // Never "wrong": the person's call stands, and a tag only sorts the game.
+// When it agrees and has no clue to add, Scout says nothing ('').
 export function scoutRead(sig, tag) {
   const view = sig.marked ? 'mine' : VIEW[sig.severity] || 'closer';
   const head = sig.marked ? 'You marked this as yours on this computer' : VIEW_LINE[sig.severity] || 'The checkup flagged this';
   const why = clueReason(sig);
   const clue = why ? ` One clue: ${why}.` : '';
+  if (tag === view && !sig.marked && !why) return '';
   if (tag === view) return `${head}, so the scan sees it the same way.${clue}`;
   return `${head}.${clue} You called it ${TAG_WORD[tag] || 'something else'}. Your call stands; it only changes how the game sorts it.`;
 }

@@ -280,6 +280,14 @@ code { font-family: var(--font-mono); font-size: 0.92em; background: rgba(0,229,
 .sig.drill, .sig-panel.drill { border: 2px solid var(--lime); background-image: repeating-linear-gradient(45deg, rgba(198,255,0,0.08) 0 6px, transparent 6px 12px); }
 .badge.drill-stamp { color: var(--midnight); background: var(--lime); border-color: var(--lime); }
 .threat-board .threat { display: grid; gap: 6px; }
+/* Signal cards are buttons: they look pressable, and say what a press does. */
+.sig { position: relative; transition: border-color .15s, background .15s; }
+.sig:hover, .sig:focus-visible { border-color: var(--cyan); background: rgba(0,229,255,0.07); }
+.sig:focus-visible, .threat-open:focus-visible, .note-row:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.sig-open { justify-self: end; font-family: var(--font-display); font-size: 10px; letter-spacing: 1px; color: var(--cyan); }
+.threat-open, .note-row { text-align: left; color: var(--offwhite); }
+.threat-open:hover, .note-row:hover { color: var(--cyan); text-decoration: underline; }
+.notes .note-row { font-size: 13px; padding: 4px 0; min-height: 32px; }
 .district.heat-hot { box-shadow: 0 0 22px rgba(255,45,155,0.35); }
 .district.heat-warn { box-shadow: 0 0 18px rgba(255,159,0,0.3); }
 .district[aria-current="true"] { outline: 2px solid var(--cyan); outline-offset: 2px; }
@@ -321,6 +329,11 @@ code { font-family: var(--font-mono); font-size: 0.92em; background: rgba(0,229,
 .clue-line { margin: 2px 0; font-family: var(--font-mono); font-size: 15px; overflow-wrap: anywhere; }
 /* Prose clues read as prose; paths, addresses and makers stay monospaced. */
 .clue[data-clue="what"] .clue-line { font-family: var(--font-body); line-height: 1.6; }
+.clue[data-clue="conn"] p.clue-line, .clue[data-clue="who"] p.clue-line, .clue[data-clue="next"] p.clue-line,
+.clue[data-clue="listen"] p.clue-line { font-family: var(--font-body); line-height: 1.5; }
+/* Commands and raw values: monospaced, selectable in one go, to copy. */
+code.clue-line.code { display: block; margin: 4px 0; padding: 6px 8px; font-size: 14px; color: var(--cyan); background: rgba(0,229,255,0.06); border: 1px solid rgba(0,229,255,0.2); user-select: all; -webkit-user-select: all; cursor: text; }
+.clue[data-clue="next"] .btn-s { margin-top: 6px; }
 .reading { font-size: 15px; color: var(--dim); }
 .tags { display: flex; flex-wrap: wrap; gap: 8px; }
 .tags [aria-pressed="true"] { background: var(--cyan); color: var(--midnight); }

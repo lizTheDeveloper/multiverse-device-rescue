@@ -7,14 +7,21 @@ import { SEV_BADGE, nextMoveHtml } from './deck.js';
 export const TAG_NOTE = 'Tags are game sorting only. They change nothing on your computer.';
 const TAG_BUTTONS = [['mine', 'MINE'], ['closer', 'LOOK CLOSER'], ['threat', 'THREAT']];
 
-function clueItem(c, opened) {
+// A clue line is text, or { text, code: true } for a command or a raw value (copyable).
+const clueLine = (l) => (l && typeof l === 'object'
+  ? `<code class="clue-line code">${esc(l.text)}</code>` : `<p class="clue-line">${esc(l)}</p>`);
+
+function clueItem(c, opened, sig) {
   if (!opened.includes(c.kind)) {
     return `<li><button type="button" class="clue locked" data-act="clue:${esc(c.kind)}">SCAN CLUE: ${esc(c.label)} ▶</button></li>`;
   }
   // tabindex -1: focus can land on a clue just opened when none is left locked.
-  return `<li class="clue open" data-clue="${esc(c.kind)}" tabindex="-1"><div class="label">${esc(c.label)}</div>${c.lines.map((l) => `<p class="clue-line">${esc(l)}</p>`).join('')}
-      <p class="reading"><b>How to read this:</b> ${esc(c.reading.text)}</p></li>`;
+  return `<li class="clue open" data-clue="${esc(c.kind)}" tabindex="-1"><div class="label">${esc(c.label)}</div>${c.lines.map(clueLine).join('')}
+      ${c.reading ? `<p class="reading"><b>How to read this:</b> ${esc(c.reading.text)}</p>` : ''}${c.move && sig.kind === 'real' ? nextMoveHtml(sig) : ''}</li>`;
 }
+
+// Real findings pay for looking, so the points show with the clues, before any tag.
+const cluePoints = (sig, points) => (sig.kind === 'real' && points > 0 ? `<p class="points">+${esc(points)} POINTS for looking at the clues</p>` : '');
 
 export function renderSignalPanel({ signal: sig, districtName = '', clues = [], opened = [], tagged = null, right = false, read = '',
   points = 0, scout, mineHtml = '', range = null, quickHtml = '', chipsHtml = '' }) {
@@ -32,7 +39,7 @@ export function renderSignalPanel({ signal: sig, districtName = '', clues = [], 
     clueHtml = `<p class="intel">${esc(sig.description || 'This check couldn’t run.')}</p>
       <p class="intel">A check that couldn’t run checked nothing. That doesn’t mean it’s safe.</p>`;
   } else if (clues.length) {
-    clueHtml = `<ul class="clues">${clues.map((c) => clueItem(c, opened)).join('')}</ul>`;
+    clueHtml = `${cluePoints(sig, points)}<ul class="clues">${clues.map((c) => clueItem(c, opened, sig)).join('')}</ul>`;
   } else {
     clueHtml = '<p class="intel">The scan recorded no clues for this one. Its title is all there is to go on.</p>';
   }
@@ -42,8 +49,8 @@ export function renderSignalPanel({ signal: sig, districtName = '', clues = [], 
       <button type="button" class="btn-t" data-go="lesson:couldnt-check">WHAT “COULDN’T CHECK” MEANS ▶</button></div>`
     : `<div class="row tags">${TAG_BUTTONS.map(([t, label]) => `<button type="button" class="btn-s tag-${t}" data-act="tag:${t}"${current === t ? ' aria-pressed="true"' : ''}${drill && tagged ? ' aria-disabled="true" disabled' : ''}>${label}</button>`).join('')}</div>`;
   const after = !tagged ? '' : `
-    <div class="scout-row">${scout(drill && !right ? 'thinkingA' : 'happy', 54)}<p class="say">${esc(read)}</p></div>
-    ${points > 0 ? `<p class="points">+${esc(points)} POINTS${drill ? '' : ' for the clues you checked'}</p>` : ''}
+    ${read ? `<div class="scout-row">${scout(drill && !right ? 'thinkingA' : 'happy', 54)}<p class="say">${esc(read)}</p></div>` : ''}
+    ${drill && points > 0 ? `<p class="points">+${esc(points)} POINTS</p>` : ''}
     ${!drill && tagged === 'mine' && mineHtml ? `<div class="panel"><div class="label">OPTIONAL: TELL RECLAIM CITY TOO</div>
       <p class="intel">The MINE pile is the game’s sorting. This asks Reclaim City itself to remember it’s yours, so it stops flagging it. It asks first, and you can undo it.</p>${mineHtml}</div>` : ''}
     ${!drill && tagged === 'threat' ? `<div class="panel"><div class="label">ON YOUR THREAT BOARD</div><p class="intel">Your next move:</p>${nextMoveHtml(sig)}</div>` : ''}
