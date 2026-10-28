@@ -234,14 +234,17 @@ def scan(as_json, profile_name, module_names, progress, trace, no_attribution, l
         raise click.UsageError("--target-root and --target-os go together.")
     target_doc = None
     if target_root is not None:
+        # Absolute, so every path read from the disk and the JSON "root" agree.
+        target_root = Path(os.path.abspath(target_root))
         profile = _gather_target_or_exit(target_root, target_os)
         target_doc = _target_block(target_root, profile)
+        _warn_if_not_administrator()
         no_attribution = True  # signature lookups would run on this computer, not the disk
     else:
         profile = gather_profile()
     orch = Orchestrator(modules_dir=_get_modules_dir(), profile=threat_profile,
                         system_profile=profile if target_root is not None else None)
-    shaper = _LiveResults(profile.platform.value, attribution=not no_attribution) if (
+    shaper = _LiveResults(profile.platform.value, attribution=not no_attribution, target=target_doc) if (
         live and as_json and (progress or trace)) else None
     if trace:
         results = _run_traced(orch, shaper)
@@ -288,6 +291,17 @@ def _gather_target_or_exit(target_root, target_os):
         return gather_target_profile(root, platform)
     except TargetError as exc:
         raise click.UsageError(str(exc)) from exc
+
+
+def _warn_if_not_administrator():
+    """Say so on stderr when admin-only files on the disk can't be read."""
+    geteuid = getattr(os, "geteuid", None)
+    if geteuid is not None and geteuid() != 0:
+        click.echo(
+            "Warning: not running as an administrator, so files only an administrator "
+            "can read on that disk won't be checked. Run with sudo for a full check.",
+            err=True,
+        )
 
 
 def _target_block(target_root, profile):
@@ -528,8 +542,9 @@ class _LiveResults:
     reuses them. Any failure leaves the line without a result: never a broken scan.
     """
 
-    def __init__(self, platform, attribution=True):
+    def __init__(self, platform, attribution=True, target=None):
         self.platform = platform
+        self.target = target  # the JSON "target" block when a disk is checked from outside
         self.walkthroughs, self.app_fixes, self.app_actions = _json_extras()
         self.made_by = {}
         self.done = set()
@@ -561,7 +576,7 @@ class _LiveResults:
         try:
             self._attribute([(mod, check)])
             doc = checks_to_json([(mod, check)], self.platform, self.walkthroughs, self.app_fixes,
-                                 self.made_by or None, app_actions=self.app_actions)
+                                 self.made_by or None, app_actions=self.app_actions, target=self.target)
             return json.loads(doc)["modules"][0]
         except Exception:
             return None

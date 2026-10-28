@@ -58,3 +58,33 @@ def test_offline_never_touches_marks(linux_disk, tmp_path, monkeypatch):
     profile = gather_target_profile(linux_disk, Platform.LINUX)
     Orchestrator(modules_dir=_modules_dir(tmp_path), system_profile=profile).run_checks()
     assert called == []
+
+
+def test_offline_run_fixes_runs_nothing(linux_disk, tmp_path):
+    from rescue.models import CheckResult, Finding, Mode, Severity
+
+    fixed = []
+
+    class _Mod:
+        name = "m"
+        risk_level = orchestrator.RiskLevel.SAFE
+        auto_apply = True
+
+        def fix(self, check, mode):
+            fixed.append(mode)
+
+    finding = Finding(title="t", description="d", severity=Severity.WARNING, category="c")
+    checks = [(_Mod(), CheckResult(module_name="m", findings=[finding]))]
+    profile = gather_target_profile(linux_disk, Platform.LINUX)
+    orch = Orchestrator(modules_dir=_modules_dir(tmp_path), system_profile=profile)
+    for mode in Mode:
+        assert orch.run_fixes(checks, mode) == []
+    assert fixed == []
+
+
+def test_offline_run_auto_applies_nothing(linux_disk, tmp_path, monkeypatch):
+    profile = gather_target_profile(linux_disk, Platform.LINUX)
+    orch = Orchestrator(modules_dir=_modules_dir(tmp_path), system_profile=profile)
+    monkeypatch.setattr(orch, "run_fixes", lambda *a: (_ for _ in ()).throw(AssertionError("no fixes")))
+    out = orch.run_auto()
+    assert out and all(fix is None for _, _, fix in out)

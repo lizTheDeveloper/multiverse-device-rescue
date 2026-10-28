@@ -132,6 +132,10 @@ def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, ma
             valid user LaunchAgent gets a per-finding action "fixable".
         made_by: Optional {id(finding): [maker entry]} from rescue.attribution;
             attached to each finding as "made_by".
+        target: Optional {"root", "os", "read_only"} when a disk mounted
+            elsewhere was checked. Its findings get no "fixable" or
+            "markable": a fix or a mark would act on the computer doing the
+            checking, not on that disk.
 
     A warning about a background task the person could mark as theirs gets a
     "markable" object (see rescue.known_items.markable), whose "ids" name every
@@ -144,9 +148,13 @@ def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, ma
         unsupported_reason, findings.
     """
     modules = []
+    offline = target is not None
     for mod, check in results:
         entry = (app_fixes or {}).get(mod.name)
         offer = entry if entry is not None and not check.error and getattr(check, "supported", True) else None
+        if offline:
+            offer = None
+        no_offers = bool(check.error) or offline
         modules.append({
             "name": mod.name,
             "category": getattr(mod, "category", None),
@@ -160,8 +168,8 @@ def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, ma
             "findings": [
                 _finding(
                     f, walkthroughs, offer, made_by,
-                    None if check.error else _action_fixable(f, mod.name, app_actions),
-                    None if check.error else _markable(f, mod.name),
+                    None if no_offers else _action_fixable(f, mod.name, app_actions),
+                    None if no_offers else _markable(f, mod.name),
                 )
                 for f in check.findings
             ],

@@ -61,12 +61,18 @@ class ModuleBase(ABC):
             reason = check.unsupported_reason or "not supported on this system"
             lines.append(f"Not supported here: {reason}")
             return "\n".join(lines)
+        # Parts this check couldn't look at: never let "No issues found" stand alone.
+        not_checked = list(getattr(check, "not_checked", None) or [])
         if not check.has_issues:
             lines.append("No issues found.")
+            if not_checked:
+                lines.append(f"Not checked here: {'; '.join(not_checked)}")
             return "\n".join(lines)
         lines.append(f"Found {len(check.findings)} issue(s):")
         for f in check.findings:
             lines.append(f"  [{f.severity.value}] {f.title}: {f.description}")
+        if not_checked:
+            lines.append(f"Not checked here: {'; '.join(not_checked)}")
         if fix:
             lines.append(f"\nActions taken: {len(fix.actions)}")
             for a in fix.actions:

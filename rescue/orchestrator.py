@@ -181,11 +181,19 @@ class Orchestrator:
             report("done", index, total, mod, check)
         return results
 
+    def _offline(self) -> bool:
+        return self._system_profile is not None and self._system_profile.target is not None
+
     def run_fixes(
         self,
         check_results: list[tuple[ModuleBase, CheckResult]],
         mode: Mode,
     ) -> list[tuple[ModuleBase, CheckResult, FixResult]]:
+        """Run each module's fix() for its findings; nothing at all for a disk
+        checked from outside, since a fix would change this computer instead."""
+        if self._offline():
+            logger.warning("Not running fixes: these results describe a disk checked from outside.")
+            return []
         results = []
         for mod, check in check_results:
             if check.error or not check.has_issues:
@@ -212,6 +220,8 @@ class Orchestrator:
         self,
     ) -> list[tuple[ModuleBase, CheckResult, FixResult | None]]:
         check_results = self.run_checks()
+        if self._offline():
+            return [(mod, check, None) for mod, check in check_results]
         fix_results = self.run_fixes(check_results, Mode.AUTO)
 
         combined = []

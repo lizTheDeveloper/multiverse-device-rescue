@@ -76,3 +76,74 @@ def test_plain_scan_has_no_target_key_but_has_not_checked():
     doc = json.loads(r.stdout)
     assert "target" not in doc
     assert doc["modules"][0]["not_checked"] == []
+
+
+_ADMIN_WARNING = (
+    "Warning: not running as an administrator, so files only an administrator can "
+    "read on that disk won't be checked. Run with sudo for a full check."
+)
+
+
+def test_target_scan_warns_when_not_administrator(linux_disk, monkeypatch):
+    monkeypatch.setattr("os.geteuid", lambda: 1000, raising=False)
+    r = run_scan("--target-root", linux_disk, "--target-os", "linux")
+    assert r.exit_code == 0, r.stderr
+    assert _ADMIN_WARNING in r.stderr
+
+
+def test_target_scan_as_administrator_has_no_admin_warning(linux_disk, monkeypatch):
+    monkeypatch.setattr("os.geteuid", lambda: 0, raising=False)
+    r = run_scan("--target-root", linux_disk, "--target-os", "linux")
+    assert r.exit_code == 0, r.stderr
+    assert "not running as an administrator" not in r.stderr
+
+
+def test_target_scan_without_geteuid_has_no_admin_warning(linux_disk, monkeypatch):
+    monkeypatch.delattr("os.geteuid", raising=False)
+    r = run_scan("--target-root", linux_disk, "--target-os", "linux")
+    assert r.exit_code == 0, r.stderr
+    assert "not running as an administrator" not in r.stderr
+
+
+def test_relative_target_root_is_made_absolute(linux_disk, monkeypatch):
+    monkeypatch.chdir(linux_disk)
+    doc = _doc(".")
+    assert doc["target"]["root"] == str(linux_disk)
+    assert doc["target"]["root"].startswith("/")
+    ssh = {m["name"]: m for m in doc["modules"]}["linux_ssh_hardening"]
+    assert ssh["supported"] is True and ssh["status"] == "ok"
+
+
+def _offer_everything(monkeypatch):
+    """Every module offered a fix, every finding an action and an "It's mine"."""
+    import rescue.cli as cli
+    import rescue.serialize as serialize
+
+    walkthroughs, _, _ = cli._json_extras()
+    names = ["linux_ssh_hardening", "linux_account_audit", "linux_persistence_audit", "stalkerware_scan"]
+    fix = {"will_change": "x", "how_to_undo": ["y"]}
+    monkeypatch.setattr(cli, "_json_extras", lambda: (walkthroughs, {n: fix for n in names}, {}))
+    monkeypatch.setattr(serialize, "_action_fixable", lambda *a: {"action": "a", "target": "t"})
+    monkeypatch.setattr(serialize, "_markable", lambda *a: {"kind": "k", "id": "i"})
+
+
+def _assert_no_offers(modules):
+    findings = [f for m in modules for f in m["findings"]]
+    assert findings
+    assert not [f for f in findings if "fixable" in f or "markable" in f]
+
+
+def test_offline_json_offers_no_fix_or_mark(linux_disk, monkeypatch):
+    _offer_everything(monkeypatch)
+    (linux_disk / "etc/ssh").mkdir(parents=True)
+    (linux_disk / "etc/ssh/sshd_config").write_text("PermitRootLogin yes\n")
+    _assert_no_offers(_doc(linux_disk)["modules"])
+
+
+def test_offline_live_lines_offer_no_fix_or_mark(linux_disk, monkeypatch):
+    _offer_everything(monkeypatch)
+    r = run_scan("--target-root", linux_disk, "--target-os", "linux", "--progress", "--live")
+    assert r.exit_code == 0, r.stderr
+    lines = [json.loads(x)["progress"] for x in r.stderr.splitlines() if x.startswith('{"progress"')]
+    _assert_no_offers([p["result"] for p in lines if "result" in p])
+    _assert_no_offers(json.loads(r.stdout)["modules"])
