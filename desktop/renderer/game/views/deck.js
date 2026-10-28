@@ -30,7 +30,7 @@ export function signalRow(sig, districtName = () => '') {
     sig.changed ? '<span class="badge warn">CHANGED SINCE YOU TAGGED IT</span>' : '',
   ].join('');
   return `<li><button type="button" class="sig sev-${esc(sig.severity)}${drill ? ' drill' : ''}" data-go="signal:${esc(sig.id)}">
-      <span class="sig-badges">${badges}</span><span class="sig-title">${esc(sig.title)}</span><small>${esc(districtName(sig.districtId))}</small></button></li>`;
+      <span class="sig-badges">${badges}</span><span class="sig-title">${esc(sig.title)}</span><small>${esc(districtName(sig.districtId))}</small><span class="sig-open" aria-hidden="true">OPEN ▶</span></button></li>`;
 }
 
 // THREAT's next move: the finding's own briefing, where any real fix asks first.
@@ -86,7 +86,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
       </li>` : '';
   const threatHtml = threats.length ? `
       <section class="panel threat-board" aria-label="Threat board"><div class="label">THREAT BOARD (${threats.length})</div>
-        <ul class="queue">${threats.map((x) => `<li class="threat"><span class="sig-title">${esc(x.title)}</span>${nextMoveHtml(x)}</li>`).join('')}</ul>
+        <ul class="queue">${threats.map((x) => `<li class="threat"><button type="button" class="sig-title threat-open" data-go="signal:${esc(x.id)}">${esc(x.title)} ▶</button>${nextMoveHtml(x)}</li>`).join('')}</ul>
         <p class="intel">Tagging changes nothing on your computer. A fix happens only when you say yes to it.</p></section>` : '';
   const knownHtml = known.length ? `
       <details class="panel known"><summary class="label">KNOWN AND NOTED (${known.length})</summary>

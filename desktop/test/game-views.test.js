@@ -169,6 +169,17 @@ test('a reclaimed mission the scan no longer reports still completes and is list
   assert.doesNotMatch(map, /NOTHING FOUND/);
 });
 
+test('a district’s notes open their signal on the deck when there is one; otherwise they stay text', async () => {
+  const v = await views();
+  const district = { id: 'gatehouse', name: 'The Gatehouse', status: 'clear', missions: [], fog: [],
+    notes: [{ title: EVIL, id: 'n1' }, { title: 'No signal', id: 'n2' }] };
+  const noteGo = (n) => (n.id === 'n1' ? 'signal:n1' : null);
+  const html = v.renderDistrict({ district, progress: v.emptyProgress(), scout, noteGo });
+  assert.match(html, /<li><button type="button" class="note-row" data-go="signal:n1">&lt;img src=x onerror=alert\(1\)&gt; ▶<\/button><\/li>/);
+  assert.match(html, /<li>No signal<\/li>/);
+  assert.match(v.renderDistrict({ district, progress: v.emptyProgress(), scout }), /<li>&lt;img src=x/, 'no deck: plain text as before');
+});
+
 test('fog keeps a district from its milestone, and a milestone with fog says so', async () => {
   const { districtComplete, renderMilestone } = await import('../renderer/game/views/milestone.js');
   const district = { id: 'gatehouse', name: 'The Gatehouse', missions: [], notes: [], fog: [{ module: 'm2', reason: EVIL }] };

@@ -8,7 +8,13 @@ const STATUS_BADGE = {
   yours: '<span class="badge yours">YOURS</span>', reclaimed: '<span class="badge safe">RECLAIMED</span>',
 };
 
-export function renderDistrict({ district: d, progress, scout }) {
+// `noteGo(note)`: on the deck, what a note opens ("signal:<id>"), or null to leave it as text.
+const noteItem = (n, noteGo) => {
+  const go = noteGo ? noteGo(n) : null;
+  return go ? `<li><button type="button" class="note-row" data-go="${esc(go)}">${esc(n.title)} ▶</button></li>` : `<li>${esc(n.title)}</li>`;
+};
+
+export function renderDistrict({ district: d, progress, scout, noteGo = null }) {
   const status = (id) => (progress.missions[id] && progress.missions[id].status) || 'open';
   const missions = d.missions.map((m) => `
       <li><button type="button" class="mission-row" data-go="mission:${esc(m.id)}">
@@ -25,7 +31,7 @@ export function renderDistrict({ district: d, progress, scout }) {
         <span class="mission-text">${esc(r.title)}</span>
       </div></li>`).join('');
   const rows = missions + reclaimed;
-  const notes = d.notes.map((n) => `<li>${esc(n.title)}</li>`).join('');
+  const notes = d.notes.map((n) => noteItem(n, noteGo)).join('');
   // A monitoring check is never named on the city (held.js): just "A check".
   const fog = d.fog.map((x) => `<li><strong>${esc(HELD_MODULES.has(x.module) ? 'A check' : x.module)}</strong>: ${esc(x.reason)}</li>`).join('');
   return `
