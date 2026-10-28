@@ -22,6 +22,7 @@ import json
 import os
 import plistlib
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -61,6 +62,13 @@ _AQF_MARKERS = ("acquisition.json", "packages.json", "getprop.txt")
 
 # MVT alert levels, lowest to highest.
 _LEVELS = {"INFORMATIONAL": 0, "LOW": 10, "MEDIUM": 20, "HIGH": 30, "CRITICAL": 40}
+
+# Limits on unpacking an AndroidQF zip, so a malicious zip with an
+# AndroidQF-like name can't fill the disk ("zip bomb").
+_UNPACK_MAX_ENTRIES = 200_000
+_UNPACK_DISK_HEADROOM = 1024**3          # leave 1 GiB free
+_UNPACK_MAX_RATIO = 200                  # uncompressed / compressed, per entry
+_UNPACK_RATIO_FLOOR = 100 * 1024**2      # ratio only checked above 100 MiB
 
 _KIND_LABEL = {"ios": "iPhone or iPad backup", "android": "Android acquisition"}
 
@@ -413,7 +421,7 @@ class Module(ModuleBase):
                     "and it is not a sign that anything is wrong.\n\n"
                     "What to do: if you have the private key, unlock a copy with "
                     "age (age --decrypt -i <your-key> -o acquisition.zip "
-                    f"\"{path}\") and run this check again. Otherwise, run AndroidQF "
+                    f"{shlex.quote(str(path))}) and run this check again. Otherwise, run AndroidQF "
                     "again from a folder without a key.txt file."
                 ),
                 severity=Severity.WARNING,
@@ -433,7 +441,7 @@ class Module(ModuleBase):
                 "What to do: open Terminal and run this, which makes an "
                 "unlocked copy in a new folder and asks for the backup "
                 "password:\n"
-                f"  {mvt_bin} decrypt-backup -d ~/iphone-backup-decrypted \"{path}\"\n"
+                f"  {mvt_bin} decrypt-backup -d ~/iphone-backup-decrypted {shlex.quote(str(path))}\n"
                 "Then scan the copy:\n"
                 f"  {mvt_bin} check-backup --output ~/mvt-results ~/iphone-backup-decrypted\n"
                 "Delete the unlocked copy when you're done: it holds your "
@@ -448,8 +456,8 @@ class Module(ModuleBase):
     @staticmethod
     def _manual_command(kind: str, mvt_bin: str, path: Path) -> str:
         if kind == "android":
-            return f"{mvt_bin} check-androidqf --output ~/mvt-results \"{path}\""
-        return f"{mvt_bin} check-backup --output ~/mvt-results \"{path}\""
+            return f"{mvt_bin} check-androidqf --output ~/mvt-results {shlex.quote(str(path))}"
+        return f"{mvt_bin} check-backup --output ~/mvt-results {shlex.quote(str(path))}"
 
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:
         """Informational-only remediation guidance.
@@ -671,9 +679,13 @@ class Module(ModuleBase):
         as soon as the running total exceeds ``cap`` (so this stays cheap even on
         huge backups). Returns ``None`` if the tree cannot be walked."""
         if backup_path.is_file():
+            # A zip counts at its unpacked size: that's what lands on disk.
             try:
+                if zipfile.is_zipfile(backup_path):
+                    with zipfile.ZipFile(backup_path) as zf:
+                        return sum(i.file_size for i in zf.infolist())
                 return backup_path.stat().st_size
-            except OSError:
+            except (OSError, zipfile.BadZipFile):
                 return None
         total = 0
         try:
@@ -726,6 +738,8 @@ class Module(ModuleBase):
                 scan_path = unpack_dir / stem
                 scan_path.mkdir()
                 with zipfile.ZipFile(target) as zf:
+                    if not self._safe_to_unpack(zf, unpack_dir):
+                        return None
                     zf.extractall(scan_path)
             command = "check-androidqf" if kind == "android" else "check-backup"
             args = [mvt_bin, command, "--output", str(output_dir)]
@@ -748,6 +762,29 @@ class Module(ModuleBase):
             shutil.rmtree(output_dir, ignore_errors=True)
             if unpack_dir is not None:
                 shutil.rmtree(unpack_dir, ignore_errors=True)
+
+    def _safe_to_unpack(self, zf: zipfile.ZipFile, dest: Path) -> bool:
+        """Whether unpacking this zip is safe: not too many files, room on
+        disk for the unpacked total (and under max_backup_bytes if set), and
+        no entry that expands absurdly (a "zip bomb"). The sizes are the
+        zip's own claims; extraction can't exceed them for the stored CRC to
+        match, so a lying archive fails extraction instead."""
+        infos = zf.infolist()
+        if len(infos) > _UNPACK_MAX_ENTRIES:
+            return False
+        total = sum(i.file_size for i in infos)
+        try:
+            free = shutil.disk_usage(dest).free
+        except OSError:
+            return False
+        if total > free - _UNPACK_DISK_HEADROOM:
+            return False
+        if self.max_backup_bytes > 0 and total > self.max_backup_bytes:
+            return False
+        for i in infos:
+            if i.file_size > _UNPACK_RATIO_FLOOR and i.file_size > _UNPACK_MAX_RATIO * max(i.compress_size, 1):
+                return False
+        return True
 
     def _parse_mvt_output(self, output_dir: Path) -> list[dict]:
         """Read MVT's alerts.

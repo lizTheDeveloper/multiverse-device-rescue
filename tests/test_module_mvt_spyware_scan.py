@@ -444,3 +444,56 @@ def test_is_encrypted_reads_manifest(tmp_path):
     (tmp_path / "Manifest.plist").write_bytes(plistlib.dumps({"IsEncrypted": False}))
     assert mod._is_encrypted(tmp_path) is False
     assert mod._is_encrypted(tmp_path / "missing") is False
+
+
+
+def test_suggested_commands_quote_the_path():
+    """A path with shell syntax in it must not run when the person pastes
+    the suggested command into Terminal."""
+    mod = _opted()
+    evil = "x$(touch pwned)"
+    for target, alerts, check in [
+        (_target(name=evil, encrypted=True), (), "mvt_backup_encrypted"),
+        (_target(name=evil), [None], "mvt_scan_incomplete"),
+        (_target("android", evil, encrypted=True), (), "mvt_backup_encrypted"),
+        (_target("android", evil), [None], "mvt_scan_incomplete"),
+    ]:
+        result, _, _ = _scan(mod, [target], alerts=alerts)
+        f = next(f for f in result.findings if f.data.get("check") == check)
+        assert "'/fake/x$(touch pwned)'" in f.description, (target, check)
+        assert '"/fake/x$(touch pwned)"' not in f.description
+
+
+def test_zip_bomb_is_not_unpacked(tmp_path):
+    """An AndroidQF-named zip that would unpack past the free disk space is
+    refused, reported as unfinished, and nothing is written."""
+    z = _make_aqf_zip(tmp_path)
+    mod = _get_module()
+    tiny = type("U", (), {"free": 10})()
+    with patch("shutil.disk_usage", return_value=tiny), patch("subprocess.run") as run:
+        assert mod._run_mvt_scan("/bin/mvt-android", z, "android") is None
+    run.assert_not_called()
+
+
+def test_unpack_respects_size_limit_and_ratio(tmp_path):
+    mod = _get_module()
+    big = tmp_path / f"{UUID}.zip"
+    with zipfile.ZipFile(big, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("packages.json", b"0" * (101 * 1024**2))  # ~101 MiB of zeros: compresses >1000x
+    with zipfile.ZipFile(big) as zf:
+        assert mod._safe_to_unpack(zf, tmp_path) is False
+    (tmp_path / "ok").mkdir()
+    ok = _make_aqf_zip(tmp_path / "ok")
+    mod.configure({"max_backup_bytes": 1})
+    with zipfile.ZipFile(ok) as zf:
+        assert mod._safe_to_unpack(zf, tmp_path) is False
+    mod.configure({"max_backup_bytes": 0})
+    with zipfile.ZipFile(ok) as zf:
+        assert mod._safe_to_unpack(zf, tmp_path) is True
+
+
+def test_size_limit_uses_unpacked_size_for_zips(tmp_path):
+    z = _make_aqf_zip(tmp_path)
+    with zipfile.ZipFile(z) as zf:
+        unpacked = sum(i.file_size for i in zf.infolist())
+    assert _get_module()._estimate_backup_size(z, 1) == unpacked
