@@ -149,3 +149,91 @@ def test_fix_is_guidance_only_and_warns_about_lockout():
     fix = mod.fix(check, Mode.CLI)
     assert fix.executed_mutations == []
     assert any("lock" in a.description.lower() for a in fix.actions)
+
+
+# ---------------- offline: a Linux disk mounted elsewhere ----------------
+
+from rescue.profiler.base import gather_target_profile  # noqa: E402
+
+
+def _offline(linux_disk):
+    return gather_target_profile(linux_disk, Platform.LINUX)
+
+
+def _no_host_commands(mod):
+    return patch.object(
+        sys.modules[type(mod).__module__], "run",
+        side_effect=AssertionError("no host commands offline"),
+    )
+
+
+def _root_finding(r):
+    return next(f for f in r.findings if "root logins" in f.title)
+
+
+def test_ssh_offline_reads_target_config_and_include(linux_disk):
+    ssh = linux_disk / "etc/ssh"
+    (ssh / "sshd_config.d").mkdir(parents=True)
+    (ssh / "sshd_config").write_text("Include sshd_config.d/*.conf\n")
+    (ssh / "sshd_config.d/50-x.conf").write_text("PermitRootLogin yes\n")
+    mod = _get_module()
+    with _no_host_commands(mod):
+        r = mod.check(_offline(linux_disk))
+    f = _root_finding(r)
+    assert "set to start automatically" in f.description
+    assert f.data["source"] == "/etc/ssh/sshd_config on the checked disk"
+    assert r.not_checked == ["whether SSH was running"]
+
+
+def test_ssh_offline_not_enabled_sentence(linux_disk):
+    (linux_disk / "etc/systemd/system/multi-user.target.wants/ssh.service").unlink()
+    (linux_disk / "etc/ssh").mkdir(parents=True)
+    (linux_disk / "etc/ssh/sshd_config").write_text("PermitRootLogin yes\n")
+    mod = _get_module()
+    with _no_host_commands(mod):
+        r = mod.check(_offline(linux_disk))
+    assert "isn't set to start automatically" in _root_finding(r).description
+
+
+def test_ssh_offline_sshd_service_name_counts(linux_disk):
+    wants = linux_disk / "etc/systemd/system/multi-user.target.wants"
+    (wants / "ssh.service").unlink()
+    (wants / "sshd.service").symlink_to("/nowhere/sshd.service")
+    (linux_disk / "etc/ssh").mkdir(parents=True)
+    (linux_disk / "etc/ssh/sshd_config").write_text("PermitRootLogin yes\n")
+    mod = _get_module()
+    with _no_host_commands(mod):
+        r = mod.check(_offline(linux_disk))
+    assert "set to start automatically" in _root_finding(r).description
+
+
+def test_ssh_offline_no_config_is_no_findings(linux_disk):
+    mod = _get_module()
+    with _no_host_commands(mod):
+        r = mod.check(_offline(linux_disk))
+    assert r.findings == []
+    assert r.not_checked == ["whether SSH was running"]
+
+
+def test_ssh_offline_include_loop_is_bounded(linux_disk):
+    ssh = linux_disk / "etc/ssh"
+    ssh.mkdir(parents=True)
+    (ssh / "sshd_config").write_text("Include /etc/ssh/sshd_config\nInclude /etc/ssh/a.conf\n")
+    (ssh / "a.conf").write_text("Include sshd_config\nPasswordAuthentication yes\n")
+    mod = _get_module()
+    with _no_host_commands(mod):
+        r = mod.check(_offline(linux_disk))
+    assert "security.linux_ssh_hardening.password_auth_enabled" in _codes(r)
+
+
+def test_ssh_offline_include_cap(linux_disk):
+    ssh = linux_disk / "etc/ssh"
+    (ssh / "d").mkdir(parents=True)
+    (ssh / "sshd_config").write_text("Include d/*.conf\n")
+    for i in range(70):
+        (ssh / "d" / f"{i:03d}.conf").write_text("PermitEmptyPasswords no\n")
+    (ssh / "d" / "999.conf").write_text("PermitEmptyPasswords yes\n")
+    mod = _get_module()
+    with _no_host_commands(mod):
+        r = mod.check(_offline(linux_disk))
+    assert "security.linux_ssh_hardening.empty_passwords_permitted" not in _codes(r)

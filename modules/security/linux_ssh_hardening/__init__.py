@@ -23,6 +23,9 @@ door. The module checks whether sshd is actually running before deciding how
 loudly to complain.
 """
 
+import fnmatch
+import os
+import shlex
 from pathlib import Path
 
 from rescue.command import run
@@ -40,8 +43,14 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.target import Target
 
 _TIMEOUT = 10.0
+
+_OFFLINE_SOURCE = "/etc/ssh/sshd_config on the checked disk"
+_MAX_INCLUDES = 64
+_ENABLED_UNITS = ("ssh.service", "sshd.service")
+_NOT_CHECKED = ["whether SSH was running"]
 
 # Values of PermitRootLogin that still allow a root session of some kind. Only
 # "no" fully closes it; "prohibit-password"/"without-password" allow key-based
@@ -59,6 +68,7 @@ class Module(ModuleBase):
     priority = 84
     depends_on = []
     estimated_duration = "10s"
+    offline_capable = True
 
     emits_codes = [
         "security.linux_ssh_hardening.root_login_permitted",
@@ -82,14 +92,24 @@ class Module(ModuleBase):
                 ),
             )
 
-        config, source = self._effective_config()
+        target = profile.target
+        not_checked = list(_NOT_CHECKED) if target is not None else []
+        if target is not None:
+            config, source = self._offline_config(target)
+        else:
+            config, source = self._effective_config()
         if config is None:
-            if not is_file_nofollow(self.sshd_config_path):
+            if target is not None:
+                exists = os.path.lexists(target.resolve(self.sshd_config_path))
+            else:
+                exists = is_file_nofollow(self.sshd_config_path)
+            if not exists:
                 # No sshd config at all: no SSH server installed. Nothing to
                 # harden, and saying so is more useful than silence.
-                return CheckResult(module_name=self.name, findings=[])
+                return CheckResult(module_name=self.name, findings=[], not_checked=not_checked)
             return CheckResult(
                 module_name=self.name,
+                not_checked=not_checked,
                 findings=[
                     Finding(
                         title="Could not read the SSH settings file",
@@ -107,7 +127,7 @@ class Module(ModuleBase):
                 ],
             )
 
-        running = self._sshd_running()
+        running = self._offline_enabled(target) if target is not None else self._sshd_running()
         confidence = 0.95 if source == "sshd -T" else 0.7
         findings: list[Finding] = []
 
@@ -119,8 +139,7 @@ class Module(ModuleBase):
                     description=(
                         "Your computer is set up to let the main administrator account "
                         "(called 'root') log in directly from the internet. "
-                        + ("This is currently active because the service is running." if running else
-                        "This is not currently active because the service is off, but it will turn on if the service starts.")
+                        + self._root_login_sentence(running, target)
                         + "\n\nThis is a major security risk. Automated bots constantly try to break into computers using this exact method. "
                         "If you do not use remote access, you should turn this off.\n\n"
                         "What to do: Open your terminal and type `sudo nano /etc/ssh/sshd_config`. "
@@ -217,7 +236,100 @@ class Module(ModuleBase):
                 )
             )
 
-        return CheckResult(module_name=self.name, findings=findings)
+        return CheckResult(module_name=self.name, findings=findings, not_checked=not_checked)
+
+    @staticmethod
+    def _root_login_sentence(running: bool, target: Target | None) -> str:
+        if target is not None:
+            if running:
+                return (
+                    "On that computer the SSH service is set to start automatically, "
+                    "so this is active whenever it's switched on."
+                )
+            return (
+                "On that computer the SSH service isn't set to start automatically, "
+                "but this applies if it's ever started."
+            )
+        if running:
+            return "This is currently active because the service is running."
+        return (
+            "This is not currently active because the service is off, but it will "
+            "turn on if the service starts."
+        )
+
+    # ---- offline: read the disk, run nothing ----
+
+    def _offline_config(self, target: Target) -> tuple[dict[str, str] | None, str]:
+        """Parse sshd_config plus its Include files, all read from the disk."""
+        try:
+            main = target.read_text(self.sshd_config_path)
+        except OSError:
+            return None, ""
+        parts = [main]
+        seen = {self.sshd_config_path}
+        budget = [_MAX_INCLUDES]
+        self._collect_includes(main, target, seen, budget, parts)
+        return self._parse("\n".join(parts)), _OFFLINE_SOURCE
+
+    def _collect_includes(self, text, target, seen, budget, parts) -> None:
+        """Append each Include'd file in order; bounded, and never re-reads a file."""
+        for raw in text.splitlines():
+            line = raw.strip()
+            words = line.split(None, 1)
+            if len(words) != 2 or words[0].lower() != "include":
+                continue
+            try:
+                patterns = shlex.split(words[1])
+            except ValueError:
+                patterns = words[1].split()
+            for pattern in patterns:
+                for view in self._expand_include(pattern, target):
+                    if view in seen or budget[0] <= 0:
+                        continue
+                    seen.add(view)
+                    budget[0] -= 1
+                    try:
+                        sub = target.read_text(view)
+                    except OSError:
+                        continue
+                    parts.append(sub)
+                    self._collect_includes(sub, target, seen, budget, parts)
+
+    @staticmethod
+    def _expand_include(pattern: str, target: Target) -> list[str]:
+        """Target-view paths an Include pattern names; globs matched against the disk."""
+        if not pattern.startswith("/"):
+            pattern = "/etc/ssh/" + pattern
+        directory, _, name_pattern = pattern.rpartition("/")
+        directory = directory or "/"
+        if any(c in directory for c in "*?["):
+            return []  # wildcard directories aren't expanded
+        if not any(c in name_pattern for c in "*?["):
+            return [pattern]
+        try:
+            with os.scandir(target.resolve(directory)) as it:
+                names = sorted(e.name for e in it if fnmatch.fnmatchcase(e.name, name_pattern))
+        except OSError:
+            return []
+        return [directory.rstrip("/") + "/" + n for n in names]
+
+    @staticmethod
+    def _offline_enabled(target: Target) -> bool:
+        """True when ssh.service or sshd.service is an entry in a *.wants/ directory."""
+        base = "/etc/systemd/system"
+        try:
+            with os.scandir(target.resolve(base)) as top:
+                wants = [e.name for e in top if e.name.endswith(".wants")]
+        except OSError:
+            return False
+        for d in wants:
+            try:
+                with os.scandir(target.resolve(f"{base}/{d}")) as it:
+                    if any(e.name in _ENABLED_UNITS for e in it):
+                        return True
+            except OSError:
+                continue
+        return False
 
     def _effective_config(self) -> tuple[dict[str, str] | None, str]:
         """Return sshd's resolved settings, preferring `sshd -T` over the file."""
