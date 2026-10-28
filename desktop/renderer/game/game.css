@@ -237,7 +237,6 @@ button.lesson:hover .go, button.lesson:focus-visible .go { background: var(--cya
 .boss h2 { margin: 0; font-family: var(--font-display); font-weight: 900; letter-spacing: 3px; font-size: clamp(18px, 3vw, 26px); color: var(--magenta); text-shadow: 0 0 18px rgba(255,45,155,0.4); }
 .bar { height: 10px; border: 1px solid rgba(0,229,255,0.35); background: rgba(0,229,255,0.04); position: relative; }
 .bar i { position: absolute; inset: 0 auto 0 0; width: var(--pct, 0%); background: linear-gradient(90deg, rgba(0,229,255,0.5), var(--cyan)); box-shadow: 0 0 14px rgba(0,229,255,0.5); }
-.bar-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
 .sweep .district { min-height: 0; }
 .district.swept .skyline img { filter: brightness(0.75) grayscale(0.6); }
 .district.sweeping { border-color: rgba(0,229,255,0.6); box-shadow: 0 0 24px rgba(0,229,255,0.15) inset; }
@@ -376,7 +375,9 @@ code.clue-line.code { display: block; margin: 4px 0; padding: 6px 8px; font-size
 
 /* ---------- the sweep, in the command center's layout ---------- */
 .sweep-deck { padding: 14px 18px; gap: 14px; grid-template-columns: minmax(280px, 1.2fr) minmax(0, 1.6fr) minmax(210px, 0.8fr);
-  grid-template-areas: "meter meter meter" "side learn city" "log learn city" "tips learn city"; grid-template-rows: auto auto auto 1fr; align-items: start; }
+  grid-template-areas: "meter meter meter" "side learn city" "log tips city"; grid-template-rows: auto auto 1fr; align-items: start; }
+/* The pop-up tips sit under the lesson, not under the long sweep log, so they're
+   in view while macOS may be showing them; the log, the least needed, goes last. */
 .sweep-tips { grid-area: tips; min-width: 0; }
 .sweep-meter { grid-area: meter; display: grid; gap: 6px; }
 .sweep-side { grid-area: side; display: grid; gap: 14px; min-width: 0; }
@@ -384,7 +385,7 @@ code.clue-line.code { display: block; margin: 4px 0; padding: 6px 8px; font-size
 .sweep-city { grid-area: city; min-width: 0; align-self: start; display: grid; gap: 10px; align-content: start; }
 .sweep-log { grid-area: log; min-width: 0; }
 @media (max-width: 900px) {
-  .sweep-deck { grid-template-columns: minmax(0, 1fr); grid-template-areas: "meter" "side" "learn" "log" "city" "tips"; grid-template-rows: none; }
+  .sweep-deck { grid-template-columns: minmax(0, 1fr); grid-template-areas: "meter" "side" "learn" "city" "tips" "log"; grid-template-rows: none; }
   .sweep-now .say { display: none; }
 }
 .sweep-top .stat small { font-size: 8px; }
