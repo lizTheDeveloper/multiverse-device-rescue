@@ -87,3 +87,26 @@ test('the report counts open and closed cases, and puts held and threats first',
   assert.deepStrictEqual([r.leads, r.unidentified, r.identified, r.threats, r.held, r.doorsOpen, r.open, r.closed], [4, 1, 1, 1, 1, 1, 4, 1]);
   assert.deepStrictEqual(items.sort(compareCases).map((x) => x.id), ['h', 't', 'u', 'd', 'n', 'y']);
 });
+
+test('a MINE tag keeps what it is for, from the fixed list only, and survives a save', async () => {
+  const { setTag, award, POINTS } = await import('../renderer/game/ledger.js');
+  const { emptyDeck, cleanDeck } = await import('../renderer/game/progress.js');
+  const { radarOf, suggestCategory } = await import('../renderer/game/own-categories.js');
+  let d = setTag(emptyDeck(), 'm|a|path=/x', 'mine', 'fp', 'now', 'dev');
+  d = setTag(d, 'm|b|path=/y', 'mine', 'fp', 'now', 'a name someone typed');
+  d = setTag(d, 'm|c|path=/z', 'threat', 'fp', 'now', 'dev');
+  assert.strictEqual(d.tags['m|a|path=/x'].cat, 'dev');
+  assert.strictEqual(d.tags['m|b|path=/y'].cat, undefined);
+  assert.strictEqual(d.tags['m|c|path=/z'].cat, undefined);
+  assert.deepStrictEqual(cleanDeck(d).tags['m|a|path=/x'], { tag: 'mine', at: 'now', fp: 'fp', cat: 'dev' });
+  assert.strictEqual(cleanDeck({ ...d, tags: { k: { tag: 'threat', at: 'n', fp: 'f', cat: 'dev' } } }), null);
+  assert.strictEqual(radarOf(d).dev, 1);
+  const once = award(d, 'identify', 'm|a|path=/x');
+  assert.strictEqual(once.points, POINTS.identify);
+  assert.strictEqual(award(once.deck, 'identify', 'm|a|path=/x').points, 0);
+  assert.strictEqual(award(d, 'identify', 'stalkerware_scan|x').points, 0);
+  assert.strictEqual(suggestCategory({ made_by: [{ name: 'Zoom Video Communications' }] }), 'chat');
+  assert.strictEqual(suggestCategory({ data: { program: 'ssh' } }), 'dev');
+  assert.strictEqual(suggestCategory({}, ['extension']), 'browser');
+  assert.strictEqual(suggestCategory({}), null);
+});
