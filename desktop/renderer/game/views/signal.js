@@ -11,20 +11,37 @@ const TAG_BUTTONS = [['mine', 'MINE'], ['closer', 'LOOK CLOSER'], ['threat', 'TH
 const clueLine = (l) => (l && typeof l === 'object'
   ? `<code class="clue-line code">${esc(l.text)}</code>` : `<p class="clue-line">${esc(l)}</p>`);
 
-function clueItem(c, opened, sig) {
+// `fold` (the "new" level): a clue leads with its plain sentence (or its plain
+// lines), and the raw ones (paths, signature details, commands and
+// addresses, process ids) wait under DETAILS, after the reading.
+const RAW_TEXT = /\bPID \d/;
+const isRaw = (l) => (l && typeof l === 'object') || RAW_TEXT.test(String(l));
+export function foldLines(c) {
+  if (c.plain) return { shown: [c.plain], folded: c.lines.filter((l) => l !== c.plain) };
+  return { shown: c.lines.filter((l) => !isRaw(l)), folded: c.lines.filter(isRaw) };
+}
+
+function clueItem(c, opened, sig, fold = false) {
   if (!opened.includes(c.kind)) {
     return `<li><button type="button" class="clue locked" data-act="clue:${esc(c.kind)}">SCAN CLUE: ${esc(c.label)} ▶</button></li>`;
   }
+  const reading = c.reading ? `<p class="reading"><b>How to read this:</b> ${esc(c.reading.text)}</p>` : '';
+  const move = c.move && sig.kind === 'real' ? nextMoveHtml(sig) : '';
+  const f = fold ? foldLines(c) : null;
+  const body = f
+    ? `${f.shown.map((l) => (c.plain ? `<p class="clue-plain">${esc(l)}</p>` : clueLine(l))).join('')}
+      ${reading}${f.folded.length ? `<details class="raw"><summary>DETAILS</summary>${f.folded.map(clueLine).join('')}</details>` : ''}`
+    : `${c.lines.map(clueLine).join('')}
+      ${reading}`;
   // tabindex -1: focus can land on a clue just opened when none is left locked.
-  return `<li class="clue open" data-clue="${esc(c.kind)}" tabindex="-1"><div class="label">${esc(c.label)}</div>${c.lines.map(clueLine).join('')}
-      ${c.reading ? `<p class="reading"><b>How to read this:</b> ${esc(c.reading.text)}</p>` : ''}${c.move && sig.kind === 'real' ? nextMoveHtml(sig) : ''}</li>`;
+  return `<li class="clue open" data-clue="${esc(c.kind)}" tabindex="-1"><div class="label">${esc(c.label)}</div>${body}${move}</li>`;
 }
 
 // Real findings pay for looking, so the points show with the clues, before any tag.
 const cluePoints = (sig, points) => (sig.kind === 'real' && points > 0 ? `<p class="points">+${esc(points)} POINTS for looking at the clues</p>` : '');
 
 export function renderSignalPanel({ signal: sig, districtName = '', clues = [], opened = [], tagged = null, right = false, read = '',
-  points = 0, scout, mineHtml = '', range = null, quickHtml = '', chipsHtml = '' }) {
+  points = 0, scout, mineHtml = '', range = null, quickHtml = '', chipsHtml = '', fold = false, evidenceHtml = '' }) {
   const drill = sig.kind === 'drill';
   const couldnt = sig.kind === 'couldnt';
   const stamp = drill ? `<p class="drill-banner"><span class="badge drill-stamp">DRILL</span> Practice. This isn’t on your computer.</p>
@@ -39,7 +56,7 @@ export function renderSignalPanel({ signal: sig, districtName = '', clues = [], 
     clueHtml = `<p class="intel">${esc(sig.description || 'This check couldn’t run.')}</p>
       <p class="intel">A check that couldn’t run checked nothing. That doesn’t mean it’s safe.</p>`;
   } else if (clues.length) {
-    clueHtml = `${cluePoints(sig, points)}<ul class="clues">${clues.map((c) => clueItem(c, opened, sig)).join('')}</ul>`;
+    clueHtml = `${cluePoints(sig, points)}<ul class="clues">${clues.map((c) => clueItem(c, opened, sig, fold)).join('')}</ul>`;
   } else {
     clueHtml = '<p class="intel">The scan recorded no clues for this one. Its title is all there is to go on.</p>';
   }
@@ -65,6 +82,7 @@ export function renderSignalPanel({ signal: sig, districtName = '', clues = [], 
     <div class="sig-head">${SEV_BADGE[sig.severity] || ''} <small>${esc(districtName)}</small></div>
     <h2 class="m-title" id="sig-title" tabindex="-1">${esc(sig.title)}</h2>${chipsHtml}
     ${notes}
+    ${drill ? '' : evidenceHtml}
     <div class="label">CLUES</div>${clueHtml}
     <div class="label">YOUR CALL</div>${quickHtml}${call}
     <p class="intel faint">${esc(drill ? 'Practice only. A drill never touches your computer.' : TAG_NOTE)}</p>

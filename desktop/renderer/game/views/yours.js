@@ -61,25 +61,27 @@ function makerHtml(m) {
     : `<span class="y-maker">Says it’s made by ${esc(m.name)} <small>(couldn’t verify)</small></span>`;
 }
 
-function itemRow(it, picked, act, pickable = true) {
+// `fold` (the "new" level, level.js): the path waits under DETAILS.
+function itemRow(it, picked, act, pickable = true, fold = false) {
+  const ev = !it.evidence ? '' : fold ? `<details class="raw"><summary>DETAILS</summary><code>${esc(it.evidence)}</code></details>` : ` <code>${esc(it.evidence)}</code>`;
   const pick = pickable ? `<label class="pick"><input type="checkbox" data-act="ypick:${esc(it.id)}"${picked ? ' checked' : ''} aria-label="${esc(`Select: ${it.name}`)}"></label>` : '';
   return `<li class="y-item${it.pending ? ' pending' : ''}${it.stale ? ' stale' : ''}">
     ${pick}
     <div class="y-body"><div class="y-name">${esc(it.name)}</div>${kindChipsHtml(it.kinds)}
-      <div class="y-meta">${makerHtml(it.maker)}${it.evidence ? ` <code>${esc(it.evidence)}</code>` : ''}</div></div>
+      <div class="y-meta">${makerHtml(it.maker)}${ev}</div></div>
     ${act(it)}</li>`;
 }
 
-export function renderYours({ inv, picked = new Set(), scout = () => '', toast = null }) {
+export function renderYours({ inv, picked = new Set(), scout = () => '', toast = null, fold = false }) {
   const back = (it) => `<button type="button" class="btn-t" data-act="unmine:${esc(it.id)}" aria-label="${esc(`Not mine: ${it.name}`)}">NOT MINE ↩</button>`;
   const look = (it) => `<button type="button" class="btn-s" data-go="signal:${esc(it.id)}">LOOK AGAIN ▶</button>`;
   const changed = inv.changed.length ? `
     <section class="panel y-changed" aria-label="Changed since you marked it"><div class="label"><span class="badge warn">CHANGED SINCE YOU MARKED IT</span> (${esc(inv.changed.length)})</div>
       <p class="intel">Back in your queue until you look again.</p>
-      <ul class="y-list">${inv.changed.map((it) => itemRow(it, false, look, false)).join('')}</ul></section>` : '';
+      <ul class="y-list">${inv.changed.map((it) => itemRow(it, false, look, false, fold)).join('')}</ul></section>` : '';
   const groups = inv.groups.map((g) => `
     <section class="panel y-group" aria-label="${esc(g.kind.label)}"><div class="label"><span aria-hidden="true">${esc(g.kind.icon)}</span> ${esc(g.kind.label.toUpperCase())} (${esc(g.items.length)})</div>
-      <ul class="y-list">${g.items.map((it) => itemRow(it, picked.has(it.id), back)).join('')}</ul></section>`).join('');
+      <ul class="y-list">${g.items.map((it) => itemRow(it, picked.has(it.id), back, true, fold)).join('')}</ul></section>`).join('');
   const n = [...picked].filter((id) => inv.items.some((it) => it.id === id)).length;
   const bar = n ? `<div class="mine-bulk"><span>${esc(n)} SELECTED</span>
     <button type="button" class="btn-s" data-act="unmine-picked">PUT ${esc(n)} BACK IN THE QUEUE</button>

@@ -44,7 +44,7 @@ export function nextMoveHtml(sig) {
 
 export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOpen = false, threats = [], known = [], filter = null,
   cityHtml = '', instrumentsHtml = '', log = [], moment = null, moments = [], panelHtml = '', nothingChecked = false, scanRunning = false, watching = false,
-  districtName = () => '', notice = '', heldLine = '', rowParts = () => ({}), queueTop = '' }) {
+  districtName = () => '', notice = '', heldLine = '', rowParts = () => ({}), queueTop = '', levelHtml = '', pickerHtml = '' }) {
   const dn = districtName;
   // While the Signal or Noise panel is open, the deck behind it is inert:
   // Tab stays in the panel, and Escape (or BACK TO THE DECK) closes it.
@@ -57,7 +57,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
     ${scanRunning ? '<span class="stat cyan"><small>SWEEPING…</small></span>'
     : watching ? '<span class="stat grey"><small>RE-SWEEP AFTER THE WATCH</small></span>'
       : '<button type="button" class="btn-s" data-act="resweep">RE-SWEEP ⟳</button>'}
-    <span class="switch"><button type="button" data-go="training">TRAINING</button><button type="button" data-act="list">LIST</button><b class="on">CITY</b></span>
+    <span class="switch">${levelHtml}<button type="button" data-go="training">TRAINING</button><button type="button" data-act="list">LIST</button><b class="on">CITY</b></span>
   </header>`;
   const head = filter ? `
       <div class="row"><span class="label">SHOWING ${esc(String(filter.name).toUpperCase())}</span>
@@ -101,7 +101,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   // motion the animation is off, so they are still banners.
   const all = [...(moment ? [moment] : []), ...(Array.isArray(moments) ? moments : [])];
   const momentHtml = all.length ? `<div class="moments">${all.map((m) => `<div class="moment moment-${esc(m.kind)}" role="status"><b>${esc(m.title)}</b> ${esc(m.text)}</div>`).join('')}</div>` : '';
-  return `${top}${notice}${momentHtml}
+  return `${top}${pickerHtml}${notice}${momentHtml}
   <div class="deck"${behind}>
     <aside class="deck-queue" aria-label="Incoming signals">
       <div class="label">INCOMING SIGNALS</div>${queueTop}${head}${blank}${next}

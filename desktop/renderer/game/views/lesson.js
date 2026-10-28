@@ -6,12 +6,14 @@ import { lessonText, skipBar, cityBanner, trainingHud } from './training.js';
 // runs (`inline`: a compact header with a way to put it away, no Scout).
 // `settingFor(key)` gives { key, hint } for a question's `setting` on a Mac, else null.
 // `routerHtml()` gives the router button's HTML (after a scan), else ''; questions marked `router` show it.
-export function lessonQuizHtml({ lesson: l, qIndex, picked, scout, settingFor = () => null, routerHtml = () => '', inline = false }) {
+// `testOut` (level.js canTestOut): no WHAT TO KNOW, and a miss ends the test
+// without a mark. Passing is marked by the controller, not here.
+export function lessonQuizHtml({ lesson: l, qIndex, picked, scout, settingFor = () => null, routerHtml = () => '', inline = false, testOut = false }) {
   const i = Math.max(0, Math.min(qIndex, l.questions.length - 1));
   const q = l.questions[i];
   const last = i >= l.questions.length - 1;
   // The lesson's intro opens question 1; each question's own `teach` sits right above it.
-  const know = [i === 0 && l.briefing, q.teach].filter(Boolean);
+  const know = testOut ? [] : [i === 0 && l.briefing, q.teach].filter(Boolean);
   const setting = q.setting ? settingFor(q.setting) : null;
   const settingHtml = setting ? `
       <button type="button" class="btn-s setting-open" data-act="open-setting:${esc(setting.key)}">OPEN IN SYSTEM SETTINGS ▶</button>
@@ -27,7 +29,15 @@ export function lessonQuizHtml({ lesson: l, qIndex, picked, scout, settingFor = 
       <p class="from">From: ${esc(q.message.from)}</p>
       ${q.message.subject ? `<p><strong>${esc(q.message.subject)}</strong></p>` : ''}
       <p>${esc(q.message.body)}</p></div>` : '';
-  const after = answer ? `
+  const testEnd = testOut && answer && (!answer.correct || last);
+  const after = testEnd ? `
+    <div class="feedback" role="status">${lessonText(answer.feedback)}</div>
+    ${answer.correct
+      ? `<p class="intel"><strong>Tested out.</strong> Every idea in this lesson, answered right. It’s marked done.</p>
+         <button type="button" class="btn-p" data-go="training">BACK TO THE TRAINING GROUNDS</button>`
+      : `<p class="intel">Not this time, and it costs nothing. The lesson itself covers this.</p>
+         <div class="row"><button type="button" class="btn-p" data-go="lesson:${esc(l.id)}">TAKE THE LESSON ▶</button>
+           <button type="button" class="btn-t" data-go="training">BACK</button></div>`}` : answer ? `
     <div class="feedback" role="status">${lessonText(answer.feedback)}</div>
     ${last
       ? `<p class="intel"><strong>In the checkup:</strong> ${lessonText(l.whatTheScanLooksFor)}</p>
@@ -36,7 +46,7 @@ export function lessonQuizHtml({ lesson: l, qIndex, picked, scout, settingFor = 
   const head = inline
     ? `<div class="crumbs"><b>${esc(l.title)}</b> · QUESTION ${i + 1} OF ${l.questions.length}
         <button type="button" class="btn-t" data-act="sweep-close">PUT IT AWAY</button></div>`
-    : `<div class="crumbs"><button type="button" data-go="training">Training Grounds</button> / <b>${esc(l.title)}</b> · QUESTION ${i + 1} OF ${l.questions.length}</div>`;
+    : `<div class="crumbs"><button type="button" data-go="training">Training Grounds</button> / <b>${esc(l.title)}</b> · ${testOut ? 'TEST OUT · ' : ''}QUESTION ${i + 1} OF ${l.questions.length}</div>`;
   return `
     ${head}
     ${know.length ? `<div class="panel know"><div class="label">WHAT TO KNOW</div>${know.map((t) => `<p class="intel">${lessonText(t)}</p>`).join('')}${settingHtml}${routerButton}</div>` : ''}
@@ -47,12 +57,12 @@ export function lessonQuizHtml({ lesson: l, qIndex, picked, scout, settingFor = 
     ${inline ? '' : `<div class="scout-row">${scout(answer && answer.correct ? 'happy' : 'thinkingA', 54)}</div>`}`;
 }
 
-export function renderLesson({ lesson, qIndex, picked, scan, scout, pendingCity, scanFinished = false, settingFor = () => null, routerHtml = () => '' }) {
+export function renderLesson({ lesson, qIndex, picked, scan, scout, pendingCity, scanFinished = false, settingFor = () => null, routerHtml = () => '', testOut = false }) {
   return `
   ${trainingHud({ lessons: {} }, [])}
   ${pendingCity ? cityBanner() : ''}
   <section class="quiz lesson-screen">
-    ${lessonQuizHtml({ lesson, qIndex, picked, scout, settingFor, routerHtml })}
+    ${lessonQuizHtml({ lesson, qIndex, picked, scout, settingFor, routerHtml, testOut })}
   </section>
   ${skipBar(scan, scanFinished)}`;
 }

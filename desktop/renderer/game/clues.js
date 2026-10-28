@@ -113,6 +113,17 @@ export function whenOf(finding) {
   return null;
 }
 
+// `plain`: the clue in one plain sentence, shown first at the "new" level
+// (level.js) with the raw lines under DETAILS. null: the lines are plain already.
+const MAX_PLAIN_NAMES = 3;
+function makerPlain(entries, allVerified, apple) {
+  if (apple) return 'It comes with macOS.';
+  if (!allVerified) return 'Nobody has vouched for who made it.';
+  const names = [...new Set(entries.map((e) => (typeof e.name === 'string' ? e.name.trim() : '')).filter(Boolean))].slice(0, MAX_PLAIN_NAMES);
+  return names.length ? `Made by ${names.join(', ')}. The maker’s seal checked out.` : 'The maker’s seal checked out.';
+}
+export const PLACE_UNKNOWN_PLAIN = 'A file on this computer. Its exact place is under DETAILS.';
+
 function makerClue(entries) {
   const several = entries.length > 1;
   const lines = [];
@@ -125,9 +136,9 @@ function makerClue(entries) {
     if (e.verified === true && typeof e.what === 'string' && e.what.trim()) lines.push(e.what.trim());
   }
   const allVerified = entries.every((e) => e.verified === true);
-  const reading = allVerified && entries.some((e) => e.how === 'Apple system file') ? READING.apple
-    : allVerified ? READING.verified : READING.unverified;
-  return { kind: 'maker', label: CLUE_LABEL.maker, lines, reading };
+  const apple = allVerified && entries.some((e) => e.how === 'Apple system file');
+  const reading = apple ? READING.apple : allVerified ? READING.verified : READING.unverified;
+  return { kind: 'maker', label: CLUE_LABEL.maker, lines, reading, plain: makerPlain(entries, allVerified, apple) };
 }
 
 // --- WHERE THEY WENT: the connection watch, grouped (signals.js) -----------
@@ -208,7 +219,8 @@ function wentClue(notes, gaps) {
   const sources = [...new Set(said.flatMap((a) => a.sources).filter((x) => typeof x === 'string' && x.trim()).map((x) => shown(x, 200)))];
   if (sources.length) lines.push(`Looked up with: ${sources.join('; ')}.`);
   else if (said.length) lines.push('Not looked up (turned off).');
-  return { kind: 'went', label: CLUE_LABEL.went, lines, reading: READING.went };
+  const plain = top.length ? lines[0] : null;
+  return { kind: 'went', label: CLUE_LABEL.went, lines, reading: READING.went, plain };
 }
 
 export function cluesFor(finding) {
@@ -225,7 +237,7 @@ export function cluesFor(finding) {
   if (where) {
     const place = placeFor(where);
     out.push({ kind: 'where', label: CLUE_LABEL.where, lines: place ? [where, place.note] : [where],
-      reading: place ? READING.place : READING.placeUnknown });
+      reading: place ? READING.place : READING.placeUnknown, plain: place ? place.note : PLACE_UNKNOWN_PLAIN });
   }
   // The description's first paragraph, before any "What to do".
   const what = String(finding.description || '').split(/\n\s*\n/)[0].split(/what to do:?/i)[0].trim().slice(0, 400);
@@ -286,7 +298,9 @@ const programOf = (x) => {
 function fill(cmd, x, port) {
   return cmd.replace(/<PID>|<pid>/g, Number.isInteger(x.pid) ? String(x.pid) : '<PID>').replace('<port>', port ? String(port) : '<port>');
 }
-function commandLines(kind, platform, x, port) {
+// Also level.js's CHECK IT YOURSELF, for a finding that names one process
+// (`x`: {pid}) without the engine's connection items.
+export function commandLines(kind, platform, x, port) {
   const c = NET_COMMANDS[kind];
   if (platform === 'win32') return [c.win32];
   return (c[platform] || c.darwin).map((cmd) => code(fill(cmd, x, port)));

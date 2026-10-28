@@ -3,7 +3,8 @@ import { countReclaimed } from '../progress.js';
 
 // With `counts` the HUD shows the two kinds of progress apart: what the computer
 // confirmed and what the person reported. Without it, Plan A's RECLAIMED.
-export function renderHud({ title, city, progress, counts }) {
+// `levelHtml`: the DETAIL button (views/level.js levelButton), or ''.
+export function renderHud({ title, city, progress, counts, levelHtml = '' }) {
   const t = (city && city.totals) || { critical: 0, warning: 0, fog: 0 };
   // Marked as yours isn't to do: it's in YOURS.
   const open = (city.districts || []).reduce((n, d) => n + d.missions.filter((m) => !m.marked).length, 0);
@@ -19,6 +20,6 @@ export function renderHud({ title, city, progress, counts }) {
       : `<span class="stat lime"><b>${done}</b> <small>RECLAIMED</small></span>`}
     ${open ? `<span class="stat grey"><b>${open}</b> <small>TO DO</small></span>` : ''}
     ${t.fog ? `<span class="stat grey"><b>${t.fog}</b> <small>COULDN’T CHECK</small></span>` : ''}
-    <span class="switch"><button type="button" data-go="training">TRAINING</button><button type="button" data-act="list">LIST</button><b class="on">CITY</b></span>
+    <span class="switch">${levelHtml}<button type="button" data-go="training">TRAINING</button><button type="button" data-act="list">LIST</button><b class="on">CITY</b></span>
   </header>`;
 }

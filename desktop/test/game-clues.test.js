@@ -90,8 +90,8 @@ test('who made it: verified, Apple, several programs, and the program’s descri
 });
 
 test('a place with no note still shows its path, with the plain how-to-read line', async () => {
-  const { cluesFor, READING } = await load();
-  assert.deepStrictEqual(cluesFor({ data: { path: '/opt/x/bin' } }), [{ kind: 'where', label: 'WHERE IT LIVES', lines: ['/opt/x/bin'], reading: READING.placeUnknown }]);
+  const { cluesFor, READING, PLACE_UNKNOWN_PLAIN } = await load();
+  assert.deepStrictEqual(cluesFor({ data: { path: '/opt/x/bin' } }), [{ kind: 'where', label: 'WHERE IT LIVES', lines: ['/opt/x/bin'], reading: READING.placeUnknown, plain: PLACE_UNKNOWN_PLAIN }]);
 });
 
 test('Scout’s read: says whether the scan agrees and why; never “wrong”; the person’s call stands', async () => {

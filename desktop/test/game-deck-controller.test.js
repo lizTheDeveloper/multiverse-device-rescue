@@ -746,3 +746,72 @@ test('city mode: I DID IT on a held finding re-checks nothing and confirms nothi
   assert.strictEqual(t.saved().deck.points, 0);
   assert.doesNotMatch(t.html().split('OPS LOG')[1], /CONFIRMED|MARKED|SECURED|Monitoring app/);
 });
+
+test('DETAIL: the level picker opens from the top bar, stores one key, and changes only how a signal is shown', async () => {
+  const t = await deckSetup(DOC);
+  assert.match(t.html(), /data-act="level-open"[^>]*>DETAIL: EVERYDAY</);
+  assert.doesNotMatch(t.html(), /level-pick/, 'the deck never asks on its own');
+  t.click({ 'data-act': 'level-open' });
+  assert.match(t.html(), /DETAIL LEVEL[\s\S]*data-act="level:new"[\s\S]*data-act="level:technical"/);
+  t.click({ 'data-act': 'level:technical' });
+  assert.strictEqual(t.storage.getItem('device-rescue.level'), 'technical');
+  assert.doesNotMatch(t.html(), /level-pick/, 'picking closes it');
+  assert.strictEqual(t.frame.className, 'frame level-technical');
+  t.click({ 'data-act': 'investigate-next' });
+  assert.match(t.html(), /EVIDENCE[\s\S]*program[\s\S]*\/tmp\/x[\s\S]*CHECK IT YOURSELF[\s\S]*rescue scan --module a_mod/);
+  t.click({ 'data-act': 'level:new' });
+  assert.doesNotMatch(t.html(), /EVIDENCE/);
+  t.click({ 'data-act': 'clue:where' });
+  assert.match(t.html(), /clue-plain">A temporary folder any program can write to[\s\S]*<summary>DETAILS<\/summary>[\s\S]*\/tmp\/x/);
+  t.click({ 'data-act': 'level:expert' });
+  assert.strictEqual(t.storage.getItem('device-rescue.level'), 'new', 'an unknown level is ignored');
+});
+
+test('the Training Grounds ask the level once, until one is picked', async () => {
+  const t = await deckSetup(null);
+  t.ctl.showTraining({ id: 'unsure', title: 'Not sure' });
+  assert.match(t.html(), /HOW MUCH DETAIL DO YOU WANT\?/);
+  t.click({ 'data-act': 'level:everyday' });
+  assert.strictEqual(t.storage.getItem('device-rescue.level'), 'everyday');
+  assert.doesNotMatch(t.html(), /HOW MUCH DETAIL/);
+  assert.match(t.html(), /DETAIL: EVERYDAY/);
+});
+
+test('TEST OUT (technical only): every answer right marks the lesson done; a miss marks nothing', async () => {
+  const { createController } = await import('../renderer/game/controller.js');
+  const opt = (right) => [{ text: 'A', correct: right, feedback: 'a' }, { text: 'B', correct: !right, feedback: 'b' }];
+  const q = (n) => ({ concept: `c${n}`, teach: 'T', prompt: `P${n}`, options: opt(true), variants: [{ prompt: `V${n}`, options: opt(true) }, { prompt: `W${n}`, options: opt(true) }] });
+  const lesson = { id: 'banked', title: 'Banked', briefing: '', whatTheScanLooksFor: 'x', districts: [], questions: [q(1), q(2)] };
+  const setup = async (level) => {
+    const storage = memStore();
+    if (level) storage.setItem('device-rescue.level', level);
+    const t = stub();
+    const ctl = createController({ win: t.win, storage, scoutSprite: () => '', loadGame: () => new Promise(() => {}),
+      loadTraining: async () => [lesson], loadDrillBank: async () => [] });
+    await tick();
+    ctl.showTraining({ id: 'unsure', title: 'Not sure' });
+    return { ...t, storage, html: () => t.frame.innerHTML, done: () => !!((JSON.parse(storage.getItem(STORE) || '{}').lessons || {}).banked) };
+  };
+  const everyday = await setup('everyday');
+  assert.doesNotMatch(everyday.html(), /testout:/);
+  everyday.click({ 'data-go': 'testout:banked' });
+  assert.doesNotMatch(everyday.html(), /TEST OUT ·/, 'a stale click does nothing below technical');
+
+  const pass = await setup('technical');
+  assert.match(pass.html(), /data-go="testout:banked"/);
+  pass.click({ 'data-go': 'testout:banked' });
+  assert.match(pass.html(), /TEST OUT · QUESTION 1 OF 2[\s\S]*V1/);
+  pass.click({ 'data-act': 'answer:0' });
+  assert.strictEqual(pass.done(), false);
+  pass.click({ 'data-act': 'next-question' });
+  pass.click({ 'data-act': 'answer:0' });
+  assert.strictEqual(pass.done(), true);
+  assert.match(pass.html(), /Tested out\./);
+
+  const miss = await setup('technical');
+  miss.click({ 'data-go': 'testout:banked' });
+  miss.click({ 'data-act': 'answer:1' });
+  assert.match(miss.html(), /Not this time/);
+  miss.click({ 'data-act': 'finish-lesson' });
+  assert.strictEqual(miss.done(), false, 'a miss never marks the lesson done');
+});
