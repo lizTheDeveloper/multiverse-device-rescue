@@ -97,12 +97,41 @@ test('the boss screen: sweep states, progress, a way to the lessons, escaped tip
   assert.match(html, /SWEEPING/);
   assert.match(html, /SWEPT/);
   assert.match(html, /WAITING/);
-  assert.match(html, /1 \/ 4 CHECKS/);
-  assert.match(html, /3 THINGS NOTED SO FAR/);
+  assert.match(html, /<b>1\/4<\/b> <small>CHECKS DONE/);
+  assert.match(html, /<b>3<\/b> <small>NOTED/);
+  assert.doesNotMatch(html, /\d+ \/ \d+ CHECKS|THINGS NOTED SO FAR/, 'the counts are in the top bar, not repeated under the progress bar');
   assert.match(html, /data-go="training"/);
   assert.match(html, /aria-valuenow="25"/);
   assert.ok(!html.includes('<img src=x'));
   assert.doesNotMatch(html.replace(/<[^>]+>/g, ' '), /\b(safe|clear|nothing found|infected|hacked)\b/i);
+});
+
+test('the briefing doesn’t repeat “What to do” above YOUR MOVE when the steps came from it', async () => {
+  const v = await views();
+  const { missionSteps } = await import('../renderer/game/findings-to-city.js');
+  const description = 'Your Mac is not backing up. What to do: Plug in a drive and choose it.';
+  const mission = { id: 'm1', districtId: 'foundations', severity: 'critical', title: 'T', description, steps: missionSteps({ description }),
+    walkthroughTitle: null, safetyNote: null, findings: [{}], primary: {} };
+  const html = v.renderBriefing({ mission, status: 'open', controlsHtml: '', scout, busy: false, wantsSafety: false });
+  assert.strictEqual((html.match(/Plug in a drive and choose it\./g) || []).length, 1);
+  assert.match(html, /WHAT IT IS<\/div><p class="intel">Your Mac is not backing up\.<\/p>/);
+  // Steps from somewhere else (the remediation catalog): the description stays whole.
+  const own = { ...mission, steps: [{ number: 1, title: 'Open Time Machine settings', body: '' }] };
+  assert.strictEqual(v.whatItIs(own), description);
+  assert.strictEqual(v.whatItIs({ ...mission, description: 'Just a note.' }), 'Just a note.');
+});
+
+test('a briefing whose only step is its own description shows it once, under WHAT IT IS', async () => {
+  const v = await views();
+  const description = 'It starts from a hidden folder. Look at who made it before you decide.';
+  const mission = { id: 'm1', districtId: 'gatehouse', severity: 'warning', title: 'T', description, steps: [{ number: 1, title: description, body: '' }],
+    walkthroughTitle: null, safetyNote: null, findings: [{}], primary: {} };
+  const html = v.renderBriefing({ mission, status: 'open', controlsHtml: '<b>CONTROLS</b>', scout, busy: false, wantsSafety: false });
+  assert.strictEqual(html.split(description).length - 1, 1);
+  assert.doesNotMatch(html, /YOUR MOVE/);
+  assert.match(html, /CONTROLS[\s\S]*I DID IT MYSELF/, 'still something to do');
+  const two = { ...mission, steps: [{ number: 1, title: 'Open Login Items', body: '' }] };
+  assert.match(v.renderBriefing({ mission: two, status: 'open', controlsHtml: '', scout, busy: false, wantsSafety: false }), /YOUR MOVE/);
 });
 
 test('the briefing links back to a finished lesson only when given one', async () => {
@@ -122,6 +151,7 @@ test('the city HUD links back to the Training Grounds', async () => {
   const html = renderHud({ title: 'T', city: { districts: [], totals: { critical: 0, warning: 0, fog: 0 } }, progress: { missions: {} } });
   assert.match(html, /data-go="training"/);
   assert.match(html, /data-act="list"/);
+  assert.match(html, /<button type="button" class="on" data-go="city"[^>]*>CITY<\/button>/, 'CITY goes back to the command center');
 });
 
 test('a call or text has no subject line, and never prints null', async () => {
@@ -244,4 +274,9 @@ test('a walkthrough step body renders as paragraphs and lists, escaped', async (
   const html = v.renderBriefing({ mission, status: 'open', controlsHtml: '', scout, busy: false, wantsSafety: false });
   assert.match(html, /<div class="step-body"><p>First line wraps here\.<\/p><ul><li><strong>Mac:<\/strong> <code>lsof -i<\/code><\/li>/);
   assert.doesNotMatch(html, /<img/);
+});
+
+test('inside the city, [hidden] always wins over a component’s display', () => {
+  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '../renderer/game/game.css'), 'utf8');
+  assert.match(css, /^\[hidden\] \{ display: none !important; \}$/m);
 });

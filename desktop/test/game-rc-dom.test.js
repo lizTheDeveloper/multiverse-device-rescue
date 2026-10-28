@@ -97,3 +97,12 @@ test('events that are not from a debrief answer input do nothing', async () => {
   refreshDebriefForm({ target: { tagName: 'INPUT', name: 'other' } }, rc);
   refreshDebriefForm({ target: { tagName: 'INPUT', name: 'q_x', closest: () => null } }, rc);
 });
+
+test('the game’s “~5 min” mission labels are taken out; nothing else is', async () => {
+  const { withoutTimeEstimates } = await import('../renderer/game/rc-dom.js');
+  const row = '<div class="mission-text">Breach Recon: Gmail</div>\n    <div style="font-family: var(--font-mono); font-size: 11px;">~2 min</div><a>START</a>';
+  assert.strictEqual(withoutTimeEstimates(row), '<div class="mission-text">Breach Recon: Gmail</div>\n    <a>START</a>');
+  assert.strictEqual(withoutTimeEstimates('<div style="x">~12m</div>'), '');
+  assert.strictEqual(withoutTimeEstimates('<div style="x">~5 MIN</div>'), '');
+  assert.strictEqual(withoutTimeEstimates('<p>Wait ~2 min here</p>'), '<p>Wait ~2 min here</p>');
+});

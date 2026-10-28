@@ -98,20 +98,20 @@ const IsolateSteps = (function () {
         <ul class="steps-lines">${lines}</ul>
         ${link}
         <p class="steps-nav">
-          <button type="button" class="btn btn--primary" data-steps-action="done">Done</button>
-          <button type="button" class="btn btn--secondary" data-steps-action="back"${i === 0 ? ' disabled' : ''}>Back</button>
+          <button type="button" class="btn btn--primary btn--large" data-steps-action="done">Done</button>
+          <button type="button" class="btn btn--secondary btn--large" data-steps-action="back"${i === 0 ? ' disabled' : ''}>Back</button>
         </p>
       </section>
       <ol class="steps-list" aria-label="All steps">${checklist}
       </ol>
-      <p><button type="button" class="btn btn--secondary" data-steps-action="guide">Open the full guide</button></p>
+      <p><button type="button" class="btn btn--secondary btn--small" data-steps-action="guide">Open the full guide</button></p>
       <p class="muted">No internet here? The guide is also on the Rescue Stick: guides/index.html.</p>
       <section class="steps-check">
         <h2>Is this the computer you’re worried about?</h2>
         <p class="muted">With the internet off, check it now. Only checks that work offline run.</p>
-        <button type="button" class="btn btn--secondary" data-steps-action="check">Check this computer</button>
+        <button type="button" class="btn btn--secondary btn--large" data-steps-action="check">Check this computer</button>
       </section>
-      <p class="question-back"><button type="button" class="link-button" data-steps-action="leave">Back to the list</button></p>`;
+      <p class="question-back"><button type="button" class="link-button" data-steps-action="leave">Back to what’s worrying you</button></p>`;
   }
 
   // What a click or change asks for, from the element it landed on.

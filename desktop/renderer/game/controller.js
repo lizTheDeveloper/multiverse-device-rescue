@@ -25,7 +25,7 @@ import { debriefReply } from './scout-lines.js';
 import { esc } from './escape.js';
 import { loadRc } from './rc-load.js';
 import { routeFor, applyRcAction, fileRc } from './rc-actions.js';
-import { readAnswers, refreshDebriefForm } from './rc-dom.js';
+import { readAnswers, refreshDebriefForm, withoutTimeEstimates } from './rc-dom.js';
 import { verifyMission, disagreement, loadScanConfirmed, saveScanConfirmed, markScanConfirmed, DONE } from './verified-missions.js';
 import { focusFor, countDeckBars, accountDistrictCards, deviceMissionFor } from './one-city.js';
 import { renderOneCityMap } from './views/one-city-map.js';
@@ -810,7 +810,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       return screenHtml();
     }
     if (s.screen === 'boss') return bossHtml();
-    if (s.screen === 'rc' && s.rc && s.rcRoute) return rcScreenHtml();
+    if (s.screen === 'rc' && s.rc && s.rcRoute) return withoutTimeEstimates(rcScreenHtml());
     if (ACCOUNT_SCREENS.has(s.screen)) return acct.html(s.screen, scout);
     if (s.screen === 'milestone' && district(s.districtId)) {
       return renderMilestone({ district: district(s.districtId), progress: s.progress, scout });

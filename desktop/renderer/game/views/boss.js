@@ -133,7 +133,7 @@ export function renderBoss({ boss, scout, tips, tipsOpen = true, learn = null, l
   const teaches = current && learn && learn(current.id);
   const anyLesson = !!learn && ds.some((d) => learn(d.id));
   const line = !current ? `I’ll call you when the checkup is done.${anyLesson ? ' Pick a district marked LEARN to see what it looks for.' : ''}`
-    : teaches ? `Checking ${current.name} now. Click it to learn what I’m looking for. I’ll call you when the checkup is done.`
+    : teaches ? `Checking ${current.name} now. Pick it under DISTRICTS to learn what I’m looking for. I’ll call you when the checkup is done.`
       : `Checking ${current.name} now. You don’t need to watch. I’ll call you when it’s done.`;
   const tipList = Array.isArray(tips) && tips.length ? `
     <details class="panel tips"${tipsOpen ? ' open' : ''}><summary class="label" data-act="toggle-tips">POP-UPS YOU MIGHT SEE</summary>
@@ -149,9 +149,7 @@ export function renderBoss({ boss, scout, tips, tipsOpen = true, learn = null, l
   return `${top}
   <section class="boss sweep-deck" aria-label="Your checkup is running">
     <div class="sweep-meter">
-      <div class="bar" role="progressbar" aria-label="Checkup progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="--pct: ${pct}%"></i></div>
-      <div class="bar-meta"><span>${boss.total ? `${esc(boss.index)} / ${esc(boss.total)} CHECKS` : 'GETTING READY'}</span>
-        ${boss.found ? `<span>${esc(boss.found)} THING${boss.found === 1 ? '' : 'S'} NOTED SO FAR</span>` : ''}</div></div>
+      <div class="bar" role="progressbar" aria-label="Checkup progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="--pct: ${pct}%"></i></div></div>
     <div class="sweep-side">${nowPanel(boss, scout, line)}</div>
     ${tipList ? `<div class="sweep-tips">${tipList}</div>` : ''}
     ${learnPanel({ lessonHtml, offer, lessonsLoaded, lessonsDone, lessonsTotal, now: boss.now })}

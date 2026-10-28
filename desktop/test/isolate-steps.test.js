@@ -130,3 +130,10 @@ test('actions read from a click: the action, and the step for tick and go', () =
   assert.strictEqual(IS.actionOf(null), null);
   assert.strictEqual(IS.actionOf(el({})), null);
 });
+
+test('every button on the screen has a size, so none falls back to the browser’s tiny default', () => {
+  const html = IS.screenHtml(IS.createState(), esc);
+  const btns = html.match(/<button[^>]*class="btn [^"]*"/g) || [];
+  assert.ok(btns.length >= 4);
+  for (const b of btns) assert.match(b, /btn--(large|small)/, b);
+});

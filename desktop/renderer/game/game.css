@@ -15,6 +15,10 @@
   color: var(--offwhite); font-family: var(--font-body); font-size: 15px; line-height: 1.55;
   min-height: 100%;
 }
+/* styles.css's own rule doesn't reach into the shadow root, and `display: grid`
+   on .fix-panel (MarkFlow and FixFlow's confirm cards) beat the browser's
+   [hidden]: the "Yes, it's mine" card showed before anyone asked. Hidden wins. */
+[hidden] { display: none !important; }
 *, *::before, *::after { box-sizing: border-box; }
 img { image-rendering: pixelated; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: inherit; }
@@ -84,8 +88,9 @@ button.district { display: grid; width: 100%; }
 .btn-s { font-family: var(--font-display); font-size: 10px; font-weight: 600; letter-spacing: 1px; color: var(--cyan); background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.3); padding: 10px 16px; display: inline-block; }
 .btn-s.mag { color: var(--magenta); background: rgba(255,45,155,0.08); border-color: rgba(255,45,155,0.35); }
 .btn-s.lime { color: var(--lime); background: rgba(198,255,0,0.07); border-color: rgba(198,255,0,0.35); }
-.btn-t { font-size: 13px; color: var(--dim); text-underline-offset: 3px; }
-.btn-t:hover, .btn-t:focus-visible { color: var(--cyan); text-decoration: underline; }
+/* A quiet button still has to look like one: always underlined, brighter on hover. */
+.btn-t { font-size: 13px; color: var(--dim); text-decoration: underline; text-decoration-color: rgba(159,179,200,0.45); text-underline-offset: 3px; }
+.btn-t:hover, .btn-t:focus-visible { color: var(--cyan); text-decoration-color: currentColor; }
 .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 
 .badge { font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: 0.5px; padding: 3px 7px; border: 1px solid; white-space: nowrap; }
@@ -158,6 +163,8 @@ button.district { display: grid; width: 100%; }
 .choice { border: 1px solid rgba(255,255,255,0.12); padding: 8px 10px; font-size: 13px; color: var(--dim); }
 .choice.sel { border-color: rgba(0,229,255,0.5); color: var(--offwhite); background: rgba(0,229,255,0.06); }
 .scout-row { display: flex; gap: 12px; align-items: flex-start; }
+/* Scout keeps its size beside a long line; flex would squeeze it under the text. */
+.scout-row > .scout-sprite { flex: none; }
 .mission-row { display: flex; gap: 10px; align-items: center; width: 100%; padding: 10px 0; }
 /* An open mission row says it opens; a reclaimed one has nothing to open. */
 .mission-row:not(.lit)::after { content: '▶'; margin-left: auto; padding-left: 12px; font-size: 11px; color: rgba(0,229,255,0.45); }
@@ -221,7 +228,7 @@ button.lesson:hover .go, button.lesson:focus-visible .go { background: var(--cya
 .opt::before { content: attr(data-k); font-family: var(--font-mono); color: var(--faint); }
 .opt.right { border-color: rgba(198,255,0,0.55); background: rgba(198,255,0,0.06); }
 .feedback { border-left: 2px solid var(--lime); padding: 4px 0 4px 12px; font-size: 13.5px; color: rgba(237,239,243,0.8); }
-.skip-bar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: center; padding: 12px 18px; border-top: 1px solid var(--line); background: rgba(9,11,16,0.6); position: relative; z-index: 1; }
+.skip-bar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: center; padding: 12px 18px; border-top: 1px solid var(--line); background: #0b0e14; position: sticky; bottom: 0; z-index: 2; }
 .btn-s.quiet { color: var(--dim); background: transparent; border-color: rgba(255,255,255,0.22); }
 .btn-s.quiet:hover { color: #fff; border-color: rgba(255,255,255,0.5); }
 .skip-bar span { font-size: 12.5px; color: var(--faint); }
@@ -230,7 +237,6 @@ button.lesson:hover .go, button.lesson:focus-visible .go { background: var(--cya
 .boss h2 { margin: 0; font-family: var(--font-display); font-weight: 900; letter-spacing: 3px; font-size: clamp(18px, 3vw, 26px); color: var(--magenta); text-shadow: 0 0 18px rgba(255,45,155,0.4); }
 .bar { height: 10px; border: 1px solid rgba(0,229,255,0.35); background: rgba(0,229,255,0.04); position: relative; }
 .bar i { position: absolute; inset: 0 auto 0 0; width: var(--pct, 0%); background: linear-gradient(90deg, rgba(0,229,255,0.5), var(--cyan)); box-shadow: 0 0 14px rgba(0,229,255,0.5); }
-.bar-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
 .sweep .district { min-height: 0; }
 .district.swept .skyline img { filter: brightness(0.75) grayscale(0.6); }
 .district.sweeping { border-color: rgba(0,229,255,0.6); box-shadow: 0 0 24px rgba(0,229,255,0.15) inset; }
@@ -369,7 +375,9 @@ code.clue-line.code { display: block; margin: 4px 0; padding: 6px 8px; font-size
 
 /* ---------- the sweep, in the command center's layout ---------- */
 .sweep-deck { padding: 14px 18px; gap: 14px; grid-template-columns: minmax(280px, 1.2fr) minmax(0, 1.6fr) minmax(210px, 0.8fr);
-  grid-template-areas: "meter meter meter" "side learn city" "log learn city" "tips learn city"; grid-template-rows: auto auto auto 1fr; align-items: start; }
+  grid-template-areas: "meter meter meter" "side learn city" "log tips city"; grid-template-rows: auto auto 1fr; align-items: start; }
+/* The pop-up tips sit under the lesson, not under the long sweep log, so they're
+   in view while macOS may be showing them; the log, the least needed, goes last. */
 .sweep-tips { grid-area: tips; min-width: 0; }
 .sweep-meter { grid-area: meter; display: grid; gap: 6px; }
 .sweep-side { grid-area: side; display: grid; gap: 14px; min-width: 0; }
@@ -377,7 +385,7 @@ code.clue-line.code { display: block; margin: 4px 0; padding: 6px 8px; font-size
 .sweep-city { grid-area: city; min-width: 0; align-self: start; display: grid; gap: 10px; align-content: start; }
 .sweep-log { grid-area: log; min-width: 0; }
 @media (max-width: 900px) {
-  .sweep-deck { grid-template-columns: minmax(0, 1fr); grid-template-areas: "meter" "side" "learn" "log" "city" "tips"; grid-template-rows: none; }
+  .sweep-deck { grid-template-columns: minmax(0, 1fr); grid-template-areas: "meter" "side" "learn" "city" "tips" "log"; grid-template-rows: none; }
   .sweep-now .say { display: none; }
 }
 .sweep-top .stat small { font-size: 8px; }

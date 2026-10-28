@@ -55,10 +55,16 @@ export function renderSignalPanel({ signal: sig, districtName = '', clues = [], 
       <p class="intel">The MINE pile is the game’s sorting. This asks Reclaim City itself to remember it’s yours, so it stops flagging it. It asks first, and you can undo it.</p>${mineHtml}</div>` : ''}
     ${!drill && tagged === 'threat' ? `<div class="panel"><div class="label">ON YOUR THREAT BOARD</div><p class="intel">Your next move:</p>${nextMoveHtml(sig)}</div>` : ''}
     ${!drill && tagged === 'closer' ? '<p class="intel">It stays in your queue. Open its clues again any time, or use LIST for every detail the scan recorded.</p>' : ''}`;
+  // The steps for a real finding stay one click away whatever the call, so
+  // someone who only wants to know what to do is never stuck sorting first.
+  // After THREAT, or once a WHAT TO DO NEXT clue is open, they're already offered.
+  const moveShown = clues.some((c) => c.move && opened.includes(c.kind));
+  const steps = !drill && !couldnt && sig.missionId && tagged !== 'threat' && !moveShown
+    ? `<button type="button" class="btn-t" data-go="mission:${esc(sig.missionId)}">${sig.fixable ? 'SEE THE FIX ▶' : 'SEE THE STEPS ▶'}</button>` : '';
   const foot = range
     ? `<div class="row"><button type="button" class="btn-p" data-act="next-drill">NEXT DRILL ▶</button>
       <button type="button" class="btn-t" data-act="leave-range">${range.hasCity ? 'BACK TO THE DECK' : 'BACK TO THE TRAINING GROUNDS'}</button></div>`
-    : '<button type="button" class="btn-t" data-act="close-signal">BACK TO THE DECK</button>';
+    : `<div class="row">${steps}<button type="button" class="btn-t" data-act="close-signal">BACK TO THE DECK</button></div>`;
   return `
   <section class="sig-panel${drill ? ' drill' : ''}" role="region" aria-labelledby="sig-title">
     ${stamp}
