@@ -152,6 +152,14 @@ Set `device-rescue.display` to `city` in DevTools' Console and quit and reopen t
 11. Hand the app to a "glance test". Open the deck in city mode with the monitoring software held (step 6), and have someone who doesn't know what the app is for look at the screen for a few seconds, then at the Dock and Cmd-Tab. They should see only a game: the window title "Reclaim City", the heading "Take back the city", a map of districts, the generated district's tile with a place-like name, the ops log (SWEEP and "Visited …" lines), and the signals and rank panels. They must not find the words partner, safety, stalking, stalkerware, monitoring, spyware, watching, advocate, hotline or DV on the deck, the map, the window title, the Dock label or Cmd-Tab. The map's note about the held software uses its neutral label ("Something the checkup found") with the rest closed, never the software's name. **Known limit:** the list view (**LIST**) is literal by design, and the district itself names help once opened; the Esc key is the way out.
 12. Quit and delete `/tmp/fake-rescue`. In DevTools, `localStorage.removeItem('device-rescue.display')`.
 
+## An infected computer, kept offline
+
+1. **Get started** → **A computer I don’t want to turn on or connect**. No scan starts and no question is asked. The screen "Keep that computer off your network" shows Step 1 of 5, five unticked checkboxes, **Open the full guide**, **Check this computer** and **Back to the list**. The "Your worry" dot stays lit.
+2. **Done** moves to Step 2 and ticks Step 1. Clicking a title in the list jumps to that step; ticking a box ticks only that step. Step 5 has **Open the accounts guide**, which opens the Digital security reset page in the browser. **Open the full guide** opens `…/docs/scenarios/infected-device/`.
+3. **Back to the list**, then pick the worry again: the list starts fresh, nothing ticked.
+4. **Check this computer**: plain view goes to the scan screen ("Checking for: A computer I don’t want to turn on or connect") and **Run checkup** runs `scan --json --profile infected_device --trace`. In city mode (`device-rescue.display` = `city`), it goes straight to the sweep with the same profile.
+5. Offline for real: turn Wi-Fi off and unplug the cable, then run the check. It finishes (about a minute or two on a Mac), and the AI tools card says "This checkup is for a computer you’re keeping off the internet…" unless HackMyAgent was saved earlier. With the full checkup (**I’m not sure**) offline, the same card says "This computer isn’t connected to the internet…" within a second or two, not after a minute.
+
 ## Before publishing (the owner's steps, never an agent's)
 
 Each of these is outward-facing. The plan prepares them; the owner does them. Nothing here has been done: nothing is published, tagged or pushed, and the `reclaim-city` branch is not merged.
