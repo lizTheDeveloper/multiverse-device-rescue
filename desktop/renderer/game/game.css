@@ -159,6 +159,8 @@ button.district { display: grid; width: 100%; }
 .choice { border: 1px solid rgba(255,255,255,0.12); padding: 8px 10px; font-size: 13px; color: var(--dim); }
 .choice.sel { border-color: rgba(0,229,255,0.5); color: var(--offwhite); background: rgba(0,229,255,0.06); }
 .scout-row { display: flex; gap: 12px; align-items: flex-start; }
+/* Scout keeps its size beside a long line; flex would squeeze it under the text. */
+.scout-row > .scout-sprite { flex: none; }
 .mission-row { display: flex; gap: 10px; align-items: center; width: 100%; padding: 10px 0; }
 /* An open mission row says it opens; a reclaimed one has nothing to open. */
 .mission-row:not(.lit)::after { content: '▶'; margin-left: auto; padding-left: 12px; font-size: 11px; color: rgba(0,229,255,0.45); }
