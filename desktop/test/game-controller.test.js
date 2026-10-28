@@ -623,7 +623,7 @@ test('the checkup as the boss: one start, the meter and the skip bar agree, tips
   t.ctl.scanEvent(prog('start', 1, 4));
   t.ctl.scanEvent(prog('done', 1, 4, 'security', 2));
   t.ctl.scanEvent(prog('start', 2, 4, 'network'));
-  assert.match(t.html(), /1 \/ 4 CHECKS/);
+  assert.match(t.html(), /<b>1\/4<\/b> <small>CHECKS DONE/);
   assert.match(t.html(), /SWEEPING/);
   assert.doesNotMatch(t.html(), /\bsafe\b|\bclear\b/i);
   t.click({ 'data-go': 'training' });

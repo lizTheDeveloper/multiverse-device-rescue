@@ -97,8 +97,9 @@ test('the boss screen: sweep states, progress, a way to the lessons, escaped tip
   assert.match(html, /SWEEPING/);
   assert.match(html, /SWEPT/);
   assert.match(html, /WAITING/);
-  assert.match(html, /1 \/ 4 CHECKS/);
-  assert.match(html, /3 THINGS NOTED SO FAR/);
+  assert.match(html, /<b>1\/4<\/b> <small>CHECKS DONE/);
+  assert.match(html, /<b>3<\/b> <small>NOTED/);
+  assert.doesNotMatch(html, /\d+ \/ \d+ CHECKS|THINGS NOTED SO FAR/, 'the counts are in the top bar, not repeated under the progress bar');
   assert.match(html, /data-go="training"/);
   assert.match(html, /aria-valuenow="25"/);
   assert.ok(!html.includes('<img src=x'));
