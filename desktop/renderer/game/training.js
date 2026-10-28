@@ -2,7 +2,7 @@
 // Pure, except loadLessons, which takes the import function it should use.
 import { lessonDone } from './progress.js';
 
-export const WORRY_IDS = ['hacked', 'watched', 'wifi', 'identity', 'sketchy', 'phone', 'helping', 'unsure'];
+export const WORRY_IDS = ['hacked', 'watched', 'wifi', 'identity', 'sketchy', 'phone', 'android', 'helping', 'unsure'];
 export const FIRST_LESSON = 'password-asker';
 
 // Specifiers relative to this file. Order is the order shown under "ALSO HERE".

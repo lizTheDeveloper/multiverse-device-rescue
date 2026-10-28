@@ -19,7 +19,7 @@ Everything runs **on your own computer**. Nothing is uploaded anywhere.
 
 ---
 
-## Before you start: two one-time setup steps
+## Before you start: three one-time setup steps
 
 ### 1. Make a backup of the phone onto this computer
 
@@ -52,6 +52,18 @@ You'll know it worked if this prints a version number:
 mvt-ios version
 ```
 
+### 3. Download the spyware lists
+
+MVT compares your backup against public lists of known spyware. Download them
+once:
+
+```
+mvt-ios download-iocs
+```
+
+**Don't skip this.** Without the lists MVT has nothing to compare against, and
+the scan will tell you it can't check rather than call your phone clean.
+
 ---
 
 ## Run the scan
@@ -80,6 +92,8 @@ result. A scan can take a few minutes depending on how big the backup is.
 - **"The spyware scan didn't finish"** — the scanner stopped before the end.
   Nothing was confirmed, so this is not a clean result. Run it by hand (below)
   to see what happened.
+- **"The spyware scanner has no spyware lists yet"** — go back and do setup
+  step 3.
 - **"MVT is not installed"** — go back and do setup step 2.
 - **"No device backups found"** — go back and do setup step 1.
 

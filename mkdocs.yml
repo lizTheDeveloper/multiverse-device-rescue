@@ -126,9 +126,11 @@ nav:
       - Identity theft recovery: scenarios/identity-theft-recovery.md
       - AI worm response: scenarios/ai-worm-response.md
       - iPhone / iPad spyware check: scenarios/iphone-spyware-check.md
+      - Android spyware check: scenarios/android-spyware-check.md
       - Linux security checkup: scenarios/linux-security-checkup.md
       - Home for the holidays: scenarios/home-for-the-holidays.md
       - Walkthrough - check an iPhone for spyware: CHECK_IPHONE_FOR_SPYWARE.md
+      - Walkthrough - check an Android phone for spyware: CHECK_ANDROID_FOR_SPYWARE.md
   - Reference:
       - CLI reference: cli.md
       - Module catalog: modules.md

@@ -17,6 +17,8 @@ module_config:
   mvt_spyware_scan:
     # Turn the backup scan ON for this profile (off everywhere else).
     scan_backups: true
+    # Only iPhone/iPad backups; android_spyware_check does Android.
+    look_for: ios
     # No size limit (0). To skip backups above a size on a machine short on
     # memory, set max_backup_bytes to a number of bytes (2 GB = 2147483648).
     max_backup_bytes: 0

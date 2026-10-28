@@ -429,8 +429,8 @@ Phase N+1.` and renders the next phase; after the last one it prints `All
 phases complete!`.
 
 State lives in `~/.rescue/sessions/<profile>.json`. Profiles with no guide
-content — `ai_worm_response` and `iphone_spyware_check` — print `No guide
-content found for profile: <name>`. An unknown profile name exits `1`.
+content — `ai_worm_response`, `iphone_spyware_check` and
+`android_spyware_check` — print `No guide content found for profile: <name>`. An unknown profile name exits `1`.
 
 ---
 

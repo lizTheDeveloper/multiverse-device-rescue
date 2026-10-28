@@ -65,11 +65,12 @@ No. It looks for indicators and misconfiguration. Keep your endpoint protection.
 
 ## Can it scan my phone?
 
-Only an iPhone or iPad **backup that already exists on your computer**, via the
-[iPhone/iPad spyware check](scenarios/iphone-spyware-check.md), which uses
-Amnesty International's Mobile Verification Toolkit. There are no desktop
-modules for Android or iOS device internals; mobile steps in the guides are
-human-led.
+It can check what a phone has already saved on your computer, using Amnesty
+International's Mobile Verification Toolkit: an iPhone or iPad **backup**, via
+the [iPhone/iPad spyware check](scenarios/iphone-spyware-check.md), or an
+Android snapshot made with Amnesty's **AndroidQF** tool, via the
+[Android spyware check](scenarios/android-spyware-check.md). It never connects
+to a phone itself; other mobile steps in the guides are human-led.
 
 ## Which platform gets the most coverage?
 
