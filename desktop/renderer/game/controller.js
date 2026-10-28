@@ -47,6 +47,8 @@ import { yoursInventory } from './yours.js';
 import { kindsOf, kindChipsHtml, programContext } from './program-kinds.js';
 import { noteMarked } from './ledger.js';
 import { renderYours, yoursTileHtml, mineRowHtml, bulkBarHtml, toastHtml, confirmHtml } from './views/yours.js';
+import { sweepLine, sweepDoneLine, fixRcControls, focusScreenHeading } from './a11y.js';
+import { attachDisplayPanel } from './display-panel.js';
 
 // Specifiers resolve against this file (app://rescue/game/controller.js).
 const loadLessonsHere = () => loadLessons((spec) => import(spec));
@@ -101,8 +103,19 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   const doc0 = win.document;
   const host = doc0.getElementById('city-host');
   const shadow = host.attachShadow({ mode: 'open' });
-  shadow.innerHTML = '<link rel="stylesheet" href="rc/style.css"><link rel="stylesheet" href="game/game.css"><link rel="stylesheet" href="game/accounts.css"><div class="frame" id="frame"></div>';
+  // Around the frame, two things redraws never touch: TEXT & MOTION, and the
+  // polite line a screen reader hears (sweep progress, new signals).
+  shadow.innerHTML = '<link rel="stylesheet" href="rc/style.css"><link rel="stylesheet" href="game/game.css">'
+    + '<link rel="stylesheet" href="game/accounts.css">'
+    + '<div class="display-bar" id="display-bar"></div><div class="frame" id="frame"></div>'
+    + '<div class="sr-only" id="announce" role="status" aria-live="polite"></div>';
   const frame = shadow.getElementById('frame');
+  const live = shadow.getElementById('announce');
+  const say = (text) => { if (text && live && live !== frame) live.textContent = text; };
+  // A new screen starts at its top, TEXT & MOTION included, not where the last one was scrolled to.
+  const bar = shadow.getElementById('display-bar');
+  attachDisplayPanel({ bar: bar !== frame ? bar : null, host, storage, win });
+  const toTop = () => { if (bar && bar !== frame && typeof bar.scrollIntoView === 'function') bar.scrollIntoView({ block: 'start' }); };
   const scout = (feeling, size) => scoutSprite(feeling, { size });
   const now = () => new Date().toISOString();
 
@@ -122,6 +135,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // The connection watch, and its findings' tags (memory only: ledger sessionTag).
     watch: idleWatch(), watchTags: {} };
   let drawnScreen = null; // the screen the last render drew
+  let drawnKey = null; // ...and which one of it (a district, a lesson question, a game route)
+  let sweepSaid = 0; // the last quarter of the sweep said aloud (a11y.js sweepLine)
 
   // The generated district (city mode only): help that looks like the rest of the city.
   const inCity = () => !!(win.RescueHost && typeof win.RescueHost.mode === 'function' && win.RescueHost.mode() === 'city');
@@ -856,6 +871,14 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     return deckHtml();
   }
 
+  function screenKey() {
+    const where = s.screen === 'rc' ? JSON.stringify(s.rcRoute || null)
+      : s.screen === 'lesson' && s.lesson ? `${s.lesson.id}:${s.lesson.q}`
+        : s.screen === 'district' || s.screen === 'milestone' ? s.districtId
+          : s.screen === 'mission' ? s.missionId : '';
+    return `${s.screen}|${where}`;
+  }
+
   // false when the screen couldn't be drawn and the person was sent to the list,
   // so app.js doesn't then show the (empty) city screen.
   function render() {
@@ -874,6 +897,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const hud = NO_CITY_SCREENS.has(s.screen) || s.screen === 'map' || s.screen === 'side' || s.screen === 'yours' ? ''
         : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts() }) + s.linkNotice;
       frame.innerHTML = hud + body;
+      fixRcControls(frame);
       // No share cards in Reclaim City’s checkup: they would describe this person's progress.
       frame.querySelectorAll('[data-action="share-card"], #milestone-card-preview').forEach((el) => el.remove());
       // No "ALLIED ORGANIZATIONS" either (a district at 100%): one is a donation
@@ -889,6 +913,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       if (heldDetails) heldDetails.open = true;
       // (screenHtml can move on from a lesson that's gone: then nothing to keep.)
       if (keep && s.screen === drawnScreen) focusEl(findByAttr(frame, keep.k, keep.v));
+      // Somewhere new: focus starts at its heading (a11y.js), not lost on the page.
+      const key = screenKey();
+      if (key !== drawnKey && drawnKey !== null && focusScreenHeading(frame)) toTop();
+      drawnKey = key;
       drawnScreen = s.screen;
       const focused = s.screen === 'map' ? frame.querySelector('[data-focus]') : null;
       if (focused && s.focusPending) { focused.scrollIntoView({ block: 'start' }); s.focusPending = false; }
@@ -896,6 +924,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     } catch (err) {
       console.error('City view failed:', err);
       drawnScreen = null;
+      drawnKey = null;
       frame.innerHTML = `<p class="say">${esc('The city view hit a problem. Here’s the same thing as a list.')}</p>`;
       win.RescueHost.leaveGame();
       return false;
@@ -1303,7 +1332,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const prev = signalsNow();
     rebuild(doc);
     // A new scan, not the same one shown again, is a sweep.
-    if (doc !== s.sweptDoc) newSweep(doc, prev);
+    if (doc !== s.sweptDoc) { newSweep(doc, prev); say(sweepDoneLine(signalsNow(), prev)); }
     s.screen = stay ? 'side' : 'map'; s.outcome = null; s.lastFix = null; s.linkNotice = ''; s.rcRoute = null; s.landing = null;
     s.lesson = null; s.pendingCity = false;
     s.signal = null; s.filter = null; s.lowOpen = false; s.range = null;
@@ -1346,6 +1375,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       s.scan = { running: true, index: 0, total: 0, error: null };
       s.pendingCity = false;
       s.screen = 'boss';
+      sweepSaid = 0;
+      say('Checkup started.');
       const ok = render();
       Promise.resolve().then(() => win.RescueHost.scanTips()).then((t) => {
         s.tips = Array.isArray(t) ? t : [];
@@ -1358,6 +1389,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       if (!s.scan.running) return;
       s.boss = bossApply(s.boss, ev);
       s.scan = { ...s.scan, index: s.boss.index, total: s.boss.total };
+      const line = sweepLine(s.boss, sweepSaid);
+      sweepSaid = line.said;
+      say(line.text);
       if (s.screen === 'boss' || s.screen === 'training') render();
     },
     // Mid-lesson, the person stays in the lesson with a banner; otherwise the city.

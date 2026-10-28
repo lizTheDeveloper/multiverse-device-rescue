@@ -812,7 +812,7 @@ test('the sweep: districts with a lesson are buttons with a cue; the one being c
   assert.match(html, /data-go="learn:wires"/);
   assert.match(html, /data-go="learn:foundations"/);
   assert.doesNotMatch(html, /data-go="learn:(engine-room|junkyard|outskirts)"/, 'no lesson teaches these');
-  assert.match(html, /<div class="district waiting"><h4>THE ENGINE ROOM/);
+  assert.match(html, /<div class="district waiting"><h3 class="d-name">THE ENGINE ROOM/);
   assert.match(html, /LEARN ▶/);
   assert.match(html, /data-go="training"[^>]*>ALL LESSONS/);
   assert.match(html, /POP-UPS YOU MIGHT SEE/, 'the pop-up tips still show as soon as the scan starts');
@@ -835,7 +835,7 @@ test('clicking a district opens its lesson inline on the sweep; finishing it mar
     t.click({ 'data-act': n === all.length - 1 ? 'finish-lesson' : 'next-question' });
   });
   assert.match(t.html(), /THE SWEEP/);
-  assert.match(t.html(), /<h4>THE WIRES[\s\S]*?DONE ✓[\s\S]*?data-go="review:wires"/);
+  assert.match(t.html(), /<h3 class="d-name">THE WIRES[\s\S]*?DONE ✓[\s\S]*?data-go="review:wires"/);
   assert.doesNotMatch(t.html(), /data-go="learn:wires"/, 'a DONE district is no longer a lesson button');
   // The Gatehouse has several lessons, in this worry's order: the next unfinished one each time.
   t.click({ 'data-go': 'learn:gatehouse' });
@@ -925,7 +925,7 @@ test('a DONE ✓ district mid-scan opens no quiz; the review is a separate, opti
   t = await sweepSetup({ storage, situation: HACKED });
   t.ctl.scanEvent(prog('done', 1, 4, 'security'));
   const html = t.html();
-  assert.match(html, /class="district learned[^"]*"><h4>THE GATEHOUSE[\s\S]*?DONE ✓/);
+  assert.match(html, /class="district learned[^"]*"><h3 class="d-name">THE GATEHOUSE[\s\S]*?DONE ✓/);
   assert.doesNotMatch(html, /data-go="learn:gatehouse"/, 'the DONE card is not a lesson button');
   assert.match(html, /data-go="review:gatehouse"[^>]*>REVIEW ONE\? \(OPTIONAL\)/);
   assert.match(html, /data-go="review:gatehouse" aria-label="Review one\? \(optional\): a lesson about/i, 'the accessible name starts with the visible words');

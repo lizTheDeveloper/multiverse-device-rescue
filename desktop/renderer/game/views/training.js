@@ -26,7 +26,7 @@ export function skipBar(scan, scanFinished = false) {
 
 export function trainingHud(progress, lessons) {
   const done = lessons.filter((l) => lessonDone(progress, l.id)).length;
-  return `<header class="hud"><span class="hud-title">THE TRAINING GROUNDS</span>
+  return `<header class="hud"><h1 class="hud-title">THE TRAINING GROUNDS</h1>
     ${lessons.length ? `<span class="stat lime"><b>${done}/${lessons.length}</b> <small>LESSONS</small></span>` : ''}
     <span class="switch"><button type="button" data-act="leave">PLAIN VIEW</button></span></header>`;
 }
@@ -56,8 +56,8 @@ export function renderTraining({ ordered, progress, worryTitle, scan, scout, pen
   ${failed}
   <section class="train">
     <div class="lessons">
-      ${ordered.recommended.length ? `<span class="label">${head}</span><ul>${ordered.recommended.map((l) => lessonItem(l, progress, l === nextLesson)).join('')}</ul>` : ''}
-      ${ordered.other.length ? `<span class="label faint">ALSO HERE</span><ul>${ordered.other.map((l) => lessonItem(l, progress, l === nextLesson)).join('')}</ul>` : ''}
+      ${ordered.recommended.length ? `<h2 class="label">${head}</h2><ul>${ordered.recommended.map((l) => lessonItem(l, progress, l === nextLesson)).join('')}</ul>` : ''}
+      ${ordered.other.length ? `<h2 class="label faint">ALSO HERE</h2><ul>${ordered.other.map((l) => lessonItem(l, progress, l === nextLesson)).join('')}</ul>` : ''}
       ${all.length ? '' : lessonsLoaded
     ? '<p class="intel">The lessons couldn’t load. The checkup still works.</p>'
     : '<p class="intel">Getting the lessons ready.</p>'}

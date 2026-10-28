@@ -29,7 +29,7 @@ export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, 
   <section class="brief">
     <div class="brief-main">
       <div class="crumbs"><button type="button" data-go="district:${esc(m.districtId)}">Back</button> / <b>${m.severity === 'critical' ? 'CRITICAL' : 'WARNING'}</b>${status === 'later' ? ' · saved for later' : ''}</div>
-      <h2 class="m-title"><span>${esc(m.title)}</span></h2>
+      <h2 class="m-title" data-landing><span>${esc(m.title)}</span></h2>
       <div class="panel"><div class="label">WHAT IT IS</div><p class="intel">${esc(held ? note.description : m.description)}</p></div>
       ${learned ? `<p class="from"><button type="button" class="link" data-go="lesson:${esc(learned.id)}">You learned about this in the Training Grounds: ${esc(learned.title)} →</button></p>` : ''}
       ${safety}

@@ -71,7 +71,7 @@ export function renderMap({ city, progress, cameBack, scout, goFor = (d) => `dis
     const reclaimed = progress ? reclaimedIn(progress, d).length : 0;
     return `
       <button type="button" class="district ${esc(d.status)}${heat[d.id] ? ` heat-${esc(heat[d.id])}` : ''}" data-go="${esc(goFor(d))}"${selected === d.id ? ' aria-current="true"' : ''}>
-        <h4>${esc(d.name.toUpperCase())}</h4>
+        <span class="d-name">${esc(d.name.toUpperCase())}</span>
         ${skyline(d.status)}
         <p>${esc(districtLine(d, reclaimed, heldAt))}</p>
         <span class="d-foot">${districtBadges(d, reclaimed)}</span>

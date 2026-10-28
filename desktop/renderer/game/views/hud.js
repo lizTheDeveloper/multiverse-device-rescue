@@ -10,7 +10,7 @@ export function renderHud({ title, city, progress, counts }) {
   const done = countReclaimed(progress);
   return `
   <header class="hud">
-    <span class="hud-title">${esc(title)}</span>
+    <h1 class="hud-title">${esc(title)}</h1>
     <span class="stat mag"><b>${t.critical}</b> <small>CRITICAL</small></span>
     <span class="stat amb"><b>${t.warning}</b> <small>WARNING</small></span>
     ${counts

@@ -43,7 +43,7 @@ export function renderDistrict({ district: d, progress, scout, yours = null, not
   return `
   <section class="district-screen">
     <div class="crumbs"><button type="button" data-go="map">Your computer</button> / <b>${esc(d.name)}</b></div>
-    <h2 class="m-title">${esc(d.name)}</h2>
+    <h2 class="m-title" data-landing>${esc(d.name)}</h2>
     ${skyline(d.status)}
     <p class="intel">${esc(districtLine(d, reclaimedIn(progress, d).length))}</p>
     ${rows ? `<div class="panel active"><div class="label">MISSIONS</div><ul class="missions">${rows}</ul></div>` : ''}
