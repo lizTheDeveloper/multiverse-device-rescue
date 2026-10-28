@@ -1241,7 +1241,9 @@ def guide(profile_name, complete_step):
 
     done_steps = set(state.completed_steps.get(current_guide.phase, []))
     click.echo(f"=== {profile.display_name}: Phase {current_guide.phase} — {current_guide.title} ===")
-    click.echo(f"Estimated time: {current_guide.estimated_time}\n")
+    if current_guide.estimated_time:
+        click.echo(f"Estimated time: {current_guide.estimated_time}")
+    click.echo("")
     for step in current_guide.steps:
         tag = "automatable" if step.automatable else "human"
         status = "done" if step.number in done_steps else "pending"
