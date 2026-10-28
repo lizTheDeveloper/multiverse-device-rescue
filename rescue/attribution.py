@@ -421,12 +421,24 @@ class Attributor:
         self.lookups = 0
         self.skipped = 0
         self._deadline = time.monotonic() + budget_seconds
+        self._paused_at: float | None = None
         self._cache: dict[str, MadeBy | None] = {}
         self._app_dirs = applications_dirs
         self._bundle_index: dict[str, str] | None = None
         self._distro = distro
 
     # budget ----------------------------------------------------------------
+    def pause(self) -> None:
+        """Stop the budget's clock, e.g. while a scan runs its next check."""
+        if self._paused_at is None:
+            self._paused_at = time.monotonic()
+
+    def resume(self) -> None:
+        """Start the clock again: time spent paused doesn't count against the budget."""
+        if self._paused_at is not None:
+            self._deadline += time.monotonic() - self._paused_at
+            self._paused_at = None
+
     def _can_lookup(self) -> bool:
         return self.lookups < self.max_lookups and time.monotonic() < self._deadline
 

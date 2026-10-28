@@ -213,16 +213,21 @@ def scan(as_json, profile_name, module_names, progress, trace, no_attribution):
         threat_profile = _load_profile_or_exit(profile_name) if profile_name else None
     profile = gather_profile()
     orch = Orchestrator(modules_dir=_get_modules_dir(), profile=threat_profile)
+    # With --json and progress lines, each finished check's findings ride on
+    # its "done" line too, so the app can start sorting before the scan ends.
+    live = _LiveResults(profile.platform.value, not no_attribution) if as_json and (trace or progress) else None
     if trace:
-        results = _run_traced(orch)
+        results = _run_traced(orch, live)
     elif progress:
-        results = orch.run_checks(on_progress=_emit_progress)
+        results = orch.run_checks(on_progress=lambda *a: _emit_progress(*a, live=live))
     else:
         results = orch.run_checks()
     if as_json:
         walkthroughs = load_remediation_walkthroughs(_get_guides_dir() / "remediation")
         made_by = None
-        if not no_attribution:
+        if live is not None and live.attributed:
+            made_by = live.made_by  # already looked up, check by check, with one budget
+        elif not no_attribution:
             try:
                 from rescue.attribution import compute_made_by
                 made_by = compute_made_by(results, profile.platform.value)
@@ -444,7 +449,7 @@ def lookup(addresses):
     ))
 
 
-def _run_traced(orch):
+def _run_traced(orch, live=None):
     """Run the checks, reporting progress and every external command on stderr."""
     import json
 
@@ -454,7 +459,7 @@ def _run_traced(orch):
 
     def on_progress(phase, index, total, mod, check):
         current["module"] = mod.name if phase == "start" else None
-        _emit_progress(phase, index, total, mod, check)
+        _emit_progress(phase, index, total, mod, check, live=live)
 
     def on_exec(event):
         click.echo(json.dumps({"exec": event}), err=True)
@@ -463,7 +468,45 @@ def _run_traced(orch):
         return orch.run_checks(on_progress=on_progress)
 
 
-def _emit_progress(phase, index, total, mod, check):
+class _LiveResults:
+    """Each finished check's findings, for its progress line, as the scan's JSON will show them.
+
+    "Who made it?" is looked up here, check by check, with one Attributor (so
+    one lookup budget), and the scan's JSON reuses the answers instead of
+    looking again. The live copy has no walkthroughs and no fix offers: the
+    finished scan is still the one to act on.
+    """
+
+    def __init__(self, platform, attribution=True):
+        self.platform = platform
+        self.attributed = attribution
+        self.made_by = {}
+        self._att = None
+
+    def add(self, mod, check):
+        from rescue.serialize import module_preview
+
+        if self.attributed:
+            try:
+                from rescue.attribution import Attributor, compute_made_by
+
+                if self._att is None:
+                    self._att = Attributor(self.platform)
+                # The budget is for lookups, not for the checks run between them.
+                self._att.resume()
+                try:
+                    self.made_by.update(compute_made_by([(mod, check)], self.platform, attributor=self._att))
+                finally:
+                    self._att.pause()
+            except Exception:
+                pass  # enrichment is optional; never break a scan
+        try:
+            return module_preview(mod, check, self.made_by)
+        except Exception:
+            return None
+
+
+def _emit_progress(phase, index, total, mod, check, live=None):
     """One machine-readable progress line on stderr (stdout stays pure JSON)."""
     import json
 
@@ -479,6 +522,9 @@ def _emit_progress(phase, index, total, mod, check):
         event["error"] = check.error
         # A check that couldn't run here checked nothing: the app must not show it as "0 noted".
         event["supported"] = bool(getattr(check, "supported", True))
+        result = live.add(mod, check) if live is not None else None
+        if result is not None:
+            event["result"] = result
     click.echo(json.dumps({"progress": event}), err=True)
 
 

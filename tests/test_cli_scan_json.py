@@ -211,3 +211,51 @@ def test_scan_json_attaches_the_fix_walkthrough_to_coded_findings():
         "all_steps": True,
     }
     assert "remediation" not in findings[1]
+
+
+def test_scan_progress_done_line_carries_the_checks_findings_for_live_sorting():
+    # The app's triage queue fills in while the scan runs, from these lines.
+    # The finished JSON on stdout is unchanged and still the one to act on.
+    mod = type('MockModule', (), {'name': 'disk_space', 'category': 'performance',
+                                  'report': lambda self, check, fix=None: ''})()
+    check = CheckResult(module_name='disk_space')
+    check.findings.append(Finding("Disk almost full", "Free some space.", Severity.WARNING, "performance",
+                                  data={"path": "/"}, code="performance.disk_space.low"))
+
+    def fake_run_checks(on_progress=None):
+        on_progress('start', 1, 1, mod, None)
+        on_progress('done', 1, 1, mod, check)
+        return [(mod, check)]
+
+    with patch('rescue.cli.Orchestrator') as MockOrch:
+        MockOrch.return_value.run_checks.side_effect = fake_run_checks
+        result = CliRunner().invoke(main, ["scan", "--json", "--progress", "--no-attribution"])
+
+    assert result.exit_code == 0, result.output
+    final = json.loads(result.stdout)
+    events = [json.loads(line)["progress"] for line in result.stderr.splitlines()
+              if line.startswith('{"progress"')]
+    assert "result" not in events[0]
+    live = events[1]["result"]
+    assert live["name"] == "disk_space" and live["status"] == "ok"
+    assert [f["title"] for f in live["findings"]] == [f["title"] for f in final["modules"][0]["findings"]]
+    assert live["findings"][0]["data"] == {"path": "/"}
+    assert "remediation" not in live["findings"][0]
+
+
+def test_scan_progress_without_json_carries_no_findings():
+    mod = type('MockModule', (), {'name': 'disk_space', 'category': 'performance',
+                                  'report': lambda self, check, fix=None: ''})()
+    check = CheckResult(module_name='disk_space')
+
+    def fake_run_checks(on_progress=None):
+        on_progress('done', 1, 1, mod, check)
+        return [(mod, check)]
+
+    with patch('rescue.cli.Orchestrator') as MockOrch:
+        MockOrch.return_value.run_checks.side_effect = fake_run_checks
+        result = CliRunner().invoke(main, ["scan", "--progress"])
+
+    events = [json.loads(line)["progress"] for line in result.stderr.splitlines()
+              if line.startswith('{"progress"')]
+    assert events and "result" not in events[0]

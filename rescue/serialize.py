@@ -115,6 +115,28 @@ def _finding(finding, walkthroughs, fixable=None, made_by=None, action_fixable=N
     return out
 
 
+def module_preview(mod, check, made_by=None) -> dict:
+    """One check's entry as checks_to_json writes it, without walkthroughs or fix offers.
+
+    For a scan's live progress line (rescue scan --json --progress): enough to
+    sort by while the rest of the scan runs.
+    """
+    entry = {
+        "name": mod.name,
+        "category": getattr(mod, "category", None),
+        "status": "error" if check.error else "ok",
+        "error": check.error,
+        "supported": getattr(check, "supported", True),
+        "unsupported_reason": getattr(check, "unsupported_reason", None),
+        "findings": [
+            _finding(f, None, None, made_by, None, None if check.error else _markable(f, mod.name))
+            for f in check.findings
+        ],
+    }
+    _link_task_marks([entry])
+    return _plain(entry)
+
+
 def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, made_by=None, app_actions=None) -> str:
     """Convert check results to a JSON string suitable for external consumption.
 
