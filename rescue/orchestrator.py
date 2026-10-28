@@ -182,7 +182,8 @@ class Orchestrator:
         return results
 
     def _offline(self) -> bool:
-        return self._system_profile is not None and self._system_profile.target is not None
+        profile = getattr(self, "_system_profile", None)
+        return profile is not None and getattr(profile, "target", None) is not None
 
     def run_fixes(
         self,
