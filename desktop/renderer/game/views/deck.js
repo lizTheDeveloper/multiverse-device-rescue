@@ -19,7 +19,7 @@ function clock(iso, withDate = false) {
   return withDate ? d.toLocaleString() : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-export function signalRow(sig, districtName = () => '') {
+export function signalRow(sig, districtName = () => '', { extra = '', chips = '' } = {}) {
   const drill = sig.kind === 'drill';
   const badges = [
     drill ? '<span class="badge drill-stamp">DRILL</span>' : '',
@@ -29,8 +29,8 @@ export function signalRow(sig, districtName = () => '') {
     sig.stale ? '<span class="badge warn">CHANGED SINCE YOU MARKED IT</span>' : '',
     sig.changed ? '<span class="badge warn">CHANGED SINCE YOU TAGGED IT</span>' : '',
   ].join('');
-  return `<li><button type="button" class="sig sev-${esc(sig.severity)}${drill ? ' drill' : ''}" data-go="signal:${esc(sig.id)}">
-      <span class="sig-badges">${badges}</span><span class="sig-title">${esc(sig.title)}</span><small>${esc(districtName(sig.districtId))}</small></button></li>`;
+  return `<li${extra ? ' class="has-mine"' : ''}><button type="button" class="sig sev-${esc(sig.severity)}${drill ? ' drill' : ''}" data-go="signal:${esc(sig.id)}">
+      <span class="sig-badges">${badges}</span><span class="sig-title">${esc(sig.title)}</span>${chips}<small>${esc(districtName(sig.districtId))}</small></button>${extra}</li>`;
 }
 
 // THREAT's next move: the finding's own briefing, where any real fix asks first.
@@ -44,7 +44,7 @@ export function nextMoveHtml(sig) {
 
 export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOpen = false, threats = [], known = [], filter = null,
   cityHtml = '', instrumentsHtml = '', log = [], moment = null, moments = [], panelHtml = '', nothingChecked = false, scanRunning = false, watching = false,
-  districtName = () => '', notice = '', heldLine = '' }) {
+  districtName = () => '', notice = '', heldLine = '', rowParts = () => ({}), queueTop = '' }) {
   const dn = districtName;
   // While the Signal or Noise panel is open, the deck behind it is inert:
   // Tab stays in the panel, and Escape (or BACK TO THE DECK) closes it.
@@ -79,7 +79,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   const lowHtml = low.length ? `
       <li class="low-group">
         <button type="button" class="sig low-row" data-act="toggle-low" aria-expanded="${lowOpen ? 'true' : 'false'}">LOW-PRIORITY SIGNALS (${low.length})</button>
-        ${lowOpen ? `<ul class="queue">${low.slice(0, LOW_SHOWN).map((x) => signalRow(x, dn)).join('')}</ul>
+        ${lowOpen ? `<ul class="queue">${low.slice(0, LOW_SHOWN).map((x) => signalRow(x, dn, rowParts(x))).join('')}</ul>
         ${low.length > LOW_SHOWN ? `<p class="intel">And ${low.length - LOW_SHOWN} more. THESE ARE ALL FINE sorts all ${low.length}, including the ones not shown.</p>` : ''}
         <button type="button" class="btn-s" data-act="batch-fine">THESE ARE ALL FINE</button>
         <p class="intel">Sorting them all at once earns no points. Open one to look at its clues.</p>` : ''}
@@ -104,8 +104,8 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   return `${top}${notice}${momentHtml}
   <div class="deck"${behind}>
     <aside class="deck-queue" aria-label="Incoming signals">
-      <div class="label">INCOMING SIGNALS</div>${head}${blank}${next}
-      <ul class="queue">${items.map((x) => signalRow(x, dn)).join('')}${lowHtml}</ul>
+      <div class="label">INCOMING SIGNALS</div>${queueTop}${head}${blank}${next}
+      <ul class="queue">${items.map((x) => signalRow(x, dn, rowParts(x))).join('')}${lowHtml}</ul>
       ${threatHtml}${knownHtml}
       <button type="button" class="btn-s lime" data-go="range">DRILL RANGE ▶</button>
     </aside>

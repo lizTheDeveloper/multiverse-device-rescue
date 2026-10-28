@@ -203,15 +203,18 @@ test('low-priority signals stay folded; THESE ARE ALL FINE sorts every one and p
   assert.match(t.html(), /<b>120<\/b> <small>SORTED<\/small>/);
 });
 
-test('marked by the person: pre-tagged MINE with a MARKED badge, still visible; changed since: back in the queue', async () => {
+test('marked by the person: out of the queue and into YOURS, still listed; changed since: back in the queue', async () => {
   const marked = f('Mine', 'info', { plist: '/m', marked_by_user: true, original_severity: 'warning', known_item_id: 'k1' });
   const stale = f('Stale', 'info', { plist: '/s', marked_by_user: true, mark_stale: true, original_severity: 'warning', known_item_id: 'k2' });
   const t = await deckSetup(scan(mod('a_mod', [marked, stale])));
-  const queue = queueOf(t.html(), 'KNOWN AND NOTED');
+  const queue = queueOf(t.html());
   assert.doesNotMatch(queue, />Mine</);
   assert.match(queue, /CHANGED SINCE YOU MARKED IT[\s\S]*Stale/);
-  assert.match(t.html(), /KNOWN AND NOTED \(1\)[\s\S]*MARKED[\s\S]*>Mine</);
+  assert.doesNotMatch(t.html(), /KNOWN AND NOTED/, 'YOURS holds it, not the game-sorting pile');
+  assert.match(t.html(), /data-go="yours"[^>]*>YOURS <b class="yours-count">1<\/b>[\s\S]*1 CHANGED/);
   assert.match(t.html(), /<b>1<\/b> <small>SORTED<\/small>/);
+  t.click({ 'data-go': 'yours' });
+  assert.match(t.html(), /CHANGED SINCE YOU MARKED IT[\s\S]*Stale[\s\S]*>Mine</);
 });
 
 test('monitoring checks never become signals, and nothing about them is stored', async () => {
@@ -315,8 +318,11 @@ test('an answered drill ignores a second answer, even after it is opened again',
 
 // Task 6 review: the known pile's <details> stays open across redraws.
 test('the KNOWN AND NOTED pile stays open across redraws', async () => {
-  const t = await deckSetup(scan(mod('a_mod', [f('Mine', 'info', { plist: '/m', marked_by_user: true, original_severity: 'warning', known_item_id: 'k1' }),
-    f('Other', 'info', { name: 'o' })])));
+  const t = await deckSetup(scan(mod('a_mod', [f('Mine', 'info', { name: 'm' }), f('Other', 'info', { name: 'o' })])));
+  // A game tag puts Mine in the pile (a real mark goes to YOURS instead).
+  t.click({ 'data-go': 'signal:a_mod|Mine|name=m' });
+  t.click({ 'data-act': 'tag:mine' });
+  t.click({ 'data-act': 'close-signal' });
   const inner = t.frame.querySelector;
   const opened = [];
   t.frame.querySelector = (sel) => {
