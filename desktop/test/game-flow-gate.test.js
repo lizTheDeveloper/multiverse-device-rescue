@@ -15,16 +15,16 @@ const byId = (id) => SITUATIONS.find((s) => s.id === id);
 const game = (f) => import(pathToFileURL(path.join(__dirname, '..', 'renderer', 'game', f)).href);
 
 test('the game is offered for every worry but the iPhone check, monitoring software or not', () => {
-  for (const s of SITUATIONS) assert.strictEqual(gameOfferedFor(s), s.id !== 'phone', s.id);
+  for (const s of SITUATIONS) assert.strictEqual(gameOfferedFor(s), !['phone', 'android'].includes(s.id), s.id);
   assert.strictEqual(gameOfferedFor(CITY_SITUATION), true);
   assert.strictEqual(gameOfferedFor(null), false);
 });
 
 test('city always plays: a worry starts its scan in the game, even from Get started', () => {
   for (const s of SITUATIONS) {
-    assert.strictEqual(worryStartsGameScan({ situation: s, wantsCity: false, mode: 'city', ready: true }), s.id !== 'phone', s.id);
+    assert.strictEqual(worryStartsGameScan({ situation: s, wantsCity: false, mode: 'city', ready: true }), !['phone', 'android'].includes(s.id), s.id);
     assert.strictEqual(worryStartsGameScan({ situation: s, wantsCity: false, mode: 'standard', ready: true }), false, s.id);
-    assert.strictEqual(worryStartsGameScan({ situation: s, wantsCity: true, mode: 'standard', ready: true }), s.id !== 'phone', s.id);
+    assert.strictEqual(worryStartsGameScan({ situation: s, wantsCity: true, mode: 'standard', ready: true }), !['phone', 'android'].includes(s.id), s.id);
   }
   assert.strictEqual(worryStartsGameScan({ situation: byId('unsure'), wantsCity: true, mode: 'city', ready: false }), false);
   assert.strictEqual(gameScanFirst({ wantsCity: true, offered: true, ready: true }), true);

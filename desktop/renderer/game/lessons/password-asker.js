@@ -1,7 +1,7 @@
 export default {
   id: 'password-asker',
   title: 'The tool that asks for your password',
-  recommendedFor: ['hacked', 'watched', 'wifi', 'identity', 'sketchy', 'phone', 'helping', 'unsure'],
+  recommendedFor: ['hacked', 'watched', 'wifi', 'identity', 'sketchy', 'phone', 'android', 'helping', 'unsure'],
   modules: ['win_remote_access_audit'],
   districts: ['gatehouse'],
   sources: [

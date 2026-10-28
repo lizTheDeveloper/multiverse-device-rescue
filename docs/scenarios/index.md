@@ -19,6 +19,7 @@ $ rescue guide <name>                    # the human walkthrough, where one exis
 | Someone is using my identity — credit, taxes, benefits, accounts opened in my name. | [Identity theft recovery](identity-theft-recovery.md) |
 | I installed a compromised package, or I'm worried about an AI-driven worm. | [AI worm response](ai-worm-response.md) |
 | I think there's spyware on my iPhone or iPad. | [iPhone / iPad spyware check](iphone-spyware-check.md) |
+| I think there's spyware or stalkerware on my Android phone. | [Android spyware check](android-spyware-check.md) |
 | I want a security review of a Linux machine. | [Linux security checkup](linux-security-checkup.md) |
 | I'm visiting family and want to leave their laptop in better shape. | [Home for the holidays](home-for-the-holidays.md) |
 
@@ -35,6 +36,7 @@ come back once you know more. If you have an AI provider configured,
 | [`identity_theft_recovery`](identity-theft-recovery.md) | 12 | 7 phases | macOS, Windows |
 | [`ai_worm_response`](ai-worm-response.md) | 6 | none | all three |
 | [`iphone_spyware_check`](iphone-spyware-check.md) | 1 | none — see the [walkthrough](../CHECK_IPHONE_FOR_SPYWARE.md) | all three (scans a backup on your computer) |
+| [`android_spyware_check`](android-spyware-check.md) | 1 | none — see the [walkthrough](../CHECK_ANDROID_FOR_SPYWARE.md) | macOS, Linux (scans an AndroidQF acquisition on your computer) |
 | [`linux_security_checkup`](linux-security-checkup.md) | 10 | none | Linux |
 | [`home_for_the_holidays`](home-for-the-holidays.md) | 4 | 1 phase, 13 steps | macOS |
 

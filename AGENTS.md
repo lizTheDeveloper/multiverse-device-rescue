@@ -35,9 +35,10 @@ If the person just wants the app, send them to the download buttons in the
    or housemate is monitoring them, removing that software can alert the
    person who installed it. Before suggesting removal, give them the safety
    note in the README and ask whether removal is safe for them.
-5. **Don't start heavy scans on your own.** `iphone_spyware_check` runs MVT
-   over an iPhone backup and can take a long time and a lot of memory. Ask
-   first.
+5. **Don't start heavy scans on your own.** `iphone_spyware_check` and
+   `android_spyware_check` run MVT over a phone backup and can take a long
+   time. Ask first. Android also needs the phone owner's consent (AndroidQF's
+   licence requires it).
 
 ## Install (from source only)
 
@@ -62,6 +63,7 @@ uv venv && uv pip install .          # or: python3 -m venv .venv && .venv/bin/pi
 | "I installed a bad npm/pip package" / developer machine | `rescue export --profile ai_worm_response --stdout` |
 | "Fix up my parent's laptop" | `rescue export --profile home_for_the_holidays --stdout` |
 | "Is there spyware on my iPhone?" (needs a local backup) | ask first, then `rescue run iphone_spyware_check < /dev/null` |
+| "Is there spyware on my Android phone?" (needs an AndroidQF acquisition) | ask first, then `rescue run android_spyware_check < /dev/null` |
 | Linux machine | `rescue export --profile linux_security_checkup --stdout` |
 
 `rescue scan --json` (no profile) and the `ai_worm_response` profile include

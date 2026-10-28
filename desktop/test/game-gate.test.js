@@ -10,6 +10,7 @@ test('open for every worry but the iPhone check, which keeps its own plain scree
     assert.strictEqual(gameOfferedFor(byId(id)), true, id);
   }
   assert.strictEqual(gameOfferedFor(byId('phone')), false);
+  assert.strictEqual(gameOfferedFor(byId('android')), false);
 });
 
 test('monitoring software found no longer closes it: the follow-up question decides', () => {

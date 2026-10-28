@@ -941,28 +941,8 @@
  },
  {
   "module": "mvt_spyware_scan",
-  "code": "security.mvt_spyware_scan.mvt_requires_wsl",
-  "description": "Amnesty International's Mobile Verification Toolkit (MVT) does not run natively on Windows. Install the Windows Subsystem for Linux (WSL), then install MVT inside the WSL environment (`pip install mvt`) to scan iOS/Android backups for spyware indicators."
- },
- {
-  "module": "mvt_spyware_scan",
-  "code": "security.mvt_spyware_scan.no_backups_found",
-  "description": "No iOS/Android device backups were found at the expected locations, so no MVT spyware scan could be performed. Absence of findings does NOT guarantee the device is clean. MVT can only detect indicators that have been published in known spyware IOC feeds; it cannot detect novel, unpublished, or bespoke spyware."
- },
- {
-  "module": "mvt_spyware_scan",
-  "code": "security.mvt_spyware_scan.mvt_not_installed",
-  "description": "Found ExampleApp device backup(s) but MVT is not installed, so they could not be scanned for spyware indicators. Install it with `pip install mvt` (requires libimobiledevice on macOS/Linux for iOS backup decryption support)."
- },
- {
-  "module": "mvt_spyware_scan",
-  "code": "security.mvt_spyware_scan.mvt_scan_available",
-  "description": "Found ExampleApp device backup(s) and MVT is installed, but the backup spyware scan was NOT run automatically. `mvt check-backup` loads and parses the entire backup in memory; on a full device backup that can consume many gigabytes and destabilize this machine, so it is opt-in. To run it, enable backup scanning for this module (config `scan_backups: true`) or run it yourself:\n  ExampleApp check-backup --output <dir> <backup-path>"
- },
- {
-  "module": "mvt_spyware_scan",
-  "code": "security.mvt_spyware_scan.mvt_clean_scan",
-  "description": "MVT scanned ExampleApp backup(s) and found no known spyware indicators. Absence of findings does NOT guarantee the device is clean. MVT can only detect indicators that have been published in known spyware IOC feeds; it cannot detect novel, unpublished, or bespoke spyware."
+  "code": "security.mvt_spyware_scan.mvt_spyware_detected",
+  "description": "MVT matched 'ExampleApp' in the ExampleApp ExampleApp against ExampleApp. This suggests the ExampleApp may have spyware or stalkerware on it.\n\nIf you think someone close to you set this up to monitor you, removing it can alert them. Talk to an advocate first (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: keep this file safe as evidence, don't restore it to any phone, and contact a security expert or the hotline above for next steps. Amnesty International's Security Lab helps people who may be targeted: https://securitylab.amnesty.org/get-help/"
  },
  {
   "module": "mvt_spyware_scan",
@@ -971,18 +951,58 @@
  },
  {
   "module": "mvt_spyware_scan",
+  "code": "security.mvt_spyware_scan.mvt_backup_encrypted",
+  "description": "AndroidQF encrypted ExampleApp because it found a key.txt file next to it. Only whoever holds the matching private key can unlock it, so we did not check it. This is not a clean result, and it is not a sign that anything is wrong.\n\nWhat to do: if you have the private key, unlock a copy with age (age --decrypt -i <your-key> -o acquisition.zip \"ExampleApp\") and run this check again. Otherwise, run AndroidQF again from a folder without a key.txt file."
+ },
+ {
+  "module": "mvt_spyware_scan",
+  "code": "security.mvt_spyware_scan.mvt_requires_wsl",
+  "description": "Amnesty International's Mobile Verification Toolkit (MVT) does not run natively on Windows. Install the Windows Subsystem for Linux (WSL), then install MVT inside the WSL environment (`pip install mvt`) to scan iOS/Android backups for spyware indicators."
+ },
+ {
+  "module": "mvt_spyware_scan",
+  "code": "security.mvt_spyware_scan.no_backups_found",
+  "description": "No ExampleApp were found on this computer, so no spyware scan could be done. ExampleApp Absence of findings does NOT guarantee the device is clean. MVT can only detect indicators that have been published in known spyware IOC feeds; it cannot detect novel, unpublished, or bespoke spyware."
+ },
+ {
+  "module": "mvt_spyware_scan",
+  "code": "security.mvt_spyware_scan.mvt_not_installed",
+  "description": "Found ExampleApp thing(s) to check but Amnesty International's MVT is not installed, so they could not be scanned for spyware. Install it in Terminal with:\n  pip install mvt\nthen download its spyware lists once:\n  mvt-ios download-iocs"
+ },
+ {
+  "module": "mvt_spyware_scan",
+  "code": "security.mvt_spyware_scan.mvt_scan_available",
+  "description": "Found ExampleApp ExampleApp and MVT is installed, but the spyware scan was NOT run automatically, because it can take a long time. To run it, choose the iPhone or Android spyware check in Reclaim City, or run `rescue scan --profile iphone_spyware_check` (or `android_spyware_check`)."
+ },
+ {
+  "module": "mvt_spyware_scan",
+  "code": "security.mvt_spyware_scan.mvt_no_indicators",
+  "description": "MVT is installed, but it hasn't downloaded the lists of known spyware and stalkerware it compares your phone against. Without them it can't recognise anything, so we didn't run it: a scan now would look clean whatever was on the phone. This is not a sign that anything is wrong.\n\nWhat to do: open Terminal and run this once (it downloads the public lists from Amnesty International and others), then run this check again:\n  ExampleApp download-iocs"
+ },
+ {
+  "module": "mvt_spyware_scan",
+  "code": "security.mvt_spyware_scan.mvt_suspicious_signal",
+  "description": "MVT also noted these. Most have ordinary explanations, such as an app installed from outside the Play Store, an old security update, or a setting changed for the scan itself (USB debugging). Read them for anything you didn't do yourself:\nExampleAppExampleApp"
+ },
+ {
+  "module": "mvt_spyware_scan",
+  "code": "security.mvt_spyware_scan.mvt_clean_scan",
+  "description": "MVT scanned ExampleApp phone backup(s) and found no known spyware indicators. Absence of findings does NOT guarantee the device is clean. MVT can only detect indicators that have been published in known spyware IOC feeds; it cannot detect novel, unpublished, or bespoke spyware."
+ },
+ {
+  "module": "mvt_spyware_scan",
   "code": "security.mvt_spyware_scan.mvt_backup_too_large",
-  "description": "We found a backup file named ExampleApp, but it is larger than the ExampleApp GiB safety limit. Checking such a large file can use up all your computer's memory and freeze it, so we skipped it. This means we could not verify if this specific backup is safe, but it is not a sign that something is wrong with your current device.\n\nWhat to do: Nothing needs to be done on this computer right now. To check it anyway, run this on a computer with more free memory:\n  ExampleApp check-backup --output <dir> <backup-path>"
+  "description": "The ExampleApp ExampleApp is larger than the ExampleApp GiB limit set for this check, so it was skipped. We could not verify whether it's safe, but this is not a sign that anything is wrong.\n\nWhat to do: remove the max_backup_bytes limit from the profile, or check it by hand:\n  ExampleApp"
  },
  {
   "module": "mvt_spyware_scan",
   "code": "security.mvt_spyware_scan.mvt_scan_incomplete",
-  "description": "The scanner started on the backup ExampleApp but didn't finish, so we can't say whether it's clean. This is not a clean result, and it isn't a sign that anything is wrong.\n\nWhat to do: run the scan yourself in Terminal, where you can see its progress and any error:\n  ExampleApp check-backup --output ~/mvt-results \"ExampleApp\""
+  "description": "The scanner started on the ExampleApp ExampleApp but didn't finish, so we can't say whether it's clean. This is not a clean result, and it isn't a sign that anything is wrong.\n\nWhat to do: run the scan yourself in Terminal, where you can see its progress and any error:\n  ExampleApp"
  },
  {
   "module": "mvt_spyware_scan",
-  "code": "security.mvt_spyware_scan.mvt_spyware_detected",
-  "description": "We found a known sign of spyware ('ExampleApp') inside the 'ExampleApp' part of the backup file ExampleApp. This suggests the phone that was backed up may have been targeted by sophisticated spyware, such as Pegasus or Predator.\n\nIf you think someone close to you set this up to monitor you, removing it can alert them. Talk to an advocate first (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788).\n\nWhat to do: Do not restore this backup to any phone. Keep the backup file safe as evidence and contact a security expert or the hotline above for guidance on next steps."
+  "code": "security.mvt_spyware_scan.mvt_suspicious_signal",
+  "description": "MVT flagged this in the ExampleApp ExampleApp:\nExampleAppExampleApp\n\nIt isn't a match against a known spyware list, but it's the kind of thing spyware needs or leaves behind (for example, a phone that has been rooted or jailbroken). It can also have an innocent explanation.\n\nWhat to do: if you think someone close to you may be monitoring you, changing things can alert them. Talk to an advocate first (US National Domestic Violence Hotline: 1-800-799-7233, or text START to 88788). Otherwise, Amnesty International's Security Lab helps people who may be targeted: https://securitylab.amnesty.org/get-help/"
  },
  {
   "module": "keylogger_indicators",

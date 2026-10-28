@@ -45,6 +45,9 @@ const SITUATIONS = [
   { id: 'phone', icon: '\u{1F4F1}', title: 'I\u2019m worried about spyware on my iPhone',
     sub: 'Needs a backup of the iPhone saved on this computer',
     profile: 'iphone_spyware_check', guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/iphone-spyware-check/' },
+  { id: 'android', icon: '\u{1F4F2}', title: 'I\u2019m worried about spyware on my Android phone',
+    sub: 'Needs AndroidQF, Amnesty\u2019s free tool, run on this computer first',
+    profile: 'android_spyware_check', guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/android-spyware-check/' },
   { id: 'helping', icon: '\u{1F381}', title: 'I\u2019m helping a family member',
     sub: 'A friendly tune-up and safety check on someone else\u2019s computer',
     profile: 'home_for_the_holidays', guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/home-for-the-holidays/' },
@@ -52,6 +55,8 @@ const SITUATIONS = [
     sub: 'The full checkup. It takes longer: often 10 minutes or more',
     profile: null, guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/' },
 ];
+
+const PHONE_CHECK_IDS = new Set(['phone', 'android']);
 
 const CATEGORY_PHRASES = {
   security: 'Looking for security problems',
@@ -214,25 +219,30 @@ const LEARN_MORE = {
 
 /**
  * Whether the person may be watched by someone close to them: they said so
- * ("watching me"), they're worried about iPhone spyware, or the scan found
+ * ("watching me"), they're worried about phone spyware, or the scan found
  * monitoring software. Then the web game's link isn't offered. (Game mode no
  * longer depends on this: see gameOfferedFor.)
  */
 function mayBeWatched(situation, doc) {
-  if (situation && (situation.safety || situation.id === 'phone')) return true;
+  if (situation && (situation.safety || isPhoneCheck(situation))) return true;
   const modules = (doc && doc.modules) || [];
   return modules.some((mod) => mod && ALWAYS_SAFETY_MODULES.has(mod.name)
     && (mod.findings || []).some((f) => f && (f.severity === 'critical' || f.severity === 'warning')));
 }
 
 /**
- * Whether to offer game mode: every worry but the iPhone check, which reads a
- * phone backup on its own plain screen. Monitoring software no longer closes
+ * Whether to offer game mode: every worry but the phone checks, which read a
+ * phone backup on their own plain screen. Monitoring software no longer closes
  * it. In 'city' the game is the cover and its help lives in one district; in
  * 'standard' the person is asked first (FirstQuestion's follow-up).
  */
 function gameOfferedFor(situation) {
-  return !!situation && situation.id !== 'phone';
+  return !!situation && !isPhoneCheck(situation);
+}
+
+/** The iPhone and Android spyware checks: a phone's data, read on a plain screen. */
+function isPhoneCheck(situation) {
+  return !!situation && PHONE_CHECK_IDS.has(situation.id);
 }
 
 /** 'city' always plays: the app opens into the game, and every worry's scan runs there. */

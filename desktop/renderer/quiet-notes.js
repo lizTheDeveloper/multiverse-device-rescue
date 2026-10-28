@@ -69,6 +69,7 @@ const QuietNotes = (function () {
     'security.mvt_spyware_scan.mvt_backup_too_large',
     'security.mvt_spyware_scan.mvt_backup_encrypted',
     'security.mvt_spyware_scan.mvt_scan_incomplete',
+    'security.mvt_spyware_scan.mvt_no_indicators',
     'security.mvt_spyware_scan.mvt_clean_scan',
     'security.keylogger_indicators.input_monitoring_access',
   ]);
