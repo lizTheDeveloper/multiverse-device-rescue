@@ -565,7 +565,11 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const open = all.filter((x) => !x.tag || x.tag === 'closer');
     const calm = level() !== 'technical';
     const unlocked = !calm || s.lessons.some((l) => lessonDone(s.progress, l.id)) || !s.lessons.length;
-    if (!calm) return arrivalsHtml({ items: open, calm, unlocked, sortedNow: s.liveSorted });
+    // Technical: every arrival, in case words too (never CRITICAL / WARNING), in the case order.
+    if (!calm) {
+      const items = open.map((x) => ({ ...x, case: caseFor(x) })).sort(compareCases);
+      return arrivalsHtml({ items, calm, unlocked, sortedNow: s.liveSorted, badge: (x) => caseBadgeHtml(x.case) });
+    }
     const cases = calmCases(open);
     const openHtml = s.signal && s.screen === 'boss' ? signalPanelHtml() : '';
     return arrivalsHtml({ items: cases, calm, unlocked, sortedNow: s.liveSorted, badge: (x) => caseBadgeHtml(x.case), openHtml,

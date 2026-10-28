@@ -667,7 +667,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, [role="button
 .tri-sel select, .tri-search input { font: 12px var(--font-mono); color: var(--offwhite); background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.18); padding: 3px 5px; }
 .tri-search { flex: 1 1 180px; min-width: 140px; display: flex; }
 .tri-search input { width: 100%; }
-.triage { --tri-cols: 22px minmax(0, 7.5em) minmax(0, 7em) minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1.3fr) 28em; }
+.triage { --tri-cols: 22px minmax(0, 12.5em) minmax(0, 7em) minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1.3fr) 28em; }
 .tri-colhead, .tri-row { display: grid; grid-template-columns: var(--tri-cols); gap: 0 8px; align-items: center; }
 .tri-colhead { padding: 4px 14px; font-family: var(--font-display); font-size: 8px; letter-spacing: 1px; color: var(--faint); border-bottom: 1px solid var(--line); }
 .tri-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; outline: none; }
@@ -679,11 +679,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, [role="button
 .tri-row.sel { background: rgba(198,255,0,0.07); }
 .tri-row.cur.sel { background: rgba(198,255,0,0.12); }
 .tri-row.held { border-left-color: var(--amber); background: rgba(255,159,0,0.06); }
-.tri-row.held .tri-name { white-space: normal; }
+.tri-row.held .tri-name { white-space: normal; grid-column: span 4; }
+.tri-row.held .tri-maker, .tri-row.held .tri-path, .tri-row.held .tri-evid { display: none; }
 .tri-case { font-family: var(--font-mono); font-size: 10px; color: var(--dim); line-height: 1.2; }
 .tri-case small { display: block; }
 .tri-case small { font-size: 9px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; }
-.tri-pri { font-size: 9px; margin-right: 4px; }
+.tri-pri { font-size: 9px; display: block; overflow: hidden; text-overflow: ellipsis; }
 .pr-high .tri-pri { color: var(--magenta); }
 .pr-medium .tri-pri { color: var(--amber); }
 .pr-low .tri-pri { color: var(--faint); }
@@ -727,6 +728,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, [role="button
 .tri-clue b { font-family: var(--font-display); font-size: 9px; letter-spacing: 1px; color: var(--cyan); margin-right: 6px; }
 .tri-ask, .tri-bulk { margin: 0 14px 0 50px; padding: 8px 12px; border: 1px solid rgba(198,255,0,0.35); background: rgba(198,255,0,0.05); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; }
 .tri-ask p { margin: 0; flex: 1 1 100%; }
+/* The question's YES sits at the right edge, under the verdict column the pointer is already in. */
+.tri-ask > .row { margin-left: auto; flex-direction: row-reverse; gap: 8px; }
 .tri-bulk .btn-s { padding: 5px 10px; }
 kbd { font-family: var(--font-mono); font-size: 10px; padding: 0 4px; border: 1px solid rgba(255,255,255,0.25); color: var(--faint); margin-left: 4px; }
 .tri-toast { margin: 0 14px; padding: 6px 10px; border-top: 1px solid rgba(198,255,0,0.35); color: var(--lime); font-size: 12px; }
@@ -737,5 +740,5 @@ kbd { font-family: var(--font-mono); font-size: 10px; padding: 0 4px; border: 1p
 .tri-help dl { display: grid; grid-template-columns: minmax(0, 9em) minmax(0, 1fr); gap: 4px 10px; margin: 8px 0; font-size: 12px; }
 .tri-help dd { margin: 0; color: var(--dim); }
 /* Narrow windows: the path and the evidence give way first; the verdicts stay. */
-@media (max-width: 1100px) { .triage { --tri-cols: 22px minmax(0, 7em) minmax(0, 6em) minmax(0, 1.5fr) minmax(0, 1fr) 0 minmax(0, 1fr) 28em; } .tri-path { visibility: hidden; } }
-@media (max-width: 860px) { .triage { --tri-cols: 22px minmax(0, 6.5em) 0 minmax(0, 1.5fr) minmax(0, 1fr) 0 0 28em; } .tri-where, .tri-evid { visibility: hidden; } }
+@media (max-width: 1100px) { .triage { --tri-cols: 22px minmax(0, 11em) minmax(0, 6em) minmax(0, 1.5fr) minmax(0, 1fr) 0 minmax(0, 1fr) 28em; } .tri-path, .tri-colhead > :nth-child(6) { visibility: hidden; } }
+@media (max-width: 860px) { .triage { --tri-cols: 22px minmax(0, 10em) 0 minmax(0, 1.5fr) minmax(0, 1fr) 0 0 28em; } .tri-where, .tri-evid, .tri-colhead > :nth-child(3), .tri-colhead > :nth-child(7) { visibility: hidden; } }

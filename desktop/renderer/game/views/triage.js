@@ -13,7 +13,16 @@ import { TYPE_IDS, SORTS, GROUPS, districtLabel, groupMineable } from '../triage
 const CAT = Object.fromEntries(OWN_CATEGORIES.map((c, i) => [c.id, { ...c, n: i + 1 }]));
 const SORT_LABEL = { case: 'CASE', name: 'NAME', maker: 'MAKER', district: 'DISTRICT', kind: 'KIND' };
 const GROUP_LABEL = { none: 'NONE', maker: 'MAKER', kind: 'KIND', district: 'DISTRICT' };
-const PRI = { high: 'HIGH', medium: 'MED', low: 'LOW' };
+const PRI = { high: 'HIGH', medium: 'MEDIUM', low: 'LOW' };
+
+// Priority first, in the case file's words: a lead's is the risk if it isn't
+// theirs, never the engine's severity. Then its type and where it stands.
+function caseCell(c, status, held = false) {
+  // Held: SAFETY FIRST and nothing else; "yours" never applies to it.
+  if (held) return `<b class="tri-pri">${esc(status)}</b>`;
+  const pri = c.type === 'lead' ? `${PRI[c.priority]} RISK IF NOT YOURS` : `${PRI[c.priority]}`;
+  return `<b class="tri-pri">${esc(pri)}</b><small>${esc(CASE_TYPES[c.type].label)} · ${esc(status)}</small>`;
+}
 
 export const KEYS_LINE = 'j/k move · Enter evidence · m mine · 1–9 what it is · t threat · l closer · c check again · x select · u undo · / filter · ? keys';
 export const KEYS_HELP = [
@@ -80,7 +89,7 @@ export function rowHtml(r, i, { cur = false, sel = false, open = false, canCheck
     : `<span class="tri-name"><button type="button" class="tri-open" data-act="tri-open:${i}" aria-expanded="${open ? 'true' : 'false'}">${esc(r.name)}</button>${r.also.length ? ` <small class="tri-also">×${r.also.length + 1}</small>` : ''}${r.changed ? ' <span class="badge warn">CHANGED</span>' : ''}${r.pending ? ' <small class="tri-pend">saving…</small>' : ''}${r.tag === 'mine' && r.markable && !r.marked ? ' <small class="tri-pend">tag only</small>' : ''}</span>`;
   return `<div class="${cls}" role="row" data-tid="${i}" id="tri-r-${i}" aria-selected="${sel ? 'true' : 'false'}">
     ${pick}
-    <span class="tri-case" role="gridcell"><b class="tri-pri">${esc(PRI[c.priority])}</b> ${esc(CASE_TYPES[c.type].label)}<small>${esc(status)}</small></span>
+    <span class="tri-case" role="gridcell">${caseCell(c, status, r.held)}</span>
     <span class="tri-where" role="gridcell">${r.held ? '' : esc(districtLabel(r.district))} ${kindCell(r)}</span>
     ${name}
     <span class="tri-maker" role="gridcell">${r.held ? '' : makerCell(r)}</span>
