@@ -108,6 +108,20 @@ test('each kind gets its own plain answer', () => {
   assert.match(label('network_proxy'), /I set this up — it’s mine/);
 });
 
+test('"I back up another way" is an answer, not a claim on a thing', () => {
+  const backup = {
+    ...ITEM, kind: 'backup_elsewhere', code: 'integrity.time_machine_check.sync_only', monitoring: false,
+    label: 'you back up another way', shows: [['Time Machine', 'Not set up'], ['Sync apps found', 'Dropbox']],
+  };
+  assert.deepStrictEqual(markTarget(backup), { kind: 'backup_elsewhere', id: ID_A, code: backup.code, group: GROUP });
+  const html = MarkFlow.markControlsHtml({ module: 'time_machine_check', markable: backup });
+  assert.match(html, /I back up another way/);
+  assert.match(html, /Yes, I back up another way/);
+  assert.match(html, /What the checkup found/);
+  assert.doesNotMatch(html, /What you are saying is yours/);
+  assert.ok(!html.includes(MarkFlow.ONLY_IF_YOURS));
+});
+
 test('anything that could be used to watch someone gets the stronger confirmation', () => {
   const strong = MarkFlow.markControlsHtml({ module: 'sharing_services', markable: ITEM });
   assert.ok(strong.includes(MarkFlow.ONLY_IF_YOURS));

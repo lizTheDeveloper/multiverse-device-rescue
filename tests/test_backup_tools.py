@@ -209,3 +209,50 @@ def test_only_one_check_reports_no_backup(mac, layout):
     headline = [f for f in _check("time_machine_check", _no_time_machine).findings
                 if f.severity != Severity.INFO]
     assert len(headline) == (0 if layout == "arq" else 1)
+
+
+# --- "I back up another way" (rescue.known_items backup_elsewhere) -----------------
+
+
+def _scan_with_marks(fake):
+    from rescue.orchestrator import _apply_item_marks
+
+    findings = list(_check("time_machine_check", fake).findings)
+    _apply_item_marks("time_machine_check", findings, None)
+    return findings
+
+
+def test_sync_only_can_be_answered_and_the_answer_retires(mac):
+    from rescue.known_items import KnownItemsStore, item_identity, item_markable
+
+    root, home = mac
+    (home / "Library/CloudStorage/Dropbox").mkdir()
+    f = _check("time_machine_check", _no_time_machine).findings[0]
+    offer = item_markable(f, "time_machine_check")
+    assert offer["kind"] == "backup_elsewhere"
+    assert offer["monitoring"] is False
+    assert "Dropbox" in offer["will_change"]
+    kind, identity = item_identity(f)
+    KnownItemsStore().add(kind, identity, via="test")
+
+    marked = _scan_with_marks(_no_time_machine)
+    assert len(marked) == 1
+    assert marked[0].severity == Severity.INFO
+    assert marked[0].data["marked_by_user"] is True
+    assert marked[0].description.startswith("On ")
+    assert "you said you back up this Mac another way" in marked[0].description
+
+    # A backup app turns up: the warning is gone, so is the answer.
+    _app(root / "Applications", "Arq.app")
+    after = _scan_with_marks(_no_time_machine)
+    assert KnownItemsStore().load() == []
+    retired = [x for x in after if x.data.get("check") == "known_item_retired"]
+    assert len(retired) == 1 and "a backup app was found" in retired[0].description
+
+
+def test_no_backup_at_all_is_never_offered(mac):
+    from rescue.known_items import item_markable
+
+    f = _check("time_machine_check", _no_time_machine).findings[0]
+    assert f.severity == Severity.CRITICAL
+    assert item_markable(f, "time_machine_check") is None

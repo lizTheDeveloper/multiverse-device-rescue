@@ -34,6 +34,14 @@ test('settings in the Gatehouse and the Wires, and backups and updates anywhere,
   assert.strictEqual(caseOf(sig({ module: 'disk_space', districtId: 'engine-room' })).type, 'upkeep');
 });
 
+test('"I back up another way" keeps the backup warning a door, kept on purpose once answered', async () => {
+  const { caseOf } = await load();
+  const backup = sig({ module: 'time_machine_check', districtId: 'foundations',
+    finding: { markable: { kind: 'backup_elsewhere' } } });
+  assert.strictEqual(caseOf(backup).type, 'door');
+  assert.strictEqual(caseOf({ ...backup, tag: 'mine' }).status, 'kept');
+});
+
 test('tags move a case: mine is YOURS for a lead and KEPT ON PURPOSE for a door', async () => {
   const { caseOf } = await load();
   const lead = sig({ module: 'kext_audit' });

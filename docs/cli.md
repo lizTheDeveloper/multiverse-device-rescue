@@ -670,6 +670,7 @@ Two families of things can be marked:
 | `app_permissions` | `app_permissions.accessibility_access`, `privacy_permissions_audit` camera/microphone/combination warnings, `accessibility_permissions.suspicious_accessibility` | code, SHA-256 of the sorted app list, how many | any app is added or removed |
 | `ssh_authorized_keys` | `security.session_revocation_scan.ssh_authorized_keys` | code, SHA-256 of the key lines, how many | any key is added, removed or changed |
 | `ai_tooling` | `ai_threat_indicators.ai_api_key_found`, `ai_threat_indicators.cron_ai_call` | code, the key's name, or a SHA-256 of the whole scheduled line | (a different line is a different item) |
+| `backup_elsewhere` | `integrity.time_machine_check.sync_only` (no Time Machine, only sync apps): the answer "I back up another way" | code, the sync apps found | the list of sync apps changes |
 
 Nothing from `stalkerware_scan`, `mvt_spyware_scan` or `keylogger_indicators`
 can ever be marked, whatever the code.
