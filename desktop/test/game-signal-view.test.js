@@ -100,6 +100,7 @@ test('network clues: code lines are copyable code, no how-to-read filler, and th
   assert.match(html, /THE CONNECTION[\s\S]*Your computer is connecting OUT to 87\.5\.113\.252, port 64456\./);
   assert.match(html, /<code class="clue-line code">ps -p 31674 -o pid,ppid,command<\/code>/);
   assert.match(html, /WHAT TO DO NEXT[\s\S]*data-go="mission:n\|u"[^>]*>SEE THE STEPS ▶/);
+  assert.strictEqual((html.match(/data-go="mission:/g) || []).length, 1, 'offered once, in the clue');
   assert.doesNotMatch(html, /How to read this/);
   assert.ok(!html.includes('<img src=x'), 'the command line is escaped');
 });
@@ -107,6 +108,14 @@ test('network clues: code lines are copyable code, no how-to-read filler, and th
 test('Scout stays out of it when there’s nothing to say', async () => {
   const html = await panel({ tagged: 'closer', read: '' });
   assert.doesNotMatch(html, /class="say"/);
+});
+
+test('the steps are one click away before any call, and offered once after THREAT', async () => {
+  const before = await panel({});
+  assert.match(before, /data-go="mission:m\|c\|program=\/tmp\/x"[^>]*>SEE THE FIX ▶[\s\S]*BACK TO THE DECK/);
+  const threat = await panel({ tagged: 'threat', read: 'r' });
+  assert.strictEqual((threat.match(/data-go="mission:/g) || []).length, 1);
+  assert.doesNotMatch(await panel({ signal: drillSig }), /data-go="mission:/);
 });
 
 // Review Focus 2.
