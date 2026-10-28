@@ -1,6 +1,11 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from rescue.target import Target
 
 
 class Platform(str, Enum):
@@ -81,6 +86,8 @@ class SystemProfile:
     startup_items: list[str] = field(default_factory=list)
     installed_software: list[str] = field(default_factory=list)
     hostname: str = ""
+    # None means the profile describes the running computer.
+    target: Target | None = None
 
 
 @dataclass
@@ -108,6 +115,8 @@ class CheckResult:
     # (falsely healthy) result. Backward compatible: defaults keep old behavior.
     supported: bool = True
     unsupported_reason: str | None = None
+    # Plain-language names of parts of a check that could not be done here.
+    not_checked: list[str] = field(default_factory=list)
 
     @property
     def has_issues(self) -> bool:

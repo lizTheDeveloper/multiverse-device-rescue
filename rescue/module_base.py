@@ -32,6 +32,8 @@ class ModuleBase(ABC):
     # read-only: a module is only auto-applied once its fix() is known to be an
     # idempotent, low-impact, reversible SAFE mutation and it sets this True.
     auto_apply: bool = False
+    # True only for a check that can read a mounted disk (SystemProfile.target).
+    offline_capable: bool = False
 
     @abstractmethod
     def check(self, profile: SystemProfile) -> CheckResult:
