@@ -41,7 +41,7 @@ function providerButtons(store) {
 function whereBlock(at) {
   if (!at) return '';
   const where = (at.where || []).map((w) => `<li><code>${esc(w)}</code></li>`).join('');
-  return `${where ? `<div class="label">WHERE IT IS</div><ul class="acct-where">${where}</ul>` : ''}
+  return `${where ? `<h3 class="label">WHERE IT IS</h3><ul class="acct-where">${where}</ul>` : ''}
     ${at.note ? `<p class="intel">${esc(at.note)}</p>` : ''}
     <div class="acct-links">${linkButtons(at.links)}</div>`;
 }
@@ -51,13 +51,13 @@ function providerPart(step, store) {
   if (SHOW_ALL[step.id]) {
     return `<p class="intel">${esc(step.generic)}</p>${SHOW_ALL[step.id].map((id) => {
       const p = PROVIDERS.find((x) => x.id === id);
-      return `<div class="acct-provider-block"><div class="label">${esc(p.name.toUpperCase())}</div>${whereBlock(step.perProvider[id])}</div>`;
+      return `<div class="acct-provider-block"><h3 class="label">${esc(p.name.toUpperCase())}</h3>${whereBlock(step.perProvider[id])}</div>`;
     }).join('')}`;
   }
   const p = providerOf(store);
   if (!p) return `<p class="intel">${esc('Pick your email first, so this shows where the setting really is.')}</p>${providerButtons(store)}`;
   if (p.id === 'other') return `<p class="intel">${esc(step.generic)}</p>`;
-  return `<div class="label">${esc(p.name.toUpperCase())}</div>${whereBlock(step.perProvider[p.id])}`;
+  return `<h3 class="label">${esc(p.name.toUpperCase())}</h3>${whereBlock(step.perProvider[p.id])}`;
 }
 
 function devicePart(prereqs) {
@@ -107,7 +107,7 @@ export function renderAccountStep({ step, store, safety, devicePrereqs = [], sco
   <section class="brief acct-step">
     <div class="brief-main">
       <div class="crumbs"><button type="button" data-go="map">City</button> / <button type="button" data-go="accounts">Your accounts</button> / <b>${esc(`STEP ${i + 1}`)}</b></div>
-      <h2 class="m-title"><span>${esc(step.title)}</span></h2>
+      <h2 class="m-title" data-landing><span>${esc(step.title)}</span></h2>
       ${safety === 'maybe' ? safetyPanel({ sideName }) : ''}
       ${body}
       <div class="row">${next}<button type="button" class="btn-t" data-go="accounts">BACK TO THE LIST</button></div>
@@ -138,12 +138,12 @@ export function renderAccountList({ store, safety, devicePrereqs = [], scout, si
         <small>${esc(extra)}</small>${BADGE[a] || ''}</button></li>`;
   };
   const sections = SECTIONS.map((sec) => `
-    <div class="panel"><div class="label">${esc(sec.id === 'email' && p && p.id !== 'other' ? `YOUR EMAIL · ${p.name.toUpperCase()}` : sec.label)}</div>
+    <div class="panel"><h3 class="label">${esc(sec.id === 'email' && p && p.id !== 'other' ? `YOUR EMAIL · ${p.name.toUpperCase()}` : sec.label)}</h3>
       <ul class="missions acct-list">${STEPS.filter((s) => s.section === sec.id).map(row).join('')}</ul></div>`).join('');
   return `
   <section class="district-screen acct-screen">
     <div class="crumbs"><button type="button" data-go="map">City</button> / <b>Your accounts</b></div>
-    <h2 class="m-title">Take your accounts back</h2>
+    <h2 class="m-title" data-landing>Take your accounts back</h2>
     <p class="intel">${esc(`${c.done} of ${c.total} done.`)} ${esc('Email first: the password resets for your other accounts go through it.')}
       <button type="button" class="link" data-go="lesson:${LESSON_ID}">${esc('Why this order →')}</button></p>
     ${safety === 'maybe' ? safetyPanel({ sideName }) : ''}

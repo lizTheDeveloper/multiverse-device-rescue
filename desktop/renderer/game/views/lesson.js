@@ -49,9 +49,9 @@ export function lessonQuizHtml({ lesson: l, qIndex, picked, scout, settingFor = 
     : `<div class="crumbs"><button type="button" data-go="training">Training Grounds</button> / <b>${esc(l.title)}</b> · ${testOut ? 'TEST OUT · ' : ''}QUESTION ${i + 1} OF ${l.questions.length}</div>`;
   return `
     ${head}
-    ${know.length ? `<div class="panel know"><div class="label">WHAT TO KNOW</div>${know.map((t) => `<p class="intel">${lessonText(t)}</p>`).join('')}${settingHtml}${routerButton}</div>` : ''}
+    ${know.length ? `<div class="panel know"><h2 class="label">WHAT TO KNOW</h2>${know.map((t) => `<p class="intel">${lessonText(t)}</p>`).join('')}${settingHtml}${routerButton}</div>` : ''}
     ${message}
-    <p class="q">${lessonText(q.prompt)}</p>
+    <h2 class="q">${lessonText(q.prompt)}</h2>
     <div class="options">${options}</div>
     ${after}
     ${inline ? '' : `<div class="scout-row">${scout(answer && answer.correct ? 'happy' : 'thinkingA', 54)}</div>`}`;

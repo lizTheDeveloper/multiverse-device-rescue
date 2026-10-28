@@ -102,7 +102,7 @@ export function renderRange({ loaded, panelHtml = '', hasCity = false }) {
   const body = !loaded ? '<p class="intel">Getting the drills ready.</p>'
     : panelHtml || '<p class="intel">The drills couldn’t load. The checkup and the deck still work.</p>';
   return `
-  <header class="hud"><span class="hud-title">THE DRILL RANGE</span>
+  <header class="hud"><h1 class="hud-title">THE DRILL RANGE</h1>
     <span class="switch"><button type="button" data-act="leave-range">${hasCity ? 'BACK TO THE DECK' : 'BACK TO THE TRAINING GROUNDS'}</button></span></header>
   <section class="range" aria-label="The drill range">
     <p class="intel">Practice with made-up signals. None of this is on your computer, and nothing here changes it.</p>

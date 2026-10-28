@@ -26,15 +26,16 @@ const plainWhere = (s) => String(s || '').replace(/`/g, '');
 // lesson teaches it. Then it's a plain card, not a button.
 function districtCard(d, learn) {
   const badge = `<span class="badge ${d.state === 'sweeping' ? 'cyan' : 'skip'}">${LABEL[d.state]}</span>`;
-  const head = `<h4>${esc(d.name.toUpperCase())}</h4>${skyline()}`;
+  // A card that is a button can't hold a heading; the others name their district with one.
+  const name = (tag) => `<${tag} class="d-name">${esc(d.name.toUpperCase())}</${tag}>${skyline()}`;
   const l = learn ? learn(d.id) : null;
-  if (!l) return `<div class="district ${d.state}">${head}<span class="d-foot">${badge}</span></div>`;
+  if (!l) return `<div class="district ${d.state}">${name('h3')}<span class="d-foot">${badge}</span></div>`;
   const now = d.state === 'sweeping';
   // Every lesson for it is finished: the card itself opens nothing, so DONE
   // never drops the person into a quiz. A review is a separate, optional button.
   if (l.done) {
     return `
-      <div class="district learned ${d.state}">${head}
+      <div class="district learned ${d.state}">${name('h3')}
         <span class="d-foot" id="sweep-${esc(d.id)}">${badge}<span class="cue">DONE ✓</span></span>
         <p>You’ve done ${l.count === 1 ? 'this lesson' : 'these lessons'}.
           <button type="button" class="btn-t" data-go="review:${esc(d.id)}" aria-label="Review one? (optional): a lesson about ${esc(d.name)}">REVIEW ONE? (OPTIONAL)</button></p></div>`;
@@ -42,7 +43,7 @@ function districtCard(d, learn) {
   const progress = l.count > 1 ? ` <small>${esc(l.finished)}/${esc(l.count)} DONE</small>` : '';
   return `
       <button type="button" class="district learnable ${d.state}${now ? ' suggested' : ''}" data-go="learn:${esc(d.id)}"
-        aria-label="Learn about ${esc(d.name)}" aria-describedby="${now ? `now-${esc(d.id)} ` : ''}sweep-${esc(d.id)}">${head}
+        aria-label="Learn about ${esc(d.name)}" aria-describedby="${now ? `now-${esc(d.id)} ` : ''}sweep-${esc(d.id)}">${name('span')}
         ${now ? `<span class="now" id="now-${esc(d.id)}">Scanning now — learn about it</span>` : ''}
         <span class="d-foot" id="sweep-${esc(d.id)}">${badge}<span class="cue">LEARN ▶</span>${progress}</span></button>`;
 }
@@ -73,7 +74,7 @@ function nowPanel(boss, scout, line) {
   }
   return `
     <section class="panel active sweep-now" aria-label="Now checking">
-      <div class="label">NOW CHECKING${count}</div>
+      <h2 class="label">NOW CHECKING${count}</h2>
       <div class="now-row">${scout('proud', 64)}<div class="now-body">${body}</div></div>
       <p class="working"><i aria-hidden="true"></i>Working. Some checks take longer than others; a long pause is normal.</p>
       <p class="say">${esc(line)}</p>
@@ -83,7 +84,7 @@ function nowPanel(boss, scout, line) {
 // WHILE YOU WAIT: the lesson open inline, or the next one on offer.
 // `offer`: { lesson, reason } | null. `lessonsLoaded`: false while they load.
 function learnPanel({ lessonHtml, offer, lessonsLoaded, lessonsDone, lessonsTotal, now }) {
-  const head = `<div class="label">WHILE YOU WAIT${lessonsTotal ? ` · ${esc(lessonsDone)}/${esc(lessonsTotal)} LESSONS DONE` : ''}</div>`;
+  const head = `<h2 class="label">WHILE YOU WAIT${lessonsTotal ? ` · ${esc(lessonsDone)}/${esc(lessonsTotal)} LESSONS DONE` : ''}</h2>`;
   if (lessonHtml) return `<section class="panel sweep-learn open quiz" aria-label="A lesson while you wait">${head}${lessonHtml}</section>`;
   let body;
   if (offer && offer.lesson) {
@@ -119,7 +120,7 @@ function logPanel(boss) {
   }).join('');
   const more = (boss.log || []).length > SWEEP_LOG_SHOWN ? `<p class="intel">And ${boss.log.length - SWEEP_LOG_SHOWN} earlier.</p>` : '';
   return `
-    <section class="panel deck-log sweep-log" aria-label="Sweep log"><div class="label">SWEEP LOG · FINISHED CHECKS</div>
+    <section class="panel deck-log sweep-log" aria-label="Sweep log"><h2 class="label">SWEEP LOG · FINISHED CHECKS</h2>
       ${rows ? `<ol class="log">${rows}</ol>${more}` : '<p class="intel">Each check shows up here as it finishes.</p>'}
     </section>`;
 }
@@ -140,7 +141,7 @@ export function renderBoss({ boss, scout, tips, tipsOpen = true, learn = null, l
       <ul class="notes">${tips.map((t) => `<li><strong>${esc(t.title)}</strong> ${esc(t.body)}</li>`).join('')}</ul></details>` : '';
   const top = `
   <header class="hud deck-top sweep-top">
-    <span class="hud-title">THE SWEEP</span>
+    <h1 class="hud-title">THE SWEEP</h1>
     <span class="stat cyan">${boss.total ? `<b>${esc(boss.index)}/${esc(boss.total)}</b> <small>CHECKS DONE</small>` : '<small>GETTING READY</small>'}</span>
     ${boss.found ? `<span class="stat amb"><b>${esc(boss.found)}</b> <small>NOTED</small></span>` : ''}
     ${boss.couldnt ? `<span class="stat grey"><b>${esc(boss.couldnt)}</b> <small>COULDN’T CHECK</small></span>` : ''}
@@ -153,7 +154,7 @@ export function renderBoss({ boss, scout, tips, tipsOpen = true, learn = null, l
     <div class="sweep-side">${nowPanel(boss, scout, line)}</div>
     ${tipList ? `<div class="sweep-tips">${tipList}</div>` : ''}
     ${learnPanel({ lessonHtml, offer, lessonsLoaded, lessonsDone, lessonsTotal, now: boss.now })}
-    <aside class="sweep-city" aria-label="The city's districts"><div class="label">DISTRICTS</div>
+    <aside class="sweep-city" aria-label="The city's districts"><h2 class="label">DISTRICTS</h2>
       <div class="districts sweep">${ds.map((d) => districtCard(d, learn)).join('')}</div></aside>
     ${logPanel(boss)}
   </section>`;

@@ -252,7 +252,7 @@ test('the lesson intro shows on question 1; each question’s own what-to-know s
   const q2 = v.renderLesson({ lesson: LESSON, qIndex: 1, picked: null, scan: idle, scout });
   assert.doesNotMatch(q1, /Second/);
   assert.doesNotMatch(q2, /chrome:\/\/extensions/);
-  assert.match(q2, /WHAT TO KNOW<\/div><p class="intel">Second <code>fact<\/code> here\.<\/p>/);
+  assert.match(q2, /WHAT TO KNOW<\/h2><p class="intel">Second <code>fact<\/code> here\.<\/p>/);
   assert.ok(q2.indexOf('Second') < q2.indexOf('Q2?'));
   const bare = { ...LESSON, briefing: '', questions: [LESSON.questions[0]] };
   assert.doesNotMatch(v.renderLesson({ lesson: bare, qIndex: 0, picked: null, scan: idle, scout }), /WHAT TO KNOW/);

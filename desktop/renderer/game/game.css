@@ -5,7 +5,7 @@
 :host {
   --cyan: #00E5FF; --magenta: #FF2D9B; --lime: #C6FF00; --amber: #FF9F00;
   --charcoal: #1A1F2B; --midnight: #090B10; --offwhite: #EDEFF3;
-  --dim: rgba(237,239,243,0.55); --faint: rgba(237,239,243,0.32); --line: rgba(0,229,255,0.15);
+  --dim: rgba(237,239,243,0.68); --faint: rgba(237,239,243,0.55); --line: rgba(0,229,255,0.15);
   --panel: rgba(26,31,43,0.55);
   --font-display: 'Orbitron', 'Arial Black', sans-serif;
   --font-body: 'Inter', system-ui, -apple-system, sans-serif;
@@ -85,7 +85,7 @@ button.district { display: grid; width: 100%; }
 .panel.active { border-color: rgba(0,229,255,0.35); box-shadow: 0 0 18px rgba(0,229,255,0.06); }
 
 .btn-p { font-family: var(--font-display); font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--midnight); background: var(--cyan); padding: 13px 22px; border: 0; box-shadow: 0 0 20px rgba(0,229,255,0.35), 0 4px 0 #009bb3; display: inline-block; }
-.btn-s { font-family: var(--font-display); font-size: 10px; font-weight: 600; letter-spacing: 1px; color: var(--cyan); background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.3); padding: 10px 16px; display: inline-block; }
+.btn-s { font-family: var(--font-display); font-size: 11px; font-weight: 600; letter-spacing: 1px; color: var(--cyan); background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.3); padding: 10px 16px; display: inline-block; }
 .btn-s.mag { color: var(--magenta); background: rgba(255,45,155,0.08); border-color: rgba(255,45,155,0.35); }
 .btn-s.lime { color: var(--lime); background: rgba(198,255,0,0.07); border-color: rgba(198,255,0,0.35); }
 /* A quiet button still has to look like one: always underlined, brighter on hover. */
@@ -110,7 +110,7 @@ button.district { display: grid; width: 100%; }
 .district.warmish { border-color: rgba(255,159,0,0.35); }
 .district.clear { border-color: rgba(198,255,0,0.3); }
 .district.fogged { border-style: dashed; border-color: rgba(159,179,200,0.35); }
-.district h4 { margin: 0; font-family: var(--font-display); font-size: 12px; letter-spacing: 1px; font-weight: 800; }
+.district h4, .district .d-name { display: block; margin: 0; font-family: var(--font-display); font-size: 12px; letter-spacing: 1px; font-weight: 800; }
 .district p { margin: 0; font-size: 12px; color: var(--dim); line-height: 1.45; }
 .skyline { display: flex; align-items: flex-end; gap: 2px; height: 70px; }
 .skyline img { width: 52px; height: auto; }
@@ -234,7 +234,7 @@ button.lesson:hover .go, button.lesson:focus-visible .go { background: var(--cya
 .skip-bar span { font-size: 12.5px; color: var(--faint); }
 .boss { padding: 24px 18px; display: grid; gap: 18px; position: relative; z-index: 1; }
 .boss-top { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 14px; align-items: center; }
-.boss h2 { margin: 0; font-family: var(--font-display); font-weight: 900; letter-spacing: 3px; font-size: clamp(18px, 3vw, 26px); color: var(--magenta); text-shadow: 0 0 18px rgba(255,45,155,0.4); }
+.boss h1 { margin: 0; font-family: var(--font-display); font-weight: 900; letter-spacing: 3px; font-size: clamp(18px, 3vw, 26px); color: var(--magenta); text-shadow: 0 0 18px rgba(255,45,155,0.4); }
 .bar { height: 10px; border: 1px solid rgba(0,229,255,0.35); background: rgba(0,229,255,0.04); position: relative; }
 .bar i { position: absolute; inset: 0 auto 0 0; width: var(--pct, 0%); background: linear-gradient(90deg, rgba(0,229,255,0.5), var(--cyan)); box-shadow: 0 0 14px rgba(0,229,255,0.5); }
 .sweep .district { min-height: 0; }
@@ -519,3 +519,47 @@ details.raw-steps > summary { cursor: pointer; list-style: none; }
 .level-technical .panel { padding: 12px 14px; }
 .level-technical .district-screen { gap: 12px; }
 .level-technical .lesson { padding-top: 8px; padding-bottom: 8px; }
+/* ---------- reading comfort (a11y) ---------- */
+/* Screen titles are real headings (h1 in the top bar, h2 for a section), drawn as before. */
+h1.hud-title, h2.label, h3.label { margin: 0; }
+h1.hud-title { line-height: inherit; }
+/* A heading focused for a new screen (a11y.js) takes focus quietly; controls keep their ring. */
+[tabindex="-1"]:focus { outline: none; }
+/* Reclaim City's own inputs turn their outline off; a keyboard user still needs to see where they are. */
+input:focus-visible, select:focus-visible, textarea:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--cyan) !important; outline-offset: 2px; }
+/* The smallest display-face labels were 7-9px: too small to read for many. */
+.stat small { font-size: 9px; }
+.label, .mark-tech summary { font-size: 10px; letter-spacing: 2px; }
+.switch b, .switch button, .scout-name { font-size: 10px; }
+.badge { font-size: 10px; }
+.stat-label { font-size: 9px !important; }
+.sweep-top .stat small { font-size: 9px; }
+.evidence dt { font-size: 10px; }
+.sweep-city .district .cue, .btn-mine { font-size: 10px; }
+.section-label { font-size: 10px !important; }
+/* Plain lettering: the body face everywhere the display face was. */
+:host([data-font="plain"]) { --font-display: var(--font-body); }
+:host([data-font="plain"]) .label, :host([data-font="plain"]) .hud-title, :host([data-font="plain"]) .section-label { letter-spacing: 1px !important; }
+:host([data-font="plain"]) .stat small, :host([data-font="plain"]) .label, :host([data-font="plain"]) .badge { font-size: 11px; }
+/* Less motion, asked for here: the same as the computer asking (above, and rc/style.css). */
+:host([data-motion="less"]) *, :host([data-motion="less"]) *::before, :host([data-motion="less"]) *::after { animation: none !important; transition: none !important; }
+:host([data-motion="less"]) .scout-sprite__sheet:not(:last-child) { display: none; }
+:host([data-motion="less"]) .district.learnable:hover, :host([data-motion="less"]) button.lesson:hover { transform: none; }
+/* Reclaim City's screens set some text colours inline, too faint to read on the dark panels. */
+.section-label[style*="rgba(0,229,255,0.4)"], .section-label[style*="rgba(0,229,255,0.5)"], .stat-label[style*="rgba(0,229,255,0.5)"] { color: rgba(0,229,255,0.75) !important; }
+[style*="color: rgba(237,239,243,0.25)"], [style*="color: rgba(237,239,243,0.35)"], [style*="color: rgba(237,239,243,0.4)"] { color: var(--faint) !important; }
+[style*="color: rgba(237,239,243,0.45)"], [style*="color: rgba(237,239,243,0.5)"] { color: var(--dim) !important; }
+.badge[style*="rgba(255,45,155,0.7)"] { color: var(--magenta) !important; }
+.badge[style*="rgba(0,229,255,0.6)"] { color: var(--cyan) !important; }
+/* TEXT & MOTION (display-panel.js): a slim bar above every city screen, and its dialog. */
+.display-bar { display: flex; justify-content: flex-end; padding: 4px 18px; background: var(--midnight); border-bottom: 1px solid var(--line); }
+.display-open { font-family: var(--font-display); font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--offwhite); padding: 6px 10px; min-height: 32px; border: 1px solid rgba(255,255,255,0.22); }
+.display-open span { font-family: var(--font-body); font-size: 14px; margin-right: 4px; }
+.display-open:hover { border-color: var(--cyan); color: var(--cyan); }
+.display-panel { margin: auto; inset: 0; color: var(--offwhite); background: #0d1018; border: 1px solid rgba(0,229,255,0.45); padding: 20px 22px; width: min(440px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow-y: auto; font-size: 15px; }
+.display-panel::backdrop { background: rgba(0,0,0,0.6); }
+.display-panel h2 { margin: 0 0 12px; font-size: 18px; }
+.display-group { border: 1px solid var(--line); margin: 0 0 10px; padding: 4px 12px 6px; display: grid; gap: 2px; }
+.display-group legend { font-weight: 600; padding: 0 4px; }
+.display-choice { display: flex; gap: 10px; align-items: center; min-height: 32px; cursor: pointer; }
+.display-choice input { width: 18px; height: 18px; margin: 0; accent-color: var(--cyan); flex: none; }

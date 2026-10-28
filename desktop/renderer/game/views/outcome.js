@@ -6,7 +6,7 @@ export function renderOutcome({ kind, mission: m, scout, message, undoHtml }) {
     return `
     <section class="outcome o-win">
       <span class="badge safe">CHECKED AGAIN: GONE</span>
-      <h2>RECLAIMED</h2>
+      <h2 data-landing>RECLAIMED</h2>
       <p>${esc(SCOUT.reclaimed)}</p>
       ${undoHtml || ''}
       <p class="label">HOW DID THAT GO?</p>
@@ -21,14 +21,14 @@ export function renderOutcome({ kind, mission: m, scout, message, undoHtml }) {
   if (kind === 'yours') {
     return `
     <section class="outcome o-yours">
-      <span class="badge yours">MARKED AS YOURS</span><h2>YOURS</h2><p>${esc(SCOUT.yours)}</p>
+      <span class="badge yours">MARKED AS YOURS</span><h2 data-landing>YOURS</h2><p>${esc(SCOUT.yours)}</p>
       <button type="button" class="btn-s" data-go="district:${esc(m.districtId)}">BACK TO THE DISTRICT</button>
     </section>`;
   }
   if (kind === 'put-back') {
     return `
     <section class="outcome o-not">
-      <span class="badge warn">CHECKED AGAIN: SHOWING</span><h2>PUT BACK</h2>
+      <span class="badge warn">CHECKED AGAIN: SHOWING</span><h2 data-landing>PUT BACK</h2>
       <p>${esc(m.title)}</p>
       <div class="scout-row">${scout('thinkingA', 54)}<p class="say">${esc(SCOUT.putBack)}</p></div>
       <button type="button" class="btn-s" data-go="mission:${esc(m.id)}">BACK TO THE STEPS</button>
@@ -37,7 +37,7 @@ export function renderOutcome({ kind, mission: m, scout, message, undoHtml }) {
   if (kind === 'not-yet') {
     return `
     <section class="outcome o-not">
-      <span class="badge warn">CHECKED AGAIN: STILL THERE</span><h2>NOT YET</h2>
+      <span class="badge warn">CHECKED AGAIN: STILL THERE</span><h2 data-landing>NOT YET</h2>
       <p>Here’s what’s still showing: ${esc(m.title)}</p>
       ${message ? `<p>${esc(message)}</p>` : ''}
       <div class="scout-row">${scout('thinkingA', 54)}<p class="say">${esc(SCOUT.notYet)}</p></div>
@@ -46,7 +46,7 @@ export function renderOutcome({ kind, mission: m, scout, message, undoHtml }) {
   }
   return `
     <section class="outcome o-err">
-      <span class="badge fog">COULDN’T RE-CHECK</span><h2>COULDN’T RE-CHECK</h2>
+      <span class="badge fog">COULDN’T RE-CHECK</span><h2 data-landing>COULDN’T RE-CHECK</h2>
       <p>${esc(SCOUT.couldnt)} The building stays dark until a check can see it.</p>
       ${message ? `<p class="from">${esc(message)}</p>` : ''}
       <div class="row"><button type="button" class="btn-s" data-act="recheck">TRY THE RE-CHECK AGAIN</button>

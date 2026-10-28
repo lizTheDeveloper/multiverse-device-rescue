@@ -28,9 +28,10 @@ export function signalRow(sig, districtName = () => '', { extra = '', chips = ''
     sig.tag === 'closer' ? '<span class="badge cyan">LOOK CLOSER</span>' : '',
     sig.stale ? '<span class="badge warn">CHANGED SINCE YOU MARKED IT</span>' : '',
     sig.changed ? '<span class="badge warn">CHANGED SINCE YOU TAGGED IT</span>' : '',
-  ].join('');
+  ].filter(Boolean).join(' ');
+  // Spaces between the parts, so a screen reader hears "WARNING Old-style driver…", not one run-on word.
   return `<li${extra ? ' class="has-mine"' : ''}><button type="button" class="sig sev-${esc(sig.severity)}${drill ? ' drill' : ''}" data-go="signal:${esc(sig.id)}">
-      <span class="sig-badges">${badges}</span><span class="sig-title">${esc(sig.title)}</span>${chips}<small>${esc(districtName(sig.districtId))}</small><span class="sig-open" aria-hidden="true">OPEN ▶</span></button>${extra}</li>`;
+      <span class="sig-badges">${badges}</span> <span class="sig-title">${esc(sig.title)}</span> ${chips} <small>${esc(districtName(sig.districtId))}</small><span class="sig-open" aria-hidden="true">OPEN ▶</span></button>${extra}</li>`;
 }
 
 // THREAT's next move: the finding's own briefing, where any real fix asks first.
@@ -51,7 +52,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   const behind = panelHtml ? ' inert' : '';
   const top = `
   <header class="hud deck-top"${behind}>
-    <span class="hud-title">${esc(title)}</span>
+    <h1 class="hud-title">${esc(title)}</h1>
     <span class="stat lime"><small>RANK</small> ${esc(rank.name)}</span>
     <span class="stat grey">${lastSweep ? `<small>LAST SWEEP</small> ${esc(clock(lastSweep.at, true))} · ${esc(lastSweep.checks)} CHECKS` : '<small>NO SWEEP YET</small>'}</span>
     ${scanRunning ? '<span class="stat cyan"><small>SWEEPING…</small></span>'
@@ -93,7 +94,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
         <ul class="queue">${known.slice(0, LOW_SHOWN).map((x) => signalRow(x, dn)).join('')}</ul>
         ${known.length > LOW_SHOWN ? `<p class="intel">And ${known.length - LOW_SHOWN} more.</p>` : ''}</details>` : '';
   const logHtml = `
-    <section class="panel deck-log" aria-label="Ops log"><div class="label">OPS LOG</div>
+    <section class="panel deck-log" aria-label="Ops log"><h2 class="label">OPS LOG</h2>
       ${log.length ? `<ol class="log">${log.slice(0, LOG_SHOWN).map((e) => `<li><time>${esc(clock(e.at))}</time> <span class="badge skip">${esc(e.kind)}</span> ${esc(e.text)}</li>`).join('')}</ol>`
     : '<p class="intel">Nothing yet. Tags, sweeps, fixes and reports show up here.</p>'}
     </section>`;
@@ -104,7 +105,7 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   return `${top}${pickerHtml}${notice}${momentHtml}
   <div class="deck"${behind}>
     <aside class="deck-queue" aria-label="Incoming signals">
-      <div class="label">INCOMING SIGNALS</div>${queueTop}${head}${blank}${next}
+      <h2 class="label">INCOMING SIGNALS</h2>${queueTop}${head}${blank}${next}
       <ul class="queue">${items.map((x) => signalRow(x, dn, rowParts(x))).join('')}${lowHtml}</ul>
       ${threatHtml}${knownHtml}
       <button type="button" class="btn-s lime" data-go="range">DRILL RANGE ▶</button>
