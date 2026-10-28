@@ -47,6 +47,9 @@ import { yoursInventory } from './yours.js';
 import { kindsOf, kindChipsHtml, programContext } from './program-kinds.js';
 import { noteMarked } from './ledger.js';
 import { renderYours, yoursTileHtml, mineRowHtml, bulkBarHtml, toastHtml, confirmHtml } from './views/yours.js';
+// How much detail is shown (level.js): never what is safe.
+import { readLevel, levelOf, writeLevel, levelPolicy, LEVELS, canTestOut } from './level.js';
+import { renderLevelPicker, levelButton, evidenceHtml } from './views/level.js';
 
 // Specifiers resolve against this file (app://rescue/game/controller.js).
 const loadLessonsHere = () => loadLessons((spec) => import(spec));
@@ -120,7 +123,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // The generated district. Memory only, like the ops log; nothing about it is stored.
     sideTicket: 0, sideNotice: false, heldOpen: false,
     // The connection watch, and its findings' tags (memory only: ledger sessionTag).
-    watch: idleWatch(), watchTags: {} };
+    watch: idleWatch(), watchTags: {},
+    // The DETAIL panel (level.js) is open. The level itself is in storage.
+    levelOpen: false };
   let drawnScreen = null; // the screen the last render drew
 
   // The generated district (city mode only): help that looks like the rest of the city.
@@ -144,6 +149,16 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     openLink: (url) => openLink(url),
     report: (id, title) => { commitAward(award(s.progress.deck, 'report', `accounts:${id}`)); logEntry('YOU REPORTED', title); } });
   const heldNotice = () => (inCity() && s.held.length ? heldNoticeHtml(side()) : '');
+
+  // The detail level (level.js): how much is shown, never what is safe.
+  const level = () => levelOf(storage);
+  const policy = () => levelPolicy(level());
+  const levelHtml = () => levelButton(level());
+  // The cards: when DETAIL is open, or (on the Training Grounds, where city
+  // mode starts) once, until a level is chosen.
+  const pickerHtml = (askHere = false) => (s.levelOpen ? renderLevelPicker({ chosen: readLevel(storage) })
+    : askHere && readLevel(storage) === null ? renderLevelPicker({ chosen: null, first: true }) : '');
+  const evidenceFor = (finding, clues) => (policy().evidence && finding ? evidenceHtml(finding, platform(), clues || cluesFor(finding)) : '');
 
   // loadLessons never rejects: a lesson that fails to load is left out.
   // Until then the Training Grounds says the lessons are on their way, not that they failed.
@@ -383,7 +398,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   const desk = createMarkDesk({
     api: win.rescue, MarkFlow: win.MarkFlow, signals: rawSignals,
     // City mode, or monitoring software held this checkup: every mark asks first.
-    opts: () => ({ watched: hostMode() === 'city', held: s.held.length > 0 }),
+    // The level changes only the asking: "new" always asks, "technical" lets
+    // city mode's background tasks go in one click; held always asks (yours.js).
+    opts: () => ({ watched: hostMode() === 'city', held: s.held.length > 0, level: level() }),
     docChanged: (d) => win.RescueHost.docChanged(d),
     rebuild: (d) => rebuild(d),
     // Only screens that show marks redraw; a half-filled form elsewhere is left alone.
@@ -485,7 +502,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     const mine = !quick && sig.kind === 'real' && sig.missionId && !sig.marked ? win.MarkFlow.markControlsHtml(sig.finding, watchedOpts()) : '';
     return renderSignalPanel({ signal: sig, districtName: nameOf(sig.districtId), clues: cluesOf(sig), opened: openedFor(sig.id),
       tagged: s.signal.tagged, right: s.signal.right, read: s.signal.read, points: s.signal.points, scout, mineHtml: mine,
-      range: s.screen === 'range' ? { hasCity: !!s.city } : null, quickHtml: quick, chipsHtml: chipsFor(sig) });
+      range: s.screen === 'range' ? { hasCity: !!s.city } : null, quickHtml: quick, chipsHtml: chipsFor(sig),
+      fold: policy().foldRaw, evidenceHtml: sig.kind === 'real' ? evidenceFor(sig.finding, cluesOf(sig)) : '' });
   }
 
   function deckHtml() {
@@ -517,7 +535,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       lastSweep: deck.sweeps.length ? deck.sweeps[deck.sweeps.length - 1] : null,
       // Marked as yours: in YOURS, not the KNOWN AND NOTED pile. Each queue row carries MINE ✓ and its kind.
       items, low: q.low, lowOpen: s.lowOpen, threats: q.threats, known: [...q.known.filter((x) => !x.marked), ...q.noted],
-      rowParts: (x) => ({ extra: quickControl(x, true), chips: chipsFor(x) }),
+      rowParts: (x) => ({ extra: quickControl(x, true), chips: chipsFor(x) }), levelHtml: levelHtml(), pickerHtml: pickerHtml(),
       queueTop: toastHtml(desk.toast) + bulkBarHtml({ count: desk.picked.size, confirming: !!(desk.confirm && desk.confirm.target === '*'),
         watch: !!(desk.confirm && desk.confirm.watch) }),
       filter: fd ? { id: fd.id, name: fd.name } : null, cityHtml,
@@ -793,19 +811,20 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       s.screen = s.city ? 'map' : 'training';
     }
     if (s.screen === 'yours') {
-      if (s.city) return renderYours({ inv: yoursNow(), picked: desk.ypicked, scout, toast: desk.toast });
+      if (s.city) return renderYours({ inv: yoursNow(), picked: desk.ypicked, scout, toast: desk.toast, fold: policy().foldRaw });
       s.screen = 'training';
     }
     if (s.screen === 'range') return rangeHtml();
     if (s.screen === 'training') {
       return sideTile() + renderTraining({ ordered: orderLessons(s.lessons, s.situation && s.situation.id), progress: s.progress,
         worryTitle: s.situation && s.situation.title, scan: s.scan, scout, pendingCity: cityWaiting(),
-        lessonsLoaded: s.lessonsLoaded, scanFinished: !!s.city });
+        lessonsLoaded: s.lessonsLoaded, scanFinished: !!s.city, level: level(), levelHtml: levelHtml(), pickerHtml: pickerHtml(true),
+        testOut: policy().lessonsOptional ? canTestOut : () => false });
     }
     if (s.screen === 'lesson') {
       const l = lessonShown();
       if (l) return renderLesson({ lesson: l, qIndex: s.lesson.q, picked: s.lesson.picked, scan: s.scan, scout, pendingCity: cityWaiting(), scanFinished: !!s.city, settingFor,
-        routerHtml: () => (win.RouterLink ? win.RouterLink.gameLinkHtml(routerFor()) : '') });
+        routerHtml: () => (win.RouterLink ? win.RouterLink.gameLinkHtml(routerFor()) : ''), testOut: !!s.lesson.testOut });
       s.screen = 'training';
       return screenHtml();
     }
@@ -817,7 +836,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (s.screen === 'district' && district(s.districtId)) {
       return renderDistrict({ district: district(s.districtId), progress: s.progress, scout,
-        yours: new Set(yoursNow().items.map((it) => it.id)), noteGo: noteSignalGo() });
+        yours: new Set(yoursNow().items.map((it) => it.id)), noteGo: noteSignalGo(), level: level() });
     }
     // During an Undo re-check the mission was reclaimed, so it isn't in the
     // city: show the checking briefing from the mission we last showed.
@@ -839,7 +858,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
         : `${win.FixFlow.fixControlsHtml(m.primary, watchedOpts())}${quick || win.MarkFlow.markControlsHtml(m.primary, watchedOpts())}${routerHtml(m.primary)}`;
       return renderBriefing({ mission: m, status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: controls,
         scout, busy: s.busy, wantsSafety: win.RescueHost.wantsSafety(m.primary), learned: lessonForModule(s.lessons, s.progress, m.module), note,
-        forHack: acct.offered() && HACK_MODULES.has(m.module) });
+        forHack: acct.offered() && HACK_MODULES.has(m.module), fold: policy().foldRaw, evidenceHtml: evidenceFor(m.primary) });
     }
     if (s.screen === 'outcome' && s.outcome) {
       // After a fix the engine can undo, offer Undo here too, but only on the
@@ -872,7 +891,10 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const body = screenHtml();
       // The deck has its own top bar; the training and range screens have theirs.
       const hud = NO_CITY_SCREENS.has(s.screen) || s.screen === 'map' || s.screen === 'side' || s.screen === 'yours' ? ''
-        : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts() }) + s.linkNotice;
+        : renderHud({ title: s.rc ? 'RECLAIM CITY' : 'YOUR COMPUTER', city: s.city, progress: s.progress, counts: counts(), levelHtml: levelHtml() })
+          + pickerHtml() + s.linkNotice;
+      // game.css reads the level for density (technical) and the folded details (new).
+      frame.className = `frame level-${level()}`;
       frame.innerHTML = hud + body;
       // No share cards in Reclaim City’s checkup: they would describe this person's progress.
       frame.querySelectorAll('[data-action="share-card"], #milestone-card-preview').forEach((el) => el.remove());
@@ -1017,6 +1039,20 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     // The connection watch runs alongside everything else, re-checks included.
     if (act && act.startsWith('watch-')) { watchAct(act); return; }
+    // DETAIL (level.js): only how much is shown changes, so it works any time.
+    if (act === 'level-open' || act === 'level-close') {
+      s.levelOpen = act === 'level-open' ? !s.levelOpen : false;
+      render();
+      if (!s.levelOpen || !focusEl(frame.querySelector('.level-card.on') || frame.querySelector('.level-card'))) {
+        focusEl(findByAttr(frame, 'data-act', 'level-open'));
+      }
+      return;
+    }
+    if (act && act.startsWith('level:')) {
+      const lv = act.slice(6);
+      if (LEVELS.includes(lv)) { writeLevel(storage, lv); s.levelOpen = false; render(); focusEl(findByAttr(frame, 'data-act', 'level-open')); }
+      return;
+    }
     if (s.busy) return;
     if (go) s.linkNotice = '';
     // This is mine: the queue's MINE ✓, the selection, Undo, and the YOURS district.
@@ -1063,6 +1099,17 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (go === 'training') { s.lesson = null; s.screen = 'training'; render(); return; }
     if (go === 'boss') { s.screen = s.scan.running ? 'boss' : 'training'; render(); return; }
     if (go === 'city') { s.pendingCity = false; s.lesson = null; s.screen = 'map'; render(); return; }
+    // TEST OUT (technical): one variant per concept, never the lesson's own wording.
+    if (go && go.startsWith('testout:')) {
+      const l = s.lessons.find((x) => x.id === go.slice(8));
+      if (l && policy().lessonsOptional && canTestOut(l) && !lessonDone(s.progress, l.id)) {
+        s.lesson = { id: l.id, q: 0, picked: null, round: 1, testOut: true };
+        s.screen = 'lesson';
+        render();
+        focusEl(frame.querySelector('.q'));
+      }
+      return;
+    }
     if (go && go.startsWith('lesson:')) { openLesson(go.slice(7), { fromAccounts: ACCOUNT_SCREENS.has(s.screen) }); s.screen = 'lesson'; render(); return; }
     // A district on the sweep: the lesson for that area. While the scan runs it
     // opens inline in WHILE YOU WAIT, so the progress stays on screen.
@@ -1102,6 +1149,22 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (act === 'start-checkup') { if (!s.scan.running) win.RescueHost.startCheckup(); return; }
     if (act && act.startsWith('answer:')) {
+      // A test-out (level.js canTestOut): every answer right marks the lesson
+      // done; a miss ends it and marks nothing.
+      if (s.lesson && s.lesson.testOut && s.lesson.picked == null) {
+        const l = lessonShown();
+        const n = Number(act.slice(7));
+        const q = l && l.questions[s.lesson.q];
+        if (!q || !q.options[n]) return;
+        s.lesson.picked = n;
+        if (q.options[n].correct && s.lesson.q >= l.questions.length - 1 && !lessonDone(s.progress, l.id)) {
+          s.progress = setLessonDone(s.progress, l.id, now());
+          saveProgress(storage, s.progress);
+          logEntry('TESTED OUT', l.title);
+        }
+        render();
+        return;
+      }
       if (s.lesson && s.lesson.picked == null) {
         s.lesson.picked = Number(act.slice(7));
         // Answering the last question is finishing: it counts even if the
@@ -1117,7 +1180,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (act === 'next-question' && s.lesson) { s.lesson = { ...s.lesson, q: s.lesson.q + 1, picked: null }; render(); return; }
     // Only finishing a lesson records anything; leaving part-way records nothing.
-    if (act === 'finish-lesson' && s.lesson) {
+    if (act === 'finish-lesson' && s.lesson && !s.lesson.testOut) {
       if (!lessonDone(s.progress, s.lesson.id)) {
         s.progress = setLessonDone(s.progress, s.lesson.id, now());
         saveProgress(storage, s.progress);

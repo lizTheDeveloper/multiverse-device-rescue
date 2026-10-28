@@ -2,6 +2,7 @@ import { HELD_MODULES } from '../held.js';
 import { esc } from '../escape.js';
 import { skyline, districtLine } from './map.js';
 import { reclaimedIn } from '../progress.js';
+import { fogCommand } from '../level.js';
 
 const STATUS_BADGE = {
   open: '', later: '<span class="badge skip">LATER</span>',
@@ -16,7 +17,10 @@ const noteItem = (n, noteGo) => {
   return go ? `<li><button type="button" class="note-row" data-go="${esc(go)}">${esc(n.title)} ▶</button></li>` : `<li>${esc(n.title)}</li>`;
 };
 
-export function renderDistrict({ district: d, progress, scout, yours = null, noteGo = null }) {
+// `level` (level.js): "new" names no check; "technical" shows each mission's
+// check by its own name and how to re-run a check that couldn't.
+export function renderDistrict({ district: d, progress, scout, yours = null, noteGo = null, level = 'everyday' }) {
+  const tech = level === 'technical';
   const status = (id) => (progress.missions[id] && progress.missions[id].status) || 'open';
   const isYours = (m) => !!(yours && yours.has(m.id));
   const mine = d.missions.filter(isYours).length;
@@ -24,6 +28,7 @@ export function renderDistrict({ district: d, progress, scout, yours = null, not
       <li><button type="button" class="mission-row" data-go="mission:${esc(m.id)}">
         <span class="badge ${m.severity === 'critical' ? 'crit' : 'warn'}">${m.severity === 'critical' ? 'CRITICAL' : 'WARNING'}</span>
         <span class="mission-text">${esc(m.title)}</span>
+        ${tech && m.module ? `<code class="mission-module">${esc(m.module)}</code>` : ''}
         ${STATUS_BADGE[status(m.id)] || ''}
       </button></li>`).join('');
   // Reclaimed missions are no longer in the scan, so they come from progress.
@@ -39,7 +44,12 @@ export function renderDistrict({ district: d, progress, scout, yours = null, not
   // A monitoring check is never named on the city (held.js): just "A check".
   // Others in words ("Code signature audit"), the way the sweep names them.
   const words = (name) => { const w = String(name).replace(/_/g, ' '); return w.charAt(0).toUpperCase() + w.slice(1); };
-  const fog = d.fog.map((x) => `<li><strong>${esc(HELD_MODULES.has(x.module) ? 'A check' : words(x.module))}</strong>: ${esc(x.reason)}</li>`).join('');
+  // At the "new" level no check is named either; "technical" uses the check's own name.
+  const fog = d.fog.map((x) => {
+    const name = HELD_MODULES.has(x.module) || level === 'new' ? 'A check' : tech ? x.module : words(x.module);
+    const cmd = tech ? fogCommand(x.module) : null;
+    return `<li><strong>${esc(name)}</strong>: ${esc(x.reason)}${cmd ? ` <code>${esc(cmd)}</code>` : ''}</li>`;
+  }).join('');
   return `
   <section class="district-screen">
     <div class="crumbs"><button type="button" data-go="map">Your computer</button> / <b>${esc(d.name)}</b></div>

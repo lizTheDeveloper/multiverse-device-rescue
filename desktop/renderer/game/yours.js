@@ -26,14 +26,19 @@ const str = (v) => (typeof v === 'string' ? v : '');
 
 // {id, kind, confirm} for a finding that may be marked from the game, or null.
 // `watched`: city mode. `held`: this checkup holds monitoring software.
-export function quickMarkOf(finding, { MarkFlow, watched = false, held = false } = {}) {
+// `level` (level.js) changes only the asking, never what may be marked:
+// "new" always asks the short question first; "technical" lets city mode's
+// background tasks go in one click (with Undo), while anything held, and
+// anything that could be used to watch a computer, still asks.
+export function quickMarkOf(finding, { MarkFlow, watched = false, held = false, level = 'everyday' } = {}) {
   if (!finding || typeof finding !== 'object' || !MarkFlow || typeof MarkFlow.markableOf !== 'function') return null;
   if (monitoring(finding.module) || monitoring(moduleOfCode(finding.code))) return null;
   if (finding.severity === 'critical') return null;
   if (dataOf(finding).marked_by_user === true) return null;
   const m = MarkFlow.markableOf(finding);
   if (!m || monitoring(moduleOfCode(m.code))) return null;
-  const confirm = watched || held || (m.kind !== 'background_task' && m.monitoring !== false);
+  const watchKind = m.kind !== 'background_task' && m.monitoring !== false;
+  const confirm = level === 'new' || held || watchKind || (watched && level !== 'technical');
   return { id: m.id, kind: m.kind, confirm };
 }
 
