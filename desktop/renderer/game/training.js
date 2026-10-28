@@ -15,6 +15,12 @@ export const LESSON_FILES = [
   './lessons/couldnt-check.js',
   './lessons/poisoned-packages.js',
   './lessons/taking-accounts-back.js',
+  // With item banks (a concept and variants per question), for the sweep's WHILE YOU WAIT.
+  './lessons/what-a-checkup-sees.js',
+  './lessons/who-made-this.js',
+  './lessons/firewall-and-sharing.js',
+  './lessons/remote-access.js',
+  './lessons/after-a-finding.js',
 ];
 
 // Lessons teach; the scan diagnoses. None of these may appear in lesson text.

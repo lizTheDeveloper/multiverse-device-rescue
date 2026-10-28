@@ -25,11 +25,20 @@ const norm = (s) => String(s).replace(/\s+/g, ' ');
 function ownText(lesson) {
   // For the phishing lesson, the messages and their tells are Reclaim City's
   // content. Only Device Rescue's wrapper text is checked here.
+  // Every item in a question's bank (the question and its variants) is checked.
+  const items = (q) => [q, ...(Array.isArray(q.variants) ? q.variants : [])];
   const qs = lesson.questions.flatMap((q) => (lesson.type === 'phishing'
     ? [q.prompt, q.teach]
-    : [q.prompt, q.teach, ...q.options.flatMap((o) => [o.text, o.feedback])]));
+    : items(q).flatMap((it) => [it.prompt, it.teach, ...it.options.flatMap((o) => [o.text, o.feedback])])));
   return [lesson.title, lesson.briefing, lesson.whatTheScanLooksFor, ...qs].filter((t) => t != null);
 }
+
+// The lessons written before item banks. Every lesson after them gives each
+// question a `concept` and at least two `variants`, so IRT has several items
+// per concept (docs/superpowers/specs/2026-10-18-player-profile-proposal.md,
+// owner decision 4).
+const BEFORE_ITEM_BANKS = new Set(['password-asker', 'starts-on-its-own', 'locked-door', 'whos-on-wifi', 'browser-add-ons',
+  'couldnt-check', 'poisoned-packages', 'spot-the-fake']);
 
 function sourceText(lesson) {
   return norm(lesson.sources.map((s) => fs.readFileSync(path.join(ROOT, s), 'utf8')).join('\n'));
@@ -85,7 +94,9 @@ test('every lesson is reachable: from a district on the sweep, or from ALL LESSO
   }
   const by = training.lessonsByDistrict(lessons, 'unsure');
   const onSweep = new Set(Object.values(by).flat().map((l) => l.id));
-  assert.deepStrictEqual(lessons.filter((l) => !onSweep.has(l.id)).map((l) => l.id).sort(), ['couldnt-check', 'spot-the-fake']);
+  // These teach no one check; ALL LESSONS and the sweep's WHILE YOU WAIT offer them.
+  assert.deepStrictEqual(lessons.filter((l) => !onSweep.has(l.id)).map((l) => l.id).sort(),
+    ['after-a-finding', 'couldnt-check', 'spot-the-fake', 'what-a-checkup-sees']);
   // ALL LESSONS is the Training Grounds, which lists every lesson.
   const { recommended, other } = training.orderLessons(lessons, 'unsure');
   assert.strictEqual(recommended.length + other.length, lessons.length);
@@ -117,7 +128,7 @@ test('every question has two or more options, exactly one right answer, and feed
   const { lessons } = await loadAll();
   for (const l of lessons) {
     assert.ok(l.questions.length >= 1 && l.questions.length <= 5, `${l.id}: 1–5 questions`);
-    for (const q of l.questions) {
+    for (const q of l.questions.flatMap((x) => [x, ...(x.variants || [])])) {
       assert.ok(q.options.length >= 2, `${l.id}: "${q.prompt}" needs options`);
       assert.strictEqual(q.options.filter((o) => o.correct === true).length, 1, `${l.id}: "${q.prompt}" needs exactly one right answer`);
       for (const o of q.options) assert.ok(typeof o.feedback === 'string' && o.feedback.trim(), `${l.id}: "${o.text}" has no feedback`);
@@ -150,4 +161,22 @@ test('each question carries its own what-to-know, and the accuracy check reads i
   const fake = { title: 'T', briefing: 'B', whatTheScanLooksFor: 'W',
     questions: [{ teach: 'Open System Settings > Make Me Safe.', prompt: 'P', options: [] }] };
   assert.ok(ownText(fake).includes('Open System Settings > Make Me Safe.'));
+  const banked = { ...fake, questions: [{ teach: 'T', prompt: 'P', options: [], variants: [{ prompt: 'Run `rescue nuke`', options: [] }] }] };
+  assert.ok(ownText(banked).includes('Run `rescue nuke`'), 'variants are checked too');
+});
+
+test('every lesson after the first eight has an item bank: a concept and two or more variants per question', async () => {
+  const { lessons } = await loadAll();
+  const banked = lessons.filter((l) => !BEFORE_ITEM_BANKS.has(l.id));
+  assert.ok(banked.length >= 5, 'the new lessons are loaded');
+  for (const l of banked) {
+    const concepts = l.questions.map((q) => q.concept);
+    for (const q of l.questions) {
+      assert.match(String(q.concept || ''), /^[a-z0-9-]+$/, `${l.id}: "${q.prompt}" names its concept`);
+      assert.ok(Array.isArray(q.variants) && q.variants.length >= 2, `${l.id}: "${q.concept}" has two or more variants`);
+      const prompts = [q.prompt, ...q.variants.map((v) => v.prompt)];
+      assert.strictEqual(new Set(prompts).size, prompts.length, `${l.id}: "${q.concept}" variants ask different questions`);
+    }
+    assert.strictEqual(new Set(concepts).size, concepts.length, `${l.id}: each question is its own concept`);
+  }
 });

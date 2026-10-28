@@ -59,3 +59,36 @@ test('the count is of finished checks: a start event names the check now running
   assert.strictEqual(b.index, 1);
   assert.strictEqual(bossPercent(b), 25);
 });
+
+// The sweep shows what is being checked right now, and a running log of
+// finished checks, so long gaps never look like nothing is happening.
+test('the check running now is named; a done event moves it into the log', async () => {
+  const { bossInit, bossApply } = await load();
+  let b = bossApply(bossInit(), { type: 'progress', phase: 'start', index: 1, total: 3, module: 'launch_agent_audit', category: 'security' });
+  assert.deepStrictEqual(b.now, { module: 'launch_agent_audit', category: 'security', index: 1 });
+  assert.deepStrictEqual(b.log, []);
+  b = bossApply(b, { type: 'progress', phase: 'done', index: 1, total: 3, module: 'launch_agent_audit', category: 'security', findings: 2, error: null, supported: true });
+  assert.strictEqual(b.now, null);
+  assert.deepStrictEqual(b.log, [{ module: 'launch_agent_audit', category: 'security', index: 1, findings: 2, outcome: 'noted' }]);
+});
+
+test('the log tells a check that couldn’t run or crashed apart from one that noted nothing', async () => {
+  const { bossInit, bossApply } = await load();
+  const done = (module, extra) => ({ type: 'progress', phase: 'done', index: 1, total: 3, module, category: 'security', findings: 0, ...extra });
+  let b = bossInit();
+  b = bossApply(b, done('a', { supported: true, error: null }));
+  b = bossApply(b, done('b', { supported: false, error: null }));
+  b = bossApply(b, done('c', { supported: true, error: 'Module check timed out: c' }));
+  b = bossApply(b, done('d', {}));
+  assert.deepStrictEqual(b.log.map((e) => e.outcome), ['none', 'couldnt', 'couldnt', 'none']);
+  assert.strictEqual(b.couldnt, 2);
+});
+
+test('a module name from the engine is kept only when it looks like one; the log is capped', async () => {
+  const { bossInit, bossApply, LOG_KEEP } = await load();
+  let b = bossApply(bossInit(), { type: 'progress', phase: 'start', index: 1, total: 3, module: '<img src=x>', category: 'security' });
+  assert.strictEqual(b.now.module, null);
+  for (let i = 1; i <= LOG_KEEP + 5; i += 1) b = bossApply(b, { type: 'progress', phase: 'done', index: i, total: LOG_KEEP + 5, module: 'm', category: 'network', findings: 0 });
+  assert.strictEqual(b.log.length, LOG_KEEP);
+  assert.strictEqual(b.log[b.log.length - 1].index, LOG_KEEP + 5);
+});

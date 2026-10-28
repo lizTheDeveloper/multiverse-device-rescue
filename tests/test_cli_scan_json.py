@@ -136,6 +136,26 @@ def test_scan_progress_reports_each_check_on_stderr_and_keeps_stdout_pure():
     assert events[0] == {"phase": "start", "index": 1, "total": 1,
                          "module": "disk_space", "category": "performance"}
     assert events[1]["findings"] == 0 and events[1]["error"] is None
+    assert events[1]["supported"] is True
+
+
+def test_scan_progress_says_when_a_check_could_not_run_here():
+    # The sweep's log must never show a check that couldn't run as "0 noted".
+    mod = type('MockModule', (), {'name': 'disk_space', 'category': 'performance',
+                                  'report': lambda self, check, fix=None: ''})()
+    check = CheckResult(module_name='disk_space', supported=False, unsupported_reason='no tool')
+
+    def fake_run_checks(on_progress=None):
+        on_progress('done', 1, 1, mod, check)
+        return [(mod, check)]
+
+    with patch('rescue.cli.Orchestrator') as MockOrch:
+        MockOrch.return_value.run_checks.side_effect = fake_run_checks
+        result = CliRunner().invoke(main, ["scan", "--json", "--progress"])
+
+    events = [json.loads(line)["progress"] for line in result.stderr.splitlines()
+              if line.startswith('{"progress"')]
+    assert events[0]["supported"] is False
 
 
 def test_scan_trace_reports_commands_under_the_module_that_ran_them():
