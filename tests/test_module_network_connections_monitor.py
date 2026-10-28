@@ -644,3 +644,88 @@ def test_full_edge_name_gets_the_browser_threshold():
     assert "microsoft edge" in nm.BROWSER_PREFIXES
     assert not any("\\x" in p for p in nm.BROWSER_PREFIXES)
     assert nm._threshold_for("Microsoft Edge Helper") == nm.BROWSER_CONNECTION_THRESHOLD
+
+
+# --- connection items: direction, program, parent, SSH settings -------------
+
+_LSOF_HEAD = "COMMAND  PID  USER  FD  TYPE             DEVICE SIZE/OFF NODE NAME"
+
+
+def _darwin_check(lsof_lines, ps_out="", ssh_config=None, tmp_path=None):
+    """Replay lsof (and ps) on macOS; ssh_config is written to a fake home."""
+    seen = []
+
+    def run(args, **kwargs):
+        seen.append(list(args))
+        if args[0] == "lsof":
+            return _result("\n".join([_LSOF_HEAD, *lsof_lines]))
+        if args[0] == "ps":
+            return _result(ps_out)
+        return _result(returncode=1)
+
+    home = tmp_path
+    if ssh_config is not None:
+        (home / ".ssh").mkdir()
+        (home / ".ssh" / "config").write_text(ssh_config)
+    with patch("rescue.command.run", side_effect=run), patch("pathlib.Path.home", return_value=home):
+        return _get_module().check(_make_profile()), seen
+
+
+_SSH_OUT = ("ssh       31674 liz   3u  IPv4 0x1 0t0 TCP "
+            "192.168.0.114:49542->87.5.113.252:64456 (ESTABLISHED)")
+
+
+def test_outgoing_uncommon_port_item_names_program_parent_and_ssh_host(tmp_path):
+    result, seen = _darwin_check(
+        [_SSH_OUT],
+        ps_out="31674 31627 ssh -T vast-tests bash /root/vast-run.sh --token=abc123\n",
+        ssh_config="Host *\n  ServerAliveInterval 30\n\nHost vast-tests\n  HostName 87.5.113.252\n"
+                   "  Port 64456\n  IdentityFile ~/.ssh/id_vast\n",
+        tmp_path=tmp_path,
+    )
+    odd = [f for f in result.findings if f.data.get("check") == "unusual_ports"]
+    assert len(odd) == 1
+    assert odd[0].data["connections"] == ["ssh -> 87.5.113.252:64456"]
+    (item,) = odd[0].data["items"]
+    assert item["direction"] == "out"
+    assert item["process"] == "ssh" and item["pid"] == 31674 and item["ppid"] == 31627
+    assert item["local_addr"] == "192.168.0.114" and item["local_port"] == 49542
+    assert item["remote_addr"] == "87.5.113.252" and item["remote_port"] == 64456
+    assert item["state"] == "ESTABLISHED" and item["proto"] == "tcp"
+    assert item["remote_scope"] == "public"
+    assert item["ssh_host"] == "vast-tests"
+    # Credential-shaped text in a command line never reaches the data.
+    assert "abc123" not in item["command"] and item["command"].startswith("ssh -T vast-tests")
+    # Nothing else from the SSH settings is kept.
+    assert "id_vast" not in json.dumps(odd[0].data)
+    assert ["ps", "-o", "pid=,ppid=,command=", "-p", "31674"] in seen
+
+
+def test_incoming_connection_to_a_listening_port_is_marked_in(tmp_path):
+    result, _ = _darwin_check(
+        [
+            "sshd      900 root  3u  IPv4 0x1 0t0 TCP *:2222 (LISTEN)",
+            "sshd      901 root  4u  IPv4 0x1 0t0 TCP 192.168.0.114:2222->203.0.113.9:51234 (ESTABLISHED)",
+        ],
+        tmp_path=tmp_path,
+    )
+    odd = [f for f in result.findings if f.data.get("check") == "unusual_ports"]
+    (item,) = odd[0].data["items"]
+    assert item["direction"] == "in"
+    assert item["local_port"] == 2222 and item["remote_port"] == 51234
+    assert "ssh_host" not in item
+    assert "ppid" not in item and "command" not in item  # ps said nothing
+
+
+def test_ssh_host_needs_matching_port(tmp_path):
+    result, _ = _darwin_check(
+        [_SSH_OUT], ssh_config="Host other\n  HostName 87.5.113.252\n  Port 2200\n", tmp_path=tmp_path,
+    )
+    (item,) = [f for f in result.findings if f.data.get("check") == "unusual_ports"][0].data["items"]
+    assert "ssh_host" not in item
+
+
+def test_no_ssh_config_is_fine(tmp_path):
+    result, _ = _darwin_check([_SSH_OUT], tmp_path=tmp_path)
+    (item,) = [f for f in result.findings if f.data.get("check") == "unusual_ports"][0].data["items"]
+    assert item["direction"] == "out" and "ssh_host" not in item

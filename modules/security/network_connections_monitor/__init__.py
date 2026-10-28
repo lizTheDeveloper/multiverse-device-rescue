@@ -1,6 +1,9 @@
 from collections import defaultdict
+from pathlib import Path
 
 from rescue import command
+from rescue import netaddr
+from rescue.case import redact
 from rescue.models import (
     Action,
     CheckResult,
@@ -242,6 +245,138 @@ def _monitor_steps(platform: str) -> list[str]:
     ]
 
 
+# --- connection items: what the game's clue shows for each connection --------
+# Read-only and local: the connection list already gathered, one `ps` for the
+# few flagged programs (macOS and Linux), and the Host/HostName/Port lines of
+# ~/.ssh/config. Nothing else from the SSH settings is kept.
+
+ITEMS_MAX = 20
+# The flagged programs' parent and command line; the pids go on the end.
+PS_ARGS = ["ps", "-o", "pid=,ppid=,command=", "-p"]
+_COMMAND_MAX = 300
+_SSH_CONFIG_MAX = 64 * 1024
+
+
+def _listening(records: list[dict]) -> set:
+    """(proto, local port) of every listening socket."""
+    return {
+        (r.get("proto"), r.get("local_port"))
+        for r in records
+        if r.get("state") == "LISTEN" and r.get("local_port")
+    }
+
+
+def _scope(addr: str | None) -> str:
+    if netaddr.is_loopback(addr):
+        return "this computer"
+    return "public" if netaddr.is_public(addr) else "local network"
+
+
+def _process_details(pids, platform: str) -> dict:
+    """{pid: {"ppid", "command"}} from one `ps`; empty when it can't say."""
+    pids = sorted({p for p in pids if isinstance(p, int) and p > 0})
+    if not pids or platform not in ("darwin", "linux"):
+        return {}
+    result = command.run(
+        [*PS_ARGS, ",".join(str(p) for p in pids)], timeout=5
+    )
+    if result.returncode != 0 or not result.stdout:
+        return {}
+    out = {}
+    for line in result.stdout.splitlines():
+        parts = line.split(None, 2)
+        if len(parts) < 2 or not parts[0].isdigit() or not parts[1].isdigit():
+            continue
+        entry = {"ppid": int(parts[1])}
+        if len(parts) == 3 and parts[2].strip():
+            # Credential-shaped text (tokens, passwords, keys) never reaches the data.
+            entry["command"] = redact(parts[2].strip())[:_COMMAND_MAX]
+        out[int(parts[0])] = entry
+    return out
+
+
+def _ssh_hosts() -> list[tuple[str, str, int]]:
+    """(alias, HostName, Port) for each plain Host entry in ~/.ssh/config."""
+    try:
+        path = Path.home() / ".ssh" / "config"
+        if not path.is_file() or path.stat().st_size > _SSH_CONFIG_MAX:
+            return []
+        text = path.read_text(errors="replace")
+    except OSError:
+        return []
+    hosts: list[tuple[str, str, int]] = []
+    aliases: list[str] = []
+    fields: dict = {}
+
+    def flush():
+        for alias in aliases:
+            if not any(ch in alias for ch in "*?!"):
+                port = fields.get("port", "22")
+                if port.isdigit():
+                    hosts.append((alias, fields.get("hostname", alias), int(port)))
+
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        key, _, value = line.replace("=", " ", 1).partition(" ")
+        key, value = key.lower(), value.strip().strip('"')
+        if key in ("host", "match"):
+            flush()
+            aliases = value.split() if key == "host" else []
+            fields = {}
+        elif key in ("hostname", "port") and key not in fields:
+            fields[key] = value
+    flush()
+    return hosts
+
+
+def _ssh_host_for(item: dict, hosts) -> str | None:
+    for alias, hostname, port in hosts:
+        if port != item["remote_port"]:
+            continue
+        if hostname == item["remote_addr"]:
+            return alias
+        # A HostName that is a name, not an address: an `ssh <alias>` command line says which.
+        words = item.get("command", "").split()
+        if words and words[0].rsplit("/", 1)[-1] == "ssh" and alias in words[1:]:
+            return alias
+    return None
+
+
+def connection_items(conns: list[dict], records: list[dict], platform: str) -> list[dict]:
+    """One plain record per connection: direction, program, its parent and command, both ends."""
+    conns = conns[:ITEMS_MAX]
+    if not conns:
+        return []
+    listening = _listening(records)
+    details = _process_details([c["pid"] for c in conns], platform)
+    hosts = _ssh_hosts()
+    items = []
+    for c in conns:
+        r = c["record"]
+        item = {
+            # A connection to a port this computer listens on came in; any other went out.
+            "direction": "in" if (r.get("proto"), r.get("local_port")) in listening else "out",
+            "process": c["process"],
+            "pid": c["pid"],
+            "proto": r.get("proto"),
+            "local_addr": r.get("local_addr"),
+            "local_port": r.get("local_port"),
+            "remote_addr": c["remote_addr"],
+            "remote_port": c["port"],
+            "remote_scope": _scope(c["remote_addr"]),
+            "state": c["state"],
+        }
+        item.update(details.get(c["pid"], {}))
+        if item["direction"] == "out":
+            alias = _ssh_host_for(item, hosts)
+            if alias:
+                item["ssh_host"] = alias
+        items.append(item)
+    return items
+
+
 class Module(ModuleBase):
     name = "network_connections_monitor"
     category = "security"
@@ -292,8 +427,10 @@ class Module(ModuleBase):
 
         # Check for connections on backdoor ports
         backdoor_connections = []
+        backdoor_conns = []
         for conn in all_connections:
             if remote_backdoor(conn):
+                backdoor_conns.append(conn)
                 who = (
                     f"{conn['process']} (PID {conn['pid']})"
                     if conn["process"] is not None
@@ -325,6 +462,7 @@ class Module(ModuleBase):
                     data={
                         "check": "backdoor_ports",
                         "connections": backdoor_connections,
+                        "items": connection_items(backdoor_conns, snap["records"], platform),
                         "platform": platform,
                     },
                 )
@@ -398,6 +536,7 @@ class Module(ModuleBase):
 
         # Check for connections on unusual ports from unknown processes
         unusual_port_connections = []
+        unusual_conns = []
         push_port_connections = []
         claimed_connections = []
         for conn in connections:
@@ -423,6 +562,7 @@ class Module(ModuleBase):
                 continue
             if port not in LEGITIMATE_PORTS and port not in BACKDOOR_PORTS:
                 if port > 1024:  # Skip system ports
+                    unusual_conns.append(conn)
                     unusual_port_connections.append(
                         f"{conn['process']} -> {conn['remote_addr']}:{port}"
                     )
@@ -493,6 +633,7 @@ class Module(ModuleBase):
                     data={
                         "check": "unusual_ports",
                         "connections": unusual_port_connections,
+                        "items": connection_items(unusual_conns, snap["records"], platform),
                         "platform": platform,
                     },
                 )

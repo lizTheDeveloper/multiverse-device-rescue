@@ -1784,6 +1784,7 @@ Plus 1 command(s) built at runtime.
 lsof +c 0 -i -n -P
 nettop -P -L 1 -n -x -J bytes_in,bytes_out
 powershell -NoProfile -NonInteractive -Command …
+ps -o pid=,ppid=,command= -p
 ss -tniH
 ss -tunapH
 ```
