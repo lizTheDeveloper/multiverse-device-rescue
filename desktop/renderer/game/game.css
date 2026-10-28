@@ -647,3 +647,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, [role="button
 .radar-table thead th { font-family: var(--font-display); font-size: 10px; letter-spacing: 1.5px; color: var(--dim); }
 .g-cat .cat-chips, .g-cat-inline .cat-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 .cat-chip { text-align: left; }
+/* New and everyday open cases in the queue, so the queue gets the room the panel had. */
+@media (min-width: 1201px) { .frame.level-new .deck, .frame.level-everyday .deck { grid-template-columns: minmax(300px, 1.5fr) minmax(0, 1.7fr) minmax(220px, 1fr); } }
+@media (min-width: 901px) and (max-width: 1200px) { .frame.level-new .deck, .frame.level-everyday .deck { grid-template-columns: minmax(300px, 1.2fr) minmax(0, 1fr); } }

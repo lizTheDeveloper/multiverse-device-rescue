@@ -21,8 +21,8 @@ export function renderHud({ title, city, progress, counts, report = null }) {
     : `<span class="stat mag"><b>${t.critical}</b> <small>CRITICAL</small></span>
     <span class="stat amb"><b>${t.warning}</b> <small>WARNING</small></span>`}
     ${counts
-      ? `<span class="stat lime"><b>${Number(counts.confirmed) || 0}</b> <small>CONFIRMED</small></span>
-    <span class="stat cyan"><b>${Number(counts.reported) || 0}</b> <small>YOU REPORTED</small></span>`
+      ? `${!report || Number(counts.confirmed) ? `<span class="stat lime"><b>${Number(counts.confirmed) || 0}</b> <small>CONFIRMED</small></span>` : ''}
+    ${!report || Number(counts.reported) ? `<span class="stat cyan"><b>${Number(counts.reported) || 0}</b> <small>YOU REPORTED</small></span>` : ''}`
       : `<span class="stat lime"><b>${done}</b> <small>RECLAIMED</small></span>`}
     ${open && !report ? `<span class="stat grey"><b>${open}</b> <small>TO DO</small></span>` : ''}
     ${t.fog ? `<span class="stat grey"><b>${t.fog}</b> <small>COULDN’T CHECK</small></span>` : ''}
