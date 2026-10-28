@@ -49,7 +49,7 @@ _TIMEOUT = 10.0
 
 _OFFLINE_SOURCE = "/etc/ssh/sshd_config on the checked disk"
 _MAX_INCLUDES = 64
-_ENABLED_UNITS = ("ssh.service", "sshd.service")
+_ENABLED_UNITS = ("ssh.service", "sshd.service", "ssh.socket", "sshd.socket")
 _NOT_CHECKED = ["whether SSH was running"]
 
 # Values of PermitRootLogin that still allow a root session of some kind. Only
@@ -95,7 +95,9 @@ class Module(ModuleBase):
         target = profile.target
         not_checked = list(_NOT_CHECKED) if target is not None else []
         if target is not None:
-            config, source = self._offline_config(target)
+            config, source, capped = self._offline_config(target)
+            if capped:
+                not_checked.append(f"some SSH settings files (more than {_MAX_INCLUDES})")
         else:
             config, source = self._effective_config()
         if config is None:
@@ -280,28 +282,41 @@ class Module(ModuleBase):
 
     # ---- offline: read the disk, run nothing ----
 
-    def _offline_config(self, target: Target) -> tuple[dict[str, str] | None, str]:
+    def _offline_config(self, target: Target) -> tuple[dict[str, str] | None, str, bool]:
         """Parse sshd_config with each Include spliced in at its own line.
 
         sshd keeps the first value it sees for a keyword, and reads an Include
         where the line stands, so the order here is the order sshd reads.
+        Settings inside a Match block apply only to some connections, so they
+        never fill a global setting. The third value is True when more files
+        were included than this check reads.
         """
         try:
             main = target.read_text(self.sshd_config_path)
         except OSError:
-            return None, ""
+            return None, "", False
         seen = {self.sshd_config_path}
-        budget = [_MAX_INCLUDES]
-        lines = self._splice(main, target, seen, budget)
-        return self._parse("\n".join(lines), first_wins=True), _OFFLINE_SOURCE
+        state = {"budget": _MAX_INCLUDES, "capped": False}
+        lines = [raw for raw, in_match in self._splice(main, target, seen, state, False) if not in_match]
+        return self._parse("\n".join(lines), first_wins=True), _OFFLINE_SOURCE, state["capped"]
 
-    def _splice(self, text, target, seen, budget) -> list[str]:
-        """The lines of `text`, with Include lines replaced by the files they match."""
-        out: list[str] = []
+    def _splice(self, text, target, seen, state, in_match) -> list[tuple[str, bool]]:
+        """(line, inside a Match block) for `text`, with Include lines replaced
+        by the files they match.
+
+        A Match block runs until `Match all` or the end of the file it is in;
+        an included file starts in the context of the line that included it.
+        """
+        out: list[tuple[str, bool]] = []
         for raw in text.splitlines():
             words = raw.strip().split(None, 1)
-            if len(words) != 2 or words[0].lower() != "include":
-                out.append(raw)
+            keyword = words[0].lower() if words else ""
+            if keyword == "match":
+                rest = words[1].split("#", 1)[0].strip().lower() if len(words) == 2 else ""
+                in_match = rest != "all"
+                continue
+            if len(words) != 2 or keyword != "include":
+                out.append((raw, in_match))
                 continue
             try:
                 patterns = shlex.split(words[1])
@@ -309,15 +324,18 @@ class Module(ModuleBase):
                 patterns = words[1].split()
             for pattern in patterns:
                 for view in self._expand_include(pattern, target):
-                    if view in seen or budget[0] <= 0:
+                    if view in seen:
+                        continue
+                    if state["budget"] <= 0:
+                        state["capped"] = True
                         continue
                     seen.add(view)
-                    budget[0] -= 1
+                    state["budget"] -= 1
                     try:
                         sub = target.read_text(view)
                     except OSError:
                         continue
-                    out.extend(self._splice(sub, target, seen, budget))
+                    out.extend(self._splice(sub, target, seen, state, in_match))
         return out
 
     @staticmethod
@@ -340,10 +358,19 @@ class Module(ModuleBase):
 
     @staticmethod
     def _offline_enabled(target: Target) -> bool:
-        """True when ssh.service or sshd.service is an entry in a *.wants/ directory."""
+        """True when SSH is set to start automatically on the disk.
+
+        That is an ssh/sshd service or socket in any *.wants/ directory
+        (Ubuntu 22.10 and later enable ssh.socket in sockets.target.wants/),
+        or the sshd.service alias entry `systemctl enable ssh` leaves in
+        /etc/systemd/system.
+        """
         base = "/etc/systemd/system"
         try:
-            with os.scandir(target.resolve(base)) as top:
+            base_host = target.resolve(base)
+            if os.path.lexists(base_host / "sshd.service"):
+                return True
+            with os.scandir(base_host) as top:
                 wants = [e.name for e in top if e.name.endswith(".wants")]
         except OSError:
             return False
@@ -370,12 +397,17 @@ class Module(ModuleBase):
 
     @staticmethod
     def _parse(text: str, first_wins: bool = False) -> dict[str, str]:
-        """Parse `keyword value` lines; last occurrence wins, as sshd -T emits.
+        """Parse `keyword value` lines; by default the last occurrence wins, as sshd -T emits.
 
         For a hand-written config file sshd actually honours the *first*
         occurrence, but a file with the same keyword twice is already a
         configuration the operator should look at, and preferring the last line
         errs toward reporting the more permissive value rather than missing it.
+
+        `first_wins=True` keeps the first value instead, which is what sshd
+        does with a config file. The offline check uses it on the spliced
+        Include order with Match blocks already removed, so it reads the
+        global settings the way sshd would.
         """
         config: dict[str, str] = {}
         for raw in text.splitlines():

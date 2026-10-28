@@ -302,3 +302,66 @@ def test_ssh_offline_symlink_loop_config_does_not_raise(linux_disk):
     (ssh / "sshd_config").symlink_to("/etc/ssh/sshd_config")
     r = _run_offline(linux_disk)
     assert r.not_checked == ["whether SSH was running"]
+
+
+def _root_open(disk):
+    return [f for f in _run_offline(disk).findings if "root logins" in f.title]
+
+
+def test_ssh_offline_early_match_block_does_not_mask_later_global_yes(linux_disk):
+    _write_ssh(linux_disk, "Include sshd_config.d/*.conf\nPermitRootLogin yes\n",
+               {"00-match.conf": "Match User backup\n    PermitRootLogin no\n"})
+    assert _root_open(linux_disk)
+    # In the main file too: the Match block runs to the end of the file.
+    _write_ssh(linux_disk, "Match User x\n  PermitRootLogin no\n")
+    assert not _root_open(linux_disk)
+    _write_ssh(linux_disk, "Match User x\n  PermitRootLogin yes\n")
+    assert not _root_open(linux_disk)  # only inside the Match: not a global setting
+
+
+def test_ssh_offline_match_all_returns_to_global(linux_disk):
+    _write_ssh(linux_disk, "Match User x\n  PermitRootLogin no\nMatch all\nPermitRootLogin yes\n")
+    assert _root_open(linux_disk)
+
+
+def test_ssh_offline_match_in_include_ends_at_that_file(linux_disk):
+    _write_ssh(linux_disk, "Include sshd_config.d/*.conf\nPermitRootLogin yes\n",
+               {"00-a.conf": "Match Address 10.0.0.0/8\n"})
+    assert _root_open(linux_disk)
+
+
+def test_ssh_offline_include_inside_match_stays_in_match(linux_disk):
+    _write_ssh(linux_disk, "Match User x\nInclude sshd_config.d/*.conf\n",
+               {"00-a.conf": "PermitRootLogin yes\n"})
+    assert not _root_open(linux_disk)
+
+
+def test_ssh_offline_socket_activation_counts_as_enabled(linux_disk):
+    (linux_disk / "etc/systemd/system/multi-user.target.wants/ssh.service").unlink()
+    sockets = linux_disk / "etc/systemd/system/sockets.target.wants"
+    sockets.mkdir(parents=True)
+    (sockets / "ssh.socket").symlink_to("/lib/systemd/system/ssh.socket")
+    _write_ssh(linux_disk, "PermitRootLogin yes\n")
+    f = _root_open(linux_disk)[0]
+    assert "set to start automatically" in f.description
+    assert "isn't set" not in f.description
+    assert f.severity == Severity.CRITICAL  # same as the service-enabled case
+
+
+def test_ssh_offline_sshd_alias_counts_as_enabled(linux_disk):
+    (linux_disk / "etc/systemd/system/multi-user.target.wants/ssh.service").unlink()
+    (linux_disk / "etc/systemd/system/sshd.service").symlink_to("/lib/systemd/system/ssh.service")
+    _write_ssh(linux_disk, "PermitRootLogin yes\n")
+    assert _root_open(linux_disk)[0].severity == Severity.CRITICAL
+
+
+def test_ssh_offline_include_cap_is_reported_not_checked(linux_disk):
+    ssh = linux_disk / "etc/ssh"
+    (ssh / "d").mkdir(parents=True)
+    (ssh / "sshd_config").write_text("Include d/*.conf\n")
+    for i in range(65):
+        (ssh / "d" / f"{i:03d}.conf").write_text("PermitEmptyPasswords no\n")
+    r = _run_offline(linux_disk)
+    assert "some SSH settings files (more than 64)" in r.not_checked
+    (ssh / "d" / "064.conf").unlink()
+    assert "some SSH settings files (more than 64)" not in _run_offline(linux_disk).not_checked
