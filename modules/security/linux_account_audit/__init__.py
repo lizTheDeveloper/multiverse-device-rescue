@@ -54,6 +54,7 @@ class Module(ModuleBase):
     priority = 82
     depends_on = []
     estimated_duration = "10s"
+    offline_capable = True
 
     emits_codes = [
         "security.linux_account_audit.extra_uid0_account",
@@ -80,6 +81,7 @@ class Module(ModuleBase):
                 ),
             )
 
+        self._target = profile.target
         accounts = self._accounts()
         if accounts is None:
             return CheckResult(
@@ -94,9 +96,17 @@ class Module(ModuleBase):
         findings.append(self._admin_inventory(accounts))
         return CheckResult(module_name=self.name, findings=findings)
 
+    _target = None
+
+    def _read(self, raw: str) -> str:
+        """Read a file live, or through the mounted disk's own view of paths."""
+        if self._target is not None:
+            return self._target.read_text(raw)
+        return Path(raw).read_text(errors="replace")
+
     def _accounts(self) -> list[dict] | None:
         try:
-            text = Path(self.passwd_path).read_text(errors="replace")
+            text = self._read(self.passwd_path)
         except OSError:
             return None
         accounts = []
@@ -148,7 +158,7 @@ class Module(ModuleBase):
 
     def _password_findings(self, accounts: list[dict]) -> list[Finding]:
         try:
-            shadow = Path(self.shadow_path).read_text(errors="replace")
+            shadow = self._read(self.shadow_path)
         except OSError:
             return [
                 Finding(
@@ -203,18 +213,35 @@ class Module(ModuleBase):
 
     def _sudo_findings(self) -> list[Finding]:
         texts: list[tuple[str, str]] = []
-        if is_file_nofollow(self.sudoers_path):
+        if self._target is not None:
             try:
-                texts.append((self.sudoers_path, Path(self.sudoers_path).read_text(errors="replace")))
+                texts.append((self.sudoers_path, self._read(self.sudoers_path)))
             except OSError:
                 pass
-        if is_dir_nofollow(self.sudoers_dir):
             try:
-                for path in sorted(Path(self.sudoers_dir).iterdir()):
-                    if is_file_nofollow(path):
-                        texts.append((str(path), path.read_text(errors="replace")))
+                with os.scandir(self._target.resolve(self.sudoers_dir)) as it:
+                    names = sorted(e.name for e in it)
+                for name in names:
+                    path = f"{self.sudoers_dir}/{name}"
+                    try:
+                        texts.append((path, self._read(path)))
+                    except OSError:
+                        continue
             except OSError:
                 pass
+        else:
+            if is_file_nofollow(self.sudoers_path):
+                try:
+                    texts.append((self.sudoers_path, Path(self.sudoers_path).read_text(errors="replace")))
+                except OSError:
+                    pass
+            if is_dir_nofollow(self.sudoers_dir):
+                try:
+                    for path in sorted(Path(self.sudoers_dir).iterdir()):
+                        if is_file_nofollow(path):
+                            texts.append((str(path), path.read_text(errors="replace")))
+                except OSError:
+                    pass
 
         findings = []
         for path, text in texts:
@@ -252,7 +279,7 @@ class Module(ModuleBase):
     def _admin_inventory(self, accounts: list[dict]) -> Finding:
         members: dict[str, list[str]] = {}
         try:
-            for line in Path(self.group_path).read_text(errors="replace").splitlines():
+            for line in self._read(self.group_path).splitlines():
                 fields = line.split(":")
                 if len(fields) < 4 or fields[0] not in _ADMIN_GROUPS:
                     continue

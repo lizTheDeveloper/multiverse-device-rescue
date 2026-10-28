@@ -189,3 +189,29 @@ def test_missing_data_file_is_reported_as_unavailable_not_healthy():
         result = mod.check(_make_profile())
     assert result.error is not None
     assert not result.findings
+
+
+def test_stalkerware_offline_matches_installed_and_says_processes_unchecked(linux_disk):
+    from rescue.profiler.base import gather_target_profile
+
+    with open(linux_disk / "var/lib/dpkg/status", "a") as f:
+        f.write("Package: flexispy\nStatus: install ok installed\nVersion: 1\n\n")
+    result = _get_module().check(gather_target_profile(linux_disk, Platform.LINUX))
+    assert result.findings
+    assert "programs running right now" in result.not_checked
+
+
+def test_stalkerware_offline_clean_disk_still_lists_unchecked(linux_disk):
+    from rescue.profiler.base import gather_target_profile
+
+    result = _get_module().check(gather_target_profile(linux_disk, Platform.LINUX))
+    assert not result.findings
+    assert result.not_checked == ["programs running right now"]
+
+
+def test_stalkerware_live_profile_has_empty_not_checked():
+    assert _check(_get_module(), _make_profile()).not_checked == []
+
+
+def test_stalkerware_is_offline_capable():
+    assert _get_module().offline_capable is True
