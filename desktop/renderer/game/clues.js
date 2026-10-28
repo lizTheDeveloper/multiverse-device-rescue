@@ -332,8 +332,10 @@ function connNextClue(items, platform) {
   const x = items.find((i) => textOf(i.ssh_host)) || items.find((i) => i.direction === 'in') || items[0];
   const port = x.direction === 'in' ? portOf(x.local_port) : portOf(x.remote_port);
   const first = textOf(x.ssh_host) ? NET_NEXT.sshMine : x.direction === 'in' ? NET_NEXT.inbound : NET_NEXT.outMine;
+  // One finding can hold both kinds: an incoming connection is never left out.
+  const also = first !== NET_NEXT.inbound && items.some((i) => i.direction === 'in') ? [NET_NEXT.inbound.text] : [];
   return { kind: 'next', label: CLUE_LABEL.next, reading: null, move: true,
-    lines: [first.text, NET_NEXT.look.text, ...commandLines('conn', platform, x, port)] };
+    lines: [first.text, ...also, NET_NEXT.look.text, ...commandLines('conn', platform, x, port)] };
 }
 
 const REACH_LINE = {

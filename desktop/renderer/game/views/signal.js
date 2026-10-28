@@ -39,7 +39,7 @@ export function renderSignalPanel({ signal: sig, districtName = '', clues = [], 
     clueHtml = `<p class="intel">${esc(sig.description || 'This check couldn’t run.')}</p>
       <p class="intel">A check that couldn’t run checked nothing. That doesn’t mean it’s safe.</p>`;
   } else if (clues.length) {
-    clueHtml = `<ul class="clues">${clues.map((c) => clueItem(c, opened, sig)).join('')}</ul>${cluePoints(sig, points)}`;
+    clueHtml = `${cluePoints(sig, points)}<ul class="clues">${clues.map((c) => clueItem(c, opened, sig)).join('')}</ul>`;
   } else {
     clueHtml = '<p class="intel">The scan recorded no clues for this one. Its title is all there is to go on.</p>';
   }

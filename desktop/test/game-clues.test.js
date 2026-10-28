@@ -261,6 +261,15 @@ test('an incoming connection says IN and the local port; a public address says a
   assert.match(lineText(win.lines[2]), /Resource Monitor/);
 });
 
+test('a finding with an SSH session and an incoming connection names both in its next step', async () => {
+  const { cluesFor } = await load();
+  const inbound = { direction: 'in', process: 'sshd', pid: 4410, local_addr: '192.168.0.114', local_port: 22,
+    remote_addr: '203.0.113.9', remote_port: 51234, remote_scope: 'public', state: 'ESTABLISHED' };
+  const next = cluesFor(UNCOMMON([SSH_ITEM, inbound])).find((c) => c.kind === 'next');
+  assert.match(next.lines[0], /^If you started this SSH session/);
+  assert.match(next.lines[1], /^Another computer started this connection\./);
+});
+
 test('listening ports: the port, who can reach it, the program, and how to check it', async () => {
   const { cluesFor } = await load();
   const f = { title: 'A database service is open to your network (1 found)', severity: 'warning', code: 'security.open_ports_scan.exposed_risky_ports',
