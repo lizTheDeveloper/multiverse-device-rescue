@@ -11,7 +11,7 @@ const scan = (...mods) => ({ schema_version: 1, platform: 'darwin', modules: mod
 // opens in the ordinary panel; game-guided.test.js covers the walkthrough.
 const SEASONED = JSON.stringify({ version: 3, missions: {}, lessons: {}, deck: { points: 0, rank: 0, drills: { right: 0, tried: 0 }, tags: {},
   confirmed: {}, once: {}, sweep: { at: null, keys: {} }, sweeps: [], sorts: 50 } });
-const memStore = () => { const s = { 'device-rescue.game.v1': SEASONED }; return { getItem: (k) => (k in s ? s[k] : null), setItem: (k, v) => { s[k] = String(v); } }; };
+const memStore = () => { const s = { 'device-rescue.game.v1': SEASONED, 'device-rescue.level': 'technical' }; return { getItem: (k) => (k in s ? s[k] : null), setItem: (k, v) => { s[k] = String(v); } }; };
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
 function stubWin(recheckDocs) {

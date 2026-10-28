@@ -146,10 +146,14 @@ test('the district’s missions drop what’s marked, and point to YOURS', async
   assert.match(html, /1 MARKED AS YOURS/);
 });
 
-test('the signal panel and the briefing offer the same one-step MINE, with no long confirmation panel', async () => {
+test('an open case has one MINE (the verdict); the briefing offers the one-step mark, with no long confirmation panel', async () => {
   const t = await setup();
   t.click({ 'data-go': `signal:${t.idOf(2)}` });
-  assert.ok(t.html().includes(`data-act="mine:${attr(t.idOf(2))}"`));
+  // A first signal opens guided (guided.js); its call is the game's MINE.
+  const open = t.html().split('class="sig-panel')[1].split('</section>\n  </li>')[0];
+  t.click({ 'data-act': 'guide-call' });
+  assert.match(t.html().split('class="sig-panel')[1], /data-act="tag:mine"/);
+  assert.ok(!open.includes(`data-act="mine:${attr(t.idOf(2))}"`), 'never two MINE buttons on one case');
   assert.doesNotMatch(t.html(), /data-mark-panel/);
   t.click({ 'data-go': `mission:${t.idOf(2)}` });
   assert.ok(t.html().includes(`data-act="mine:${attr(t.idOf(2))}"`));

@@ -600,3 +600,36 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, [role="button
 .arrival.sev-warning { border-left: 3px solid var(--amber); }
 .arrival:hover, .arrival:focus-visible { border-color: var(--cyan); }
 .cmds-from { margin: 4px 0 0; }
+/* A case open in its own row (new, everyday): no panel across the screen. */
+.sig-panel.inline { position: static; inset: auto; width: auto; max-height: none; overflow: visible; box-shadow: 0 0 0 1px rgba(0,229,255,0.25); z-index: auto; padding: 14px; }
+.open-row { list-style: none; }
+.g-body { min-height: 8.5em; display: grid; gap: 8px; align-content: start; }
+.g-verdict { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.g-verdict .btn-s { min-height: 48px; width: 100%; justify-content: center; padding: 6px 4px; font-size: 11px; letter-spacing: 1px; line-height: 1.2; text-align: center; }
+.sig-panel.inline .m-title { font-size: 17px; line-height: 1.35; overflow-wrap: anywhere; }
+.sig-panel.inline .sig-head { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.g-cat-inline { display: grid; gap: 8px; }
+.g-cat-inline .label { margin: 0; }
+.g-cat-inline .cat-chip.suggested { order: -1; }
+.g-done { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; padding: 6px 10px; font-size: 14px; color: var(--dim);
+  border-left: 3px solid var(--lime); background: rgba(198,255,0,0.06); animation: g-pop 0.25s ease-out; }
+.g-done b { color: var(--lime); font-family: var(--font-display); font-size: 11px; letter-spacing: 1px; }
+.g-done-xp { color: var(--lime); }
+.g-done .btn-t { margin-left: auto; font-family: var(--font-display); font-size: 11px; letter-spacing: 1px; }
+.g-check { margin: 0; color: var(--offwhite); }
+.badge.case { white-space: normal; }
+.badge.case.pri-high { color: var(--magenta); background: rgba(255,45,155,0.1); border-color: rgba(255,45,155,0.3); }
+.badge.case.pri-medium { color: var(--amber); background: rgba(255,159,0,0.1); border-color: rgba(255,159,0,0.3); }
+.badge.case.pri-low { color: var(--dim); }
+/* The incident report (new, everyday): its line over the queue, the upkeep corner, the scoreboard. */
+.case-report { margin: 0; font-size: 14px; color: var(--offwhite); line-height: 1.5; }
+.upkeep summary { cursor: pointer; }
+.scoreboard { display: grid; gap: 8px; align-content: start; }
+.scoreboard .label { margin: 6px 0 0; }
+.sb-big { margin: 0; font-family: var(--font-display); color: var(--lime); }
+.sb-big b { font-size: 40px; }
+.sb-big small { font-size: 18px; color: var(--dim); }
+.sb-bar i { background: var(--lime); }
+.sb-small, .sb-session { margin: 0; font-size: 14px; color: var(--dim); }
+.sb-small b, .sb-session b { color: var(--offwhite); }
+.moment-recap { border-left-color: var(--cyan); }

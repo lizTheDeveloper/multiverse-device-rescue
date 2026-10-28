@@ -19,11 +19,16 @@ function clock(iso, withDate = false) {
   return withDate ? d.toLocaleString() : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-export function signalRow(sig, districtName = () => '', { extra = '', chips = '' } = {}) {
+// `open`: the case open in its own row (views/guided.js inlineCaseHtml), in place of the row.
+// `badge`: the case's badge (new, everyday) in place of the severity's.
+export function signalRow(sig, districtName = () => '', { extra = '', chips = '', open = '', badge = '' } = {}) {
+  if (open) return `<li class="open-row">${open}</li>`;
   const drill = sig.kind === 'drill';
+  const echoes = Array.isArray(sig.also) && sig.also.length ? `<span class="badge skip" title="Reported by ${sig.also.length + 1} checks">×${sig.also.length + 1}</span>` : '';
   const badges = [
     drill ? '<span class="badge drill-stamp">DRILL</span>' : '',
-    SEV_BADGE[sig.severity] || '',
+    (drill ? '' : badge) || SEV_BADGE[sig.severity] || '',
+    echoes,
     sig.marked ? '<span class="badge yours">MARKED</span>' : '',
     sig.tag === 'closer' ? '<span class="badge cyan">LOOK CLOSER</span>' : '',
     sig.stale ? '<span class="badge warn">CHANGED SINCE YOU MARKED IT</span>' : '',
@@ -46,7 +51,7 @@ export function nextMoveHtml(sig) {
 
 export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOpen = false, threats = [], known = [], filter = null,
   cityHtml = '', instrumentsHtml = '', log = [], moment = null, moments = [], panelHtml = '', nothingChecked = false, scanRunning = false, watching = false,
-  districtName = () => '', notice = '', heldLine = '', rowParts = () => ({}), queueTop = '', pickerHtml = '' }) {
+  districtName = () => '', notice = '', heldLine = '', rowParts = () => ({}), queueTop = '', pickerHtml = '', reportHtml = '', upkeep = [] }) {
   const dn = districtName;
   // While the Signal or Noise panel is open, the deck behind it is inert:
   // Tab stays in the panel, and Escape (or BACK TO THE DECK) closes it.
@@ -106,8 +111,10 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   return `${top}${pickerHtml}${notice}${momentHtml}
   <div class="deck"${behind}>
     <aside class="deck-queue" aria-label="Incoming signals">
-      <h2 class="label">INCOMING SIGNALS</h2>${queueTop}${head}${blank}${next}
+      <h2 class="label">INCOMING SIGNALS</h2>${reportHtml}${queueTop}${head}${blank}${next}
       <ul class="queue">${items.map((x) => signalRow(x, dn, rowParts(x))).join('')}${lowHtml}</ul>
+      ${upkeep.length ? `<details class="panel upkeep"><summary class="label">UPKEEP (${upkeep.length}) · TIDY-UPS, NOT THREATS</summary>
+        <ul class="queue">${upkeep.map((x) => signalRow(x, dn, rowParts(x))).join('')}</ul></details>` : ''}
       ${threatHtml}${knownHtml}
       <button type="button" class="btn-s lime" data-go="range">DRILL RANGE ▶</button>
     </aside>

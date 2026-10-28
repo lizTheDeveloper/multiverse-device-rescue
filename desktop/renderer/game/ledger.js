@@ -92,6 +92,19 @@ export function setTag(deck, id, tag, fp, now, cat = null) {
   return { ...d, tags: { ...d.tags, [id]: rec } };
 }
 
+// UNDO of a verdict: the tag record it replaced goes back, or none. A record
+// that isn't a valid tag is never put back. Points are never taken back.
+export function restoreTag(deck, id, rec) {
+  const d = deckOf(deck);
+  if (typeof id !== 'string' || id === '') return d;
+  const tags = { ...d.tags };
+  delete tags[id];
+  const ok = rec && TAGS.has(rec.tag) && typeof rec.at === 'string' && typeof rec.fp === 'string'
+    && (rec.cat === undefined || (rec.tag === 'mine' && OWN_CATEGORY_IDS.has(rec.cat)));
+  if (ok) tags[id] = { tag: rec.tag, at: rec.at, fp: rec.fp, ...(rec.cat === undefined ? {} : { cat: rec.cat }) };
+  return { ...d, tags };
+}
+
 // A watch finding's tag: the same record, in a map kept in memory for this
 // session. `withSessionTags` lays them over the deck's own for display.
 export function sessionTag(session, id, tag, fp, now) {

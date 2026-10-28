@@ -64,6 +64,7 @@ export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, 
     ? `<p class="checking" role="status" aria-live="polite">${esc(SCOUT.checking)} Checking again…</p>`
     : `<div class="row">
         <button type="button" class="btn-s" data-act="i-did-it">I DID IT MYSELF</button>
+        <button type="button" class="btn-s" data-act="check-again">CHECK AGAIN ⟳</button>
         <button type="button" class="btn-t" data-act="later">LATER</button>
       </div>`;
   return `
