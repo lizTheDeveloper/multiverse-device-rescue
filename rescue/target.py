@@ -7,6 +7,7 @@ root, never against the computer doing the checking.
 from __future__ import annotations
 
 import os
+import stat
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,7 +16,7 @@ from rescue.models import Platform
 MAX_SYMLINK_HOPS = 40
 
 
-class TargetError(Exception):
+class TargetError(OSError):
     pass
 
 
@@ -55,7 +56,39 @@ class Target:
                 pending = link.split("/") + pending
             else:
                 done.append(part)
-        return self.root.joinpath(*done)
+        result = self.root.joinpath(*done)
+        root_s = os.path.normpath(str(self.root))
+        result_s = os.path.normpath(str(result))
+        if os.path.commonpath([root_s, result_s]) != root_s:
+            raise TargetError(f"{path} resolved outside {self.root}")
+        return result
+
+    def read_text(self, path: str, limit: int = 1_000_000) -> str:
+        """Read at most `limit` bytes of a regular file on the target.
+
+        The disk is untrusted: a FIFO or device node at the path would block
+        or misbehave, so anything but a regular file is refused.
+        """
+        host = self.resolve(path)
+        try:
+            if not stat.S_ISREG(os.stat(host).st_mode):
+                raise TargetError(f"{path} is not a regular file")
+            fd = os.open(host, os.O_RDONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0))
+        except TargetError:
+            raise
+        except OSError as exc:
+            raise TargetError(f"Cannot read {path}: {exc}") from exc
+        try:
+            if not stat.S_ISREG(os.fstat(fd).st_mode):
+                raise TargetError(f"{path} is not a regular file")
+            data = os.read(fd, limit)
+        except TargetError:
+            raise
+        except OSError as exc:
+            raise TargetError(f"Cannot read {path}: {exc}") from exc
+        finally:
+            os.close(fd)
+        return data.decode("utf-8", errors="replace")
 
     def display(self, host_path: Path) -> str:
         """Turn a host path under `root` back into the target's view."""
@@ -68,8 +101,8 @@ class Target:
     def user_homes(self) -> list[tuple[str, Path]]:
         """(username, home) for root and regular users in the target's passwd."""
         try:
-            text = self.resolve("/etc/passwd").read_text(errors="replace")
-        except (OSError, TargetError):
+            text = self.read_text("/etc/passwd")
+        except OSError:
             return []
         homes: list[tuple[str, Path]] = []
         for line in text.splitlines():
@@ -97,7 +130,13 @@ class Target:
         """`~/x` gives one path per user home; anything else resolves once."""
         if path.startswith("~/"):
             rest = path[2:]
-            return [self._under(home, rest) for _, home in self.user_homes()]
+            paths = []
+            for _, home in self.user_homes():
+                try:
+                    paths.append(self._under(home, rest))
+                except TargetError:
+                    continue
+            return paths
         return [self.resolve(path)]
 
     def _under(self, home: Path, rest: str) -> Path:

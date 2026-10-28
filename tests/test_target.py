@@ -118,3 +118,32 @@ def test_check_result_not_checked_defaults_empty():
 
 def test_profile_target_defaults_none():
     assert SystemProfile(Platform.LINUX, "", "", "", "", 0, 0).target is None
+
+
+def test_read_text_refuses_fifo(disk):
+    (disk / "etc" / "passwd").unlink()
+    os.mkfifo(disk / "etc" / "passwd")
+    t = target(disk)
+    assert t.user_homes() == []
+    with pytest.raises(TargetError):
+        t.read_text("/etc/passwd")
+
+
+def test_read_text_caps_size(disk):
+    (disk / "etc" / "big").write_text("a" * 5000)
+    assert target(disk).read_text("/etc/big", limit=100) == "a" * 100
+
+
+def test_read_text_missing_raises_target_error(disk):
+    with pytest.raises(TargetError):
+        target(disk).read_text("/etc/nope")
+
+
+def test_target_error_is_oserror():
+    assert issubclass(TargetError, OSError)
+
+
+def test_expand_skips_a_home_that_fails_to_resolve(disk):
+    os.symlink("/loop2", disk / "home" / "sam" / ".bashrc")
+    os.symlink("/home/sam/.bashrc", disk / "loop2")
+    assert target(disk).expand("~/.bashrc") == [disk / "root" / ".bashrc"]
