@@ -1007,7 +1007,7 @@ test('the sweep names the check running now, why, and where; finished checks go 
   t.ctl.scanEvent(mprog('done', 1, 3, 'launch_agent_audit', 'security', { findings: 2, supported: true, error: null }));
   t.ctl.scanEvent(mprog('done', 2, 3, 'firewall_audit', 'security', { findings: 0, supported: false, error: null }));
   html = t.html();
-  assert.match(html, /SWEEP LOG[\s\S]*COULDN’T CHECK<\/span> Whether the built-in firewall is on[\s\S]*2 NOTED<\/span> Programs set to start on their own/, 'newest first');
+  assert.match(html, /SWEEP LOG[\s\S]*Whether the built-in firewall is on<\/span><span class="badge fog">COULDN’T CHECK[\s\S]*Programs set to start on their own<\/span><span class="badge amb">2 NOTED/, 'newest first');
   assert.match(html, /<b>1<\/b> <small>COULDN’T CHECK/);
   assert.match(html, /Starting the next check/);
 });

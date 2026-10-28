@@ -9,7 +9,7 @@ import { noteFor, logLine } from '../sweep.js';
 import { DISTRICTS, OUTSKIRTS, districtIdFor } from '../findings-to-city.js';
 
 const LABEL = { sweeping: 'SWEEPING', swept: 'SWEPT', waiting: 'WAITING' };
-export const SWEEP_LOG_SHOWN = 14;
+export const SWEEP_LOG_SHOWN = 10;
 
 function skyline() {
   return '<div class="skyline" aria-hidden="true"><img src="assets/iso_occupied.png" alt=""><img class="tower" src="assets/iso_tower_occ.png" alt=""></div>';
@@ -115,7 +115,7 @@ function logPanel(boss) {
   const rows = entries.map((e) => {
     const l = logLine(e);
     const badge = l.tone === 'noted' ? 'amb' : l.tone === 'couldnt' ? 'fog' : 'skip';
-    return `<li><span class="log-n">${e.index ? esc(e.index) : ''}</span> <span class="badge ${badge}">${esc(l.result.toUpperCase())}</span> ${esc(l.what)}${l.module ? ` <code>${esc(l.module)}</code>` : ''}</li>`;
+    return `<li><span class="log-n">${e.index ? esc(e.index) : ''}</span><span class="log-what">${esc(l.what)}</span><span class="badge ${badge}">${esc(l.result.toUpperCase())}</span>${l.module ? `<code>${esc(l.module)}</code>` : ''}</li>`;
   }).join('');
   const more = (boss.log || []).length > SWEEP_LOG_SHOWN ? `<p class="intel">And ${boss.log.length - SWEEP_LOG_SHOWN} earlier.</p>` : '';
   return `
