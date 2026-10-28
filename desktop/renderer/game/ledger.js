@@ -9,11 +9,12 @@
 // (sessionTag), so nothing about it reaches the progress store.
 //
 // Every award has a key, and a key pays once: lifetime keys (fix, report,
-// drill) or keys for the current sweep (clue, tag bonus, clean sweep). So
+// drill, identify) or keys for the current sweep (clue, tag bonus, clean sweep). So
 // re-tagging, re-opening or re-sweeping can't farm points.
 import { emptyDeck, TAGS, SWEEP_FIELDS, validDeck } from './progress.js';
+import { OWN_CATEGORY_IDS } from './own-categories.js';
 
-export const POINTS = { clue: 5, tagBonus: 10, drill: 15, drillClueBonus: 5, fix: 50, report: 20, clean: 40 };
+export const POINTS = { clue: 5, tagBonus: 10, drill: 15, drillClueBonus: 5, fix: 50, report: 20, clean: 40, identify: 10 };
 export const RANKS = [
   { name: 'ROOKIE', min: 0 },
   { name: 'SIGNAL ANALYST', min: 100 },
@@ -26,7 +27,9 @@ export const MONITORING_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan
 // The connection watch's module (desktop/watch.js WATCH_MODULE).
 export const WATCH_MODULE = 'connection_watch';
 export const MAX_SWEEPS = 20;
-const LIFETIME = new Set(['fix', 'report', 'drill']);
+// `identify`: saying what a thing marked as yours is for (own-categories.js),
+// once per thing, and only after looking at its clues (the controller checks).
+const LIFETIME = new Set(['fix', 'report', 'drill', 'identify']);
 const PER_SWEEP = new Set(['clue', 'tagBonus', 'clean']);
 
 const deckOf = (deck) => (validDeck(deck) ? deck : emptyDeck());
@@ -80,10 +83,13 @@ export function award(deck, kind, key, extra = 0) {
 
 // Game sorting only: a tag changes nothing on the computer. `fp` is the
 // finding's fingerprint (signals.js): when it changes, the tag stops applying.
-export function setTag(deck, id, tag, fp, now) {
+// `cat`: what a MINE item is for (own-categories.js); dropped on any other tag.
+export function setTag(deck, id, tag, fp, now, cat = null) {
   const d = deckOf(deck);
   if (typeof id !== 'string' || id === '' || !TAGS.has(tag) || unscored(id)) return d;
-  return { ...d, tags: { ...d.tags, [id]: { tag, at: String(now), fp: String(fp == null ? '' : fp) } } };
+  const rec = { tag, at: String(now), fp: String(fp == null ? '' : fp) };
+  if (tag === 'mine' && OWN_CATEGORY_IDS.has(cat)) rec.cat = cat;
+  return { ...d, tags: { ...d.tags, [id]: rec } };
 }
 
 // A watch finding's tag: the same record, in a map kept in memory for this

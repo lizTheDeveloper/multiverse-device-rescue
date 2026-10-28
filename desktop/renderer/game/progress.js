@@ -9,6 +9,7 @@
 // The key keeps its v1 name so a saved Plan A store is found and migrated.
 // monitoringSeen is never stored here: app.js keeps it in memory only.
 import { HELD_MODULES } from './held.js';
+import { OWN_CATEGORY_IDS } from './own-categories.js';
 
 export const STORE_KEY = 'device-rescue.game.v1';
 const STATUSES = new Set(['open', 'later', 'yours', 'reclaimed']);
@@ -50,7 +51,8 @@ const sweepFieldsOk = (w) => plainObject(w) && typeof w.at === 'string' && SWEEP
 export function validDeck(d) {
   return plainObject(d) && count(d.points) && count(d.rank)
     && plainObject(d.drills) && count(d.drills.right) && count(d.drills.tried)
-    && plainObject(d.tags) && Object.values(d.tags).every((t) => plainObject(t) && TAGS.has(t.tag) && typeof t.at === 'string' && typeof t.fp === 'string')
+    && plainObject(d.tags) && Object.values(d.tags).every((t) => plainObject(t) && TAGS.has(t.tag) && typeof t.at === 'string' && typeof t.fp === 'string'
+      && (t.cat === undefined || (t.tag === 'mine' && OWN_CATEGORY_IDS.has(t.cat))))
     && plainObject(d.confirmed) && Object.values(d.confirmed).every((v) => typeof v === 'string')
     && plainObject(d.once) && Object.values(d.once).every((v) => v === true)
     && plainObject(d.sweep) && (d.sweep.at === null || typeof d.sweep.at === 'string') && plainObject(d.sweep.keys)
@@ -69,7 +71,8 @@ export function cleanDeck(d) {
     points: d.points,
     rank: d.rank,
     drills: { right: d.drills.right, tried: d.drills.tried },
-    tags: map(d.tags, (t) => ({ tag: t.tag, at: t.at, fp: t.fp })),
+    // `cat`: what a MINE item is for, from own-categories.js's fixed list.
+    tags: map(d.tags, (t) => ({ tag: t.tag, at: t.at, fp: t.fp, ...(t.cat === undefined ? {} : { cat: t.cat }) })),
     confirmed: map(d.confirmed, (v) => v),
     once: map(d.once, () => true),
     // `carry`: this sweep carries something the game holds (held.js). A bare
