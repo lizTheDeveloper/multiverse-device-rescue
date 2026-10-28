@@ -92,6 +92,7 @@ normal.
       "error": null,
       "supported": true,              // false = could not run here; NOT clean
       "unsupported_reason": null,
+      "not_checked": [],              // parts of this check that couldn't be done here; NOT clean
       "findings": [
         {
           "title": "…",
@@ -116,6 +117,8 @@ normal.
 
 - Sort by severity. Most real scans produce plenty of `info` findings, so
   lead with `critical`, then `warning`.
+- A module with entries in `not_checked` didn't fully check. Name those parts
+  as not checked, even when it has no findings.
 - A finding `code` maps to a step-by-step fix in
   [docs/REMEDIATION_CATALOG.md](docs/REMEDIATION_CATALOG.md). Use that text
   rather than improvising a fix.

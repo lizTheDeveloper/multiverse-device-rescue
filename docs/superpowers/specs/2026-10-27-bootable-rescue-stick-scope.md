@@ -322,6 +322,13 @@ check an iPhone.
   partitions to a whole drive (today it only copies files), with the same
   refuse-internal-disk check and a typed confirmation, because it erases the
   stick.
+- **Before Phase 2 ships:**
+  - An offline copy pass: no finding or walkthrough for a disk result tells
+    the person to run a fix-style command or to "re-run with sudo", since on
+    the stick those would act on the stick, not the disk. That includes the
+    commands in the remediation catalog.
+  - The desktop app shows each check's `not_checked` list.
+  - The app offers no re-check, fix or "It's mine" on disk results.
 
 **Phase 3: the Mac partition.**
 - **Spike first:**
