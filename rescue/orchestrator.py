@@ -4,7 +4,7 @@ import threading
 import time
 from typing import Callable, TypeVar
 
-from rescue.models import CheckResult, FixResult, Mode, RiskLevel
+from rescue.models import CheckResult, FixResult, Mode, RiskLevel, SystemProfile
 from rescue.module_base import ModuleBase
 from rescue.profiler.base import gather_profile
 from rescue.profiles import Profile, filter_modules_by_profile, validate_profile_modules
@@ -17,6 +17,11 @@ logger = logging.getLogger(__name__)
 DEFAULT_MODULE_TIMEOUT = 60.0
 
 _T = TypeVar("_T")
+
+OFFLINE_UNSUPPORTED_REASON = (
+    "This check needs the computer's own system to be running, "
+    "so it can't look at a disk from outside."
+)
 
 
 def _apply_item_marks(module_name: str, findings: list, marks, supported: bool = True):
@@ -89,7 +94,9 @@ class Orchestrator:
         *,
         module_timeout: float | None = None,
         total_budget: float | None = None,
+        system_profile: SystemProfile | None = None,
     ):
+        self._system_profile = system_profile
         self._modules_dir = modules_dir
         self._profile = profile
         self._module_timeout = module_timeout
@@ -109,7 +116,8 @@ class Orchestrator:
         with phase "start" before each module (check is None) and "done" after
         it, so a caller can say what is happening during a long scan.
         """
-        profile = gather_profile()
+        profile = self._system_profile or gather_profile()
+        offline = profile.target is not None
         modules = discover_modules(self._modules_dir)
 
         if self._profile is not None:
@@ -147,6 +155,16 @@ class Orchestrator:
                 report("done", index, total, mod, results[-1][1])
                 continue
             report("start", index, total, mod, None)
+            if offline and not getattr(mod, "offline_capable", False):
+                # Not asked at all: it would describe this computer, not the disk.
+                check = CheckResult(
+                    module_name=mod.name,
+                    supported=False,
+                    unsupported_reason=OFFLINE_UNSUPPORTED_REASON,
+                )
+                results.append((mod, check))
+                report("done", index, total, mod, check)
+                continue
             try:
                 check = _call_with_timeout(
                     lambda m=mod: m.check(profile), self._timeout_for(mod)
@@ -157,7 +175,7 @@ class Orchestrator:
             except Exception as exc:
                 logger.exception("Module check failed: %s", mod.name)
                 check = CheckResult(module_name=mod.name, error=str(exc))
-            if not check.error:
+            if not check.error and not offline:
                 marks = _apply_item_marks(mod.name, check.findings, marks, getattr(check, "supported", True))
             results.append((mod, check))
             report("done", index, total, mod, check)

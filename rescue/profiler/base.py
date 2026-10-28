@@ -25,3 +25,26 @@ def gather_profile() -> SystemProfile:
         from rescue.profiler.linux import gather_linux_profile
         return gather_linux_profile()
     raise RuntimeError("Unsupported platform (should not be reached)")
+
+
+def gather_target_profile(root, os: Platform) -> SystemProfile:
+    """Describe the disk mounted at `root` instead of the running computer."""
+    from pathlib import Path
+
+    from rescue.target import Target, TargetError
+
+    if os != Platform.LINUX:
+        raise TargetError(
+            "Checking a Windows or Mac disk from outside isn't built yet. "
+            "Only --target-os linux works so far."
+        )
+    root = Path(root)
+    target = Target(root=root, os=os)
+    if not any((root / "etc" / name).exists() for name in ("os-release", "passwd")):
+        raise TargetError(
+            f"{root} doesn't look like a Linux system disk "
+            "(no /etc/os-release or /etc/passwd)."
+        )
+    from rescue.profiler.target_linux import gather_linux_target_profile
+
+    return gather_linux_target_profile(target)
