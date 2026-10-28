@@ -237,3 +237,68 @@ def test_ssh_offline_include_cap(linux_disk):
     with _no_host_commands(mod):
         r = mod.check(_offline(linux_disk))
     assert "security.linux_ssh_hardening.empty_passwords_permitted" not in _codes(r)
+
+
+def _write_ssh(disk, main, dropins=None):
+    ssh = disk / "etc/ssh"
+    (ssh / "sshd_config.d").mkdir(parents=True, exist_ok=True)
+    (ssh / "sshd_config").write_text(main)
+    for name, text in (dropins or {}).items():
+        (ssh / "sshd_config.d" / name).write_text(text)
+
+
+def _run_offline(disk):
+    mod = _get_module()
+    with _no_host_commands(mod):
+        return mod.check(_offline(disk))
+
+
+def test_ssh_offline_password_auth_copy_says_starts_automatically(linux_disk):
+    _write_ssh(linux_disk, "PasswordAuthentication yes\n")
+    f = next(f for f in _run_offline(linux_disk).findings if "password logins" in f.title)
+    assert "set to start automatically" in f.description
+    assert "currently active" not in f.description
+    (linux_disk / "etc/systemd/system/multi-user.target.wants/ssh.service").unlink()
+    f = next(f for f in _run_offline(linux_disk).findings if "password logins" in f.title)
+    assert "isn't set to start automatically" in f.description
+
+
+def test_ssh_offline_listening_copy_makes_no_runtime_claim(linux_disk):
+    _write_ssh(linux_disk, "PermitRootLogin no\n")
+    f = next(f for f in _run_offline(linux_disk).findings if "open to all" in f.title)
+    assert "bound" not in f.description
+    assert "once SSH starts" in f.description
+
+
+def test_ssh_offline_data_has_sshd_enabled_not_running(linux_disk):
+    _write_ssh(linux_disk, "PermitRootLogin yes\nPasswordAuthentication yes\n")
+    checked = 0
+    for f in _run_offline(linux_disk).findings:
+        if f.data["check"] in ("root_login_permitted", "password_auth_enabled"):
+            checked += 1
+            assert f.data["sshd_enabled"] is True
+            assert "sshd_running" not in f.data
+    assert checked == 2
+
+
+def test_ssh_offline_main_setting_before_include_wins(linux_disk):
+    _write_ssh(linux_disk, "PermitRootLogin no\nInclude sshd_config.d/*.conf\n",
+               {"50-x.conf": "PermitRootLogin yes\n"})
+    assert not [f for f in _run_offline(linux_disk).findings if "root logins" in f.title]
+
+
+def test_ssh_offline_first_dropin_wins(linux_disk):
+    _write_ssh(linux_disk, "Include sshd_config.d/*.conf\n",
+               {"00-a.conf": "PermitRootLogin yes\n", "99-b.conf": "PermitRootLogin no\n"})
+    assert [f for f in _run_offline(linux_disk).findings if "root logins" in f.title]
+    _write_ssh(linux_disk, "Include sshd_config.d/*.conf\n",
+               {"00-a.conf": "PermitRootLogin no\n", "99-b.conf": "PermitRootLogin yes\n"})
+    assert not [f for f in _run_offline(linux_disk).findings if "root logins" in f.title]
+
+
+def test_ssh_offline_symlink_loop_config_does_not_raise(linux_disk):
+    ssh = linux_disk / "etc/ssh"
+    ssh.mkdir(parents=True)
+    (ssh / "sshd_config").symlink_to("/etc/ssh/sshd_config")
+    r = _run_offline(linux_disk)
+    assert r.not_checked == ["whether SSH was running"]

@@ -6,6 +6,8 @@ import os
 from click.testing import CliRunner
 
 from rescue.cli import main
+from rescue.known_items import KnownItemsStore, item_identity
+from rescue.models import Finding, Severity
 
 OFFLINE_CAPABLE_EXPECTED = {
     "linux_account_audit",
@@ -29,7 +31,17 @@ def test_offline_scan_end_to_end(linux_disk, tmp_path, monkeypatch):
     home = tmp_path / "host-home"
     (home / ".rescue").mkdir(parents=True)
     known = home / ".rescue/known_items.json"
-    known.write_text('{"version": 1, "items": []}')
+    # a real mark on a network proxy that this disk doesn't have: a live scan
+    # would retire it, an offline one must leave the list alone
+    store = KnownItemsStore(known)
+    hit = item_identity(Finding(
+        title="Proxy", description="d", severity=Severity.WARNING, category="security",
+        code="security.network_proxy.proxy_enabled",
+        data={"check": "proxy_enabled", "interface": "Wi-Fi", "proxy_servers": ["HTTP proxy.example:8080"]},
+    ))
+    assert hit and hit[0] == "network_proxy"
+    store.add("network_proxy", hit[1], via="test")
+    assert store.load()
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("RESCUE_KNOWN_ITEMS", str(known))
     before = known.read_bytes()
@@ -55,4 +67,7 @@ def test_offline_scan_end_to_end(linux_disk, tmp_path, monkeypatch):
         m["supported"] is False for n, m in mods.items() if n not in OFFLINE_CAPABLE_EXPECTED
     )
     assert known.read_bytes() == before
+    assert not [
+        f for m in doc["modules"] for f in m["findings"] if f["title"].startswith("No longer marked")
+    ]
     assert snapshot_tree(linux_disk) == snapshot_before

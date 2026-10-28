@@ -100,7 +100,10 @@ class Module(ModuleBase):
             config, source = self._effective_config()
         if config is None:
             if target is not None:
-                exists = os.path.lexists(target.resolve(self.sshd_config_path))
+                try:
+                    exists = os.path.lexists(target.resolve(self.sshd_config_path))
+                except OSError:
+                    exists = True  # a link loop is something there, just unreadable
             else:
                 exists = is_file_nofollow(self.sshd_config_path)
             if not exists:
@@ -128,6 +131,8 @@ class Module(ModuleBase):
             )
 
         running = self._offline_enabled(target) if target is not None else self._sshd_running()
+        # Offline, "running" only means "set to start automatically".
+        state = {"sshd_enabled": running} if target is not None else {"sshd_running": running}
         confidence = 0.95 if source == "sshd -T" else 0.7
         findings: list[Finding] = []
 
@@ -151,7 +156,7 @@ class Module(ModuleBase):
                     category=self.category,
                     code="security.linux_ssh_hardening.root_login_permitted",
                     confidence=confidence,
-                    data={"check": "root_login_permitted", "value": root_login, "sshd_running": running, "source": source},
+                    data={"check": "root_login_permitted", "value": root_login, **state, "source": source},
                 )
             )
         elif root_login in _ROOT_LOGIN_KEYS_ONLY:
@@ -178,8 +183,9 @@ class Module(ModuleBase):
                     description=(
                         "Your computer is set up to accept logins using a password if "
                         "someone connects to it remotely. "
-                        + ("This is currently active because the service is running." if running else
-                        "This is not currently active because the service is off.")
+                        + (self._offline_sentence(running) if target is not None else
+                           "This is currently active because the service is running." if running else
+                           "This is not currently active because the service is off.")
                         + "\n\nThis makes it easier for automated bots to guess your password and get in. "
                         "Using a digital key instead of a password is much safer.\n\n"
                         "What to do: If you use remote access, set up key-based login. "
@@ -191,7 +197,7 @@ class Module(ModuleBase):
                     category=self.category,
                     code="security.linux_ssh_hardening.password_auth_enabled",
                     confidence=confidence,
-                    data={"check": "password_auth_enabled", "sshd_running": running, "source": source},
+                    data={"check": "password_auth_enabled", **state, "source": source},
                 )
             )
 
@@ -223,9 +229,8 @@ class Module(ModuleBase):
                 Finding(
                     title="SSH is open to all connected networks",
                     description=(
-                        "sshd is bound to all interfaces, so it answers on whatever network "
-                        "this machine joins next — hotel wifi, a conference network, a "
-                        "cafe. If you only use SSH on a home LAN, bind it to that interface "
+                        self._listen_sentence(target)
+                        + " If you only use SSH on a home LAN, bind it to that interface "
                         "or restrict it in the firewall."
                     ),
                     severity=Severity.INFO,
@@ -239,17 +244,33 @@ class Module(ModuleBase):
         return CheckResult(module_name=self.name, findings=findings, not_checked=not_checked)
 
     @staticmethod
+    def _listen_sentence(target: Target | None) -> str:
+        if target is not None:
+            return (
+                "With these settings SSH would answer on every network that computer "
+                "joins once SSH starts — hotel wifi, a conference network, a cafe."
+            )
+        return (
+            "sshd is bound to all interfaces, so it answers on whatever network "
+            "this machine joins next — hotel wifi, a conference network, a cafe."
+        )
+
+    @staticmethod
+    def _offline_sentence(enabled: bool) -> str:
+        if enabled:
+            return (
+                "On that computer the SSH service is set to start automatically, "
+                "so this is active whenever it's switched on."
+            )
+        return (
+            "On that computer the SSH service isn't set to start automatically, "
+            "but this applies if it's ever started."
+        )
+
+    @staticmethod
     def _root_login_sentence(running: bool, target: Target | None) -> str:
         if target is not None:
-            if running:
-                return (
-                    "On that computer the SSH service is set to start automatically, "
-                    "so this is active whenever it's switched on."
-                )
-            return (
-                "On that computer the SSH service isn't set to start automatically, "
-                "but this applies if it's ever started."
-            )
+            return Module._offline_sentence(running)
         if running:
             return "This is currently active because the service is running."
         return (
@@ -260,23 +281,27 @@ class Module(ModuleBase):
     # ---- offline: read the disk, run nothing ----
 
     def _offline_config(self, target: Target) -> tuple[dict[str, str] | None, str]:
-        """Parse sshd_config plus its Include files, all read from the disk."""
+        """Parse sshd_config with each Include spliced in at its own line.
+
+        sshd keeps the first value it sees for a keyword, and reads an Include
+        where the line stands, so the order here is the order sshd reads.
+        """
         try:
             main = target.read_text(self.sshd_config_path)
         except OSError:
             return None, ""
-        parts = [main]
         seen = {self.sshd_config_path}
         budget = [_MAX_INCLUDES]
-        self._collect_includes(main, target, seen, budget, parts)
-        return self._parse("\n".join(parts)), _OFFLINE_SOURCE
+        lines = self._splice(main, target, seen, budget)
+        return self._parse("\n".join(lines), first_wins=True), _OFFLINE_SOURCE
 
-    def _collect_includes(self, text, target, seen, budget, parts) -> None:
-        """Append each Include'd file in order; bounded, and never re-reads a file."""
+    def _splice(self, text, target, seen, budget) -> list[str]:
+        """The lines of `text`, with Include lines replaced by the files they match."""
+        out: list[str] = []
         for raw in text.splitlines():
-            line = raw.strip()
-            words = line.split(None, 1)
+            words = raw.strip().split(None, 1)
             if len(words) != 2 or words[0].lower() != "include":
+                out.append(raw)
                 continue
             try:
                 patterns = shlex.split(words[1])
@@ -292,8 +317,8 @@ class Module(ModuleBase):
                         sub = target.read_text(view)
                     except OSError:
                         continue
-                    parts.append(sub)
-                    self._collect_includes(sub, target, seen, budget, parts)
+                    out.extend(self._splice(sub, target, seen, budget))
+        return out
 
     @staticmethod
     def _expand_include(pattern: str, target: Target) -> list[str]:
@@ -344,7 +369,7 @@ class Module(ModuleBase):
         return self._parse(text), self.sshd_config_path
 
     @staticmethod
-    def _parse(text: str) -> dict[str, str]:
+    def _parse(text: str, first_wins: bool = False) -> dict[str, str]:
         """Parse `keyword value` lines; last occurrence wins, as sshd -T emits.
 
         For a hand-written config file sshd actually honours the *first*
@@ -360,7 +385,10 @@ class Module(ModuleBase):
             parts = line.split(None, 1)
             if len(parts) != 2:
                 continue
-            config[parts[0].lower()] = parts[1].strip().lower()
+            key = parts[0].lower()
+            if first_wins and key in config:
+                continue
+            config[key] = parts[1].strip().lower()
         return config
 
     def _sshd_running(self) -> bool:
