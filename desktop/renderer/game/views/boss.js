@@ -65,7 +65,9 @@ function nowPanel(boss, scout, line) {
   } else if (now) {
     body = '<h3 class="now-what">A check</h3>';
   } else if (boss.log && boss.log.length) {
-    body = '<h3 class="now-what">Starting the next check</h3>';
+    const last = logLine(boss.log[boss.log.length - 1]);
+    body = `<h3 class="now-what">Starting the next check</h3>
+      <p class="intel now-why">Just finished: ${esc(last.what)} · ${esc(last.result)}</p>`;
   } else {
     body = '<h3 class="now-what">Starting the checkup engine</h3>';
   }
@@ -150,7 +152,8 @@ export function renderBoss({ boss, scout, tips, tipsOpen = true, learn = null, l
       <div class="bar" role="progressbar" aria-label="Checkup progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="--pct: ${pct}%"></i></div>
       <div class="bar-meta"><span>${boss.total ? `${esc(boss.index)} / ${esc(boss.total)} CHECKS` : 'GETTING READY'}</span>
         ${boss.found ? `<span>${esc(boss.found)} THING${boss.found === 1 ? '' : 'S'} NOTED SO FAR</span>` : ''}</div></div>
-    <div class="sweep-side">${nowPanel(boss, scout, line)}${tipList}</div>
+    <div class="sweep-side">${nowPanel(boss, scout, line)}</div>
+    ${tipList ? `<div class="sweep-tips">${tipList}</div>` : ''}
     ${learnPanel({ lessonHtml, offer, lessonsLoaded, lessonsDone, lessonsTotal, now: boss.now })}
     <aside class="sweep-city" aria-label="The city's districts"><div class="label">DISTRICTS</div>
       <div class="districts sweep">${ds.map((d) => districtCard(d, learn)).join('')}</div></aside>
