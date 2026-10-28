@@ -84,8 +84,9 @@ button.district { display: grid; width: 100%; }
 .btn-s { font-family: var(--font-display); font-size: 10px; font-weight: 600; letter-spacing: 1px; color: var(--cyan); background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.3); padding: 10px 16px; display: inline-block; }
 .btn-s.mag { color: var(--magenta); background: rgba(255,45,155,0.08); border-color: rgba(255,45,155,0.35); }
 .btn-s.lime { color: var(--lime); background: rgba(198,255,0,0.07); border-color: rgba(198,255,0,0.35); }
-.btn-t { font-size: 13px; color: var(--dim); text-underline-offset: 3px; }
-.btn-t:hover, .btn-t:focus-visible { color: var(--cyan); text-decoration: underline; }
+/* A quiet button still has to look like one: always underlined, brighter on hover. */
+.btn-t { font-size: 13px; color: var(--dim); text-decoration: underline; text-decoration-color: rgba(159,179,200,0.45); text-underline-offset: 3px; }
+.btn-t:hover, .btn-t:focus-visible { color: var(--cyan); text-decoration-color: currentColor; }
 .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 
 .badge { font-family: var(--font-mono); font-size: 9px; font-weight: 700; letter-spacing: 0.5px; padding: 3px 7px; border: 1px solid; white-space: nowrap; }
