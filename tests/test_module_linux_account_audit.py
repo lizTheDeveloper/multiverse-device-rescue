@@ -4,9 +4,12 @@ The distinction that has to hold: an unreadable /etc/shadow reports "not
 checked", never "no empty passwords found".
 """
 
+import os
 import sys
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -221,3 +224,30 @@ def test_account_audit_offline_missing_shadow_says_not_checked(linux_disk):
 
 def test_account_audit_is_offline_capable():
     assert _get_module().offline_capable is True
+
+
+_ADMIN_ONLY = "some files only an administrator can read"
+_as_root = pytest.mark.skipif(
+    getattr(os, "geteuid", lambda: 1)() == 0, reason="root can read mode-000 files"
+)
+
+
+@_as_root
+def test_account_audit_offline_unreadable_sudoers_d_is_not_checked(linux_disk):
+    d = linux_disk / "etc/sudoers.d"
+    d.mkdir()
+    for name in ("10-a", "20-b"):
+        (d / name).write_text("sam ALL=(ALL) NOPASSWD:ALL\n")
+        (d / name).chmod(0)
+    try:
+        result = _get_module().check(_offline(linux_disk))
+    finally:
+        for name in ("10-a", "20-b"):
+            (d / name).chmod(0o644)
+    assert result.not_checked.count(_ADMIN_ONLY) == 1
+
+
+def test_account_audit_offline_readable_disk_has_no_admin_only_entry(linux_disk):
+    (linux_disk / "etc/sudoers.d").mkdir()
+    (linux_disk / "etc/sudoers.d/10-a").write_text("# nothing\n")
+    assert _ADMIN_ONLY not in _get_module().check(_offline(linux_disk)).not_checked

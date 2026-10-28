@@ -20,6 +20,19 @@ class TargetError(OSError):
     pass
 
 
+# The not_checked entry for a check that hit a file it wasn't allowed to read.
+ADMIN_ONLY_NOT_CHECKED = "some files only an administrator can read"
+
+
+def permission_denied(exc: BaseException | None) -> bool:
+    """True when `exc`, or the error it was raised from, is a PermissionError."""
+    while exc is not None:
+        if isinstance(exc, PermissionError):
+            return True
+        exc = exc.__cause__
+    return False
+
+
 @dataclass(frozen=True)
 class Target:
     root: Path

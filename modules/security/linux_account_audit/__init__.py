@@ -34,6 +34,7 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.target import ADMIN_ONLY_NOT_CHECKED, permission_denied
 
 _TIMEOUT = 10.0
 
@@ -82,6 +83,7 @@ class Module(ModuleBase):
             )
 
         self._target = profile.target
+        self._denied = False
         accounts = self._accounts()
         if accounts is None:
             return CheckResult(
@@ -94,9 +96,16 @@ class Module(ModuleBase):
         findings.extend(self._password_findings(accounts))
         findings.extend(self._sudo_findings())
         findings.append(self._admin_inventory(accounts))
-        return CheckResult(module_name=self.name, findings=findings)
+        not_checked = [ADMIN_ONLY_NOT_CHECKED] if self._denied else []
+        return CheckResult(module_name=self.name, findings=findings, not_checked=not_checked)
 
     _target = None
+    # Set during an offline check when a file on the disk was admin-only.
+    _denied = False
+
+    def _note_denied(self, exc: OSError) -> None:
+        if self._target is not None and permission_denied(exc):
+            self._denied = True
 
     def _read(self, raw: str) -> str:
         """Read a file live, or through the mounted disk's own view of paths."""
@@ -159,7 +168,8 @@ class Module(ModuleBase):
     def _password_findings(self, accounts: list[dict]) -> list[Finding]:
         try:
             shadow = self._read(self.shadow_path)
-        except OSError:
+        except OSError as exc:
+            self._note_denied(exc)
             return [
                 Finding(
                     title="Password status could not be checked",
@@ -216,8 +226,8 @@ class Module(ModuleBase):
         if self._target is not None:
             try:
                 texts.append((self.sudoers_path, self._read(self.sudoers_path)))
-            except OSError:
-                pass
+            except OSError as exc:
+                self._note_denied(exc)
             try:
                 with os.scandir(self._target.resolve(self.sudoers_dir)) as it:
                     names = sorted(e.name for e in it)
@@ -225,10 +235,11 @@ class Module(ModuleBase):
                     path = f"{self.sudoers_dir}/{name}"
                     try:
                         texts.append((path, self._read(path)))
-                    except OSError:
+                    except OSError as exc:
+                        self._note_denied(exc)
                         continue
-            except OSError:
-                pass
+            except OSError as exc:
+                self._note_denied(exc)
         else:
             if is_file_nofollow(self.sudoers_path):
                 try:
@@ -286,8 +297,8 @@ class Module(ModuleBase):
                 names = [n for n in fields[3].split(",") if n]
                 if names:
                     members[fields[0]] = names
-        except OSError:
-            pass
+        except OSError as exc:
+            self._note_denied(exc)
 
         loginable = sorted(
             a["name"] for a in accounts

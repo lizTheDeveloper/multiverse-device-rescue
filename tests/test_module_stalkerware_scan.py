@@ -215,3 +215,21 @@ def test_stalkerware_live_profile_has_empty_not_checked():
 
 def test_stalkerware_is_offline_capable():
     assert _get_module().offline_capable is True
+
+
+def test_stalkerware_offline_without_package_list_says_installed_unchecked(linux_disk):
+    from rescue.profiler.base import gather_target_profile
+
+    (linux_disk / "var/lib/dpkg/status").unlink()
+    profile = gather_target_profile(linux_disk, Platform.LINUX)
+    assert profile.installed_software_known is False
+    result = _get_module().check(profile)
+    assert "installed programs (this disk's package list can't be read yet)" in result.not_checked
+    assert "programs running right now" in result.not_checked
+
+
+def test_stalkerware_offline_with_package_list_knows_installed(linux_disk):
+    from rescue.profiler.base import gather_target_profile
+
+    profile = gather_target_profile(linux_disk, Platform.LINUX)
+    assert profile.installed_software_known is True

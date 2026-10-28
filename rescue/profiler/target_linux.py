@@ -14,6 +14,7 @@ from rescue.target import Target
 _INSTALLED = "install ok installed"
 # A desktop's dpkg status runs to several MB.
 DPKG_STATUS_LIMIT = 64 * 1024 * 1024
+DPKG_STATUS = "/var/lib/dpkg/status"
 
 
 def _read(target: Target, path: str, limit: int = 1_000_000) -> str:
@@ -41,10 +42,10 @@ def _os_release(target: Target) -> dict[str, str]:
 
 def _dpkg_packages(target: Target) -> set[str]:
     names: set[str] = set()
-    text = _read(target, "/var/lib/dpkg/status", DPKG_STATUS_LIMIT)
+    text = _read(target, DPKG_STATUS, DPKG_STATUS_LIMIT)
     blocks = text.split("\n\n")
     try:
-        too_big = os.path.getsize(target.resolve("/var/lib/dpkg/status")) > DPKG_STATUS_LIMIT
+        too_big = os.path.getsize(target.resolve(DPKG_STATUS)) > DPKG_STATUS_LIMIT
     except OSError:
         too_big = False
     if too_big:
@@ -80,6 +81,13 @@ def _startup_items(target: Target) -> list[str]:
     return sorted(items)
 
 
+def _has_dpkg_status(target: Target) -> bool:
+    try:
+        return os.path.isfile(target.resolve(DPKG_STATUS))
+    except OSError:
+        return False
+
+
 def gather_linux_target_profile(target: Target) -> SystemProfile:
     release = _os_release(target)
     software = (
@@ -101,4 +109,6 @@ def gather_linux_target_profile(target: Target) -> SystemProfile:
         installed_software=sorted(software),
         hostname=_read(target, "/etc/hostname").strip(),
         target=target,
+        # Only dpkg's list is read so far; without it most of what's installed is unknown.
+        installed_software_known=_has_dpkg_status(target),
     )

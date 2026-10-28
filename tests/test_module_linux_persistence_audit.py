@@ -344,3 +344,25 @@ def test_offline_control_characters_in_path_are_replaced(linux_disk):
     r = _get_module().check(_offline(linux_disk))
     hit = [f for f in r.findings if f.code == _SUSP]
     assert hit and "\n" not in hit[0].data["path"] and "a?b.service" in hit[0].data["path"]
+
+
+_ADMIN_ONLY = "some files only an administrator can read"
+
+
+@pytest.mark.skipif(getattr(os, "geteuid", lambda: 1)() == 0, reason="root can read mode-000 files")
+def test_offline_unreadable_spool_crontab_is_not_checked(linux_disk):
+    spool = linux_disk / "var/spool/cron/crontabs"
+    spool.mkdir(parents=True)
+    for name in ("sam", "root"):
+        (spool / name).write_text("* * * * * true\n")
+        (spool / name).chmod(0)
+    try:
+        r = _get_module().check(_offline(linux_disk))
+    finally:
+        for name in ("sam", "root"):
+            (spool / name).chmod(0o644)
+    assert r.not_checked.count(_ADMIN_ONLY) == 1
+
+
+def test_offline_readable_disk_has_no_admin_only_entry(linux_disk):
+    assert _ADMIN_ONLY not in _get_module().check(_offline(linux_disk)).not_checked

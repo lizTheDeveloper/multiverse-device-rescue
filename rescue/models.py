@@ -88,6 +88,10 @@ class SystemProfile:
     hostname: str = ""
     # None means the profile describes the running computer.
     target: Target | None = None
+    # False when the system's own package list couldn't be read, so
+    # installed_software is incomplete (a disk whose package manager isn't
+    # read yet, say), not a list of everything installed.
+    installed_software_known: bool = True
 
 
 @dataclass

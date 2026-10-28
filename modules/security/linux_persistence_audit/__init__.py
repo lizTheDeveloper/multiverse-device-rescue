@@ -45,7 +45,7 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
-from rescue.target import Target
+from rescue.target import ADMIN_ONLY_NOT_CHECKED, Target, permission_denied
 
 _TIMEOUT = 15.0
 
@@ -117,6 +117,7 @@ class Module(ModuleBase):
             )
 
         target = profile.target
+        self._denied = False
         entries: list[dict] = []
         entries += self._scan_dirs(self.system_unit_dirs, "systemd system unit", ("*.service", "*.timer"), target)
         entries += self._scan_dirs(self.user_unit_dirs, "systemd user unit", ("*.service", "*.timer"), target)
@@ -157,7 +158,15 @@ class Module(ModuleBase):
             )
         )
 
-        return CheckResult(module_name=self.name, findings=findings)
+        not_checked = [ADMIN_ONLY_NOT_CHECKED] if self._denied else []
+        return CheckResult(module_name=self.name, findings=findings, not_checked=not_checked)
+
+    # Set during an offline check when a file or folder on the disk was admin-only.
+    _denied = False
+
+    def _note_denied(self, exc: OSError) -> None:
+        if permission_denied(exc):
+            self._denied = True
 
     def _scan_dirs(
         self,
@@ -221,7 +230,8 @@ class Module(ModuleBase):
                         # Never list more than the cap, so a huge directory
                         # is neither fully read nor fully sorted.
                         children = sorted(islice(it, limits.max_files + 1), key=lambda e: e.name)
-                except OSError:
+                except OSError as exc:
+                    self._note_denied(exc)
                     continue
                 for entry in children:
                     if seen >= limits.max_files or time.monotonic() - start >= limits.deadline_s:
@@ -300,8 +310,8 @@ class Module(ModuleBase):
             view = view if view is not None else target.display(path)
             try:
                 content = target.read_text(view, limit=64_000)
-            except OSError:
-                pass
+            except OSError as exc:
+                self._note_denied(exc)
             try:
                 mode = stat.S_IMODE(os.lstat(target.resolve(view)).st_mode)
             except OSError:
@@ -445,7 +455,9 @@ class Module(ModuleBase):
                 if not path.is_file():
                     return []
                 content = path.read_text(errors="replace").strip()
-        except OSError:
+        except OSError as exc:
+            if target is not None:
+                self._note_denied(exc)
             return []
         if not content:
             return []
