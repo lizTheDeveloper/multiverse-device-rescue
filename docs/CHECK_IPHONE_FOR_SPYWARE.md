@@ -74,38 +74,56 @@ result. A scan can take a few minutes depending on how big the backup is.
 - **"Spyware indicator detected"** (shown in red/critical) — the scan matched a
   known spyware fingerprint. **Do not panic and do not wipe the phone yet.**
   Skip to *If something is found* below.
-- **"Backup too large to scan safely"** — your backup is bigger than the safe
-  size limit, so the tool skipped it on purpose (scanning a very large backup
-  can use so much memory it freezes the computer). See
-  *Scanning a large backup* below.
+- **"This backup is encrypted"** — MVT can't read an encrypted backup until
+  it's unlocked with the backup password. See *Scanning an encrypted backup*
+  below. Nothing was checked, so this is not a clean result.
+- **"The spyware scan didn't finish"** — the scanner stopped before the end.
+  Nothing was confirmed, so this is not a clean result. Run it by hand (below)
+  to see what happened.
 - **"MVT is not installed"** — go back and do setup step 2.
 - **"No device backups found"** — go back and do setup step 1.
 
 ---
 
-## Scanning a large backup
+## Large backups
 
-By default the tool won't automatically scan a backup larger than **2 GB**,
-because doing so can use a lot of memory and, on a computer without much free
-memory, can lock it up. Most full iPhone backups are larger than this.
+Backups of any size are scanned. A full iPhone backup is often tens of GB, and
+the scan can take a while: let it run. If the scan stops before the end, the
+result says **"didn't finish"**, never "clean".
 
-You have two safe options:
+To see the scan's own progress and errors, run it by hand (the path is in the
+result message):
 
-1. **Recommended — scan it by hand on a computer with lots of free memory.**
-   Close other apps first, then run (replace the path with your backup folder,
-   which the "too large" message prints):
+```
+mvt-ios check-backup --output ~/mvt-results "<path-to-your-backup>"
+```
+
+Then look in the `~/mvt-results` folder: any file whose name contains
+`_detected` means something was found.
+
+On a computer that's very short on memory you can skip big backups instead:
+set `max_backup_bytes` in `profiles/iphone_spyware_check.yaml` to a size in
+bytes (2 GB = 2147483648). The default, `0`, means no limit.
+
+## Scanning an encrypted backup
+
+An encrypted backup (the **Encrypt local backup** box in Finder) is the right
+choice for your phone's data, but MVT has to unlock it before it can check it.
+
+1. Make an unlocked copy. It asks for the backup password you chose in Finder:
 
    ```
-   mvt-ios check-backup --output ~/mvt-results "<path-to-your-backup>"
+   mvt-ios decrypt-backup -d ~/iphone-backup-decrypted "<path-to-your-backup>"
    ```
 
-   Then look in the `~/mvt-results` folder — any file whose name contains
-   `_detected` means something was found.
+2. Scan the copy:
 
-2. **Advanced — raise the size limit** (only if you understand the memory risk).
-   Open `profiles/iphone_spyware_check.yaml` and increase the
-   `max_backup_bytes` number, then run the scan command again. Do this **only**
-   on a machine with plenty of free memory.
+   ```
+   mvt-ios check-backup --output ~/mvt-results ~/iphone-backup-decrypted
+   ```
+
+3. **Delete `~/iphone-backup-decrypted` when you're done.** It holds your
+   messages and photos without the password's protection.
 
 ---
 

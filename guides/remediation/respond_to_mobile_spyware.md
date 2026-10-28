@@ -10,6 +10,8 @@ remediates:
   - security.mvt_spyware_scan.mvt_clean_scan
   - security.mvt_spyware_scan.mvt_backup_too_large
   - security.mvt_spyware_scan.mvt_scan_available
+  - security.mvt_spyware_scan.mvt_backup_encrypted
+  - security.mvt_spyware_scan.mvt_scan_incomplete
 steps_for:
   security.mvt_spyware_scan.mvt_requires_wsl: [1]
   security.mvt_spyware_scan.no_backups_found: [2]
@@ -18,6 +20,8 @@ steps_for:
   security.mvt_spyware_scan.mvt_clean_scan: [5]
   security.mvt_spyware_scan.mvt_backup_too_large: [2]
   security.mvt_spyware_scan.mvt_scan_available: [3]
+  security.mvt_spyware_scan.mvt_backup_encrypted: [2]
+  security.mvt_spyware_scan.mvt_scan_incomplete: [3]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
 monitoring_risk: true

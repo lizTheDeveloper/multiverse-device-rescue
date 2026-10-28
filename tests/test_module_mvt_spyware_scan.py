@@ -198,3 +198,98 @@ def test_emitted_codes_are_declared():
     assert all(
         c.startswith("security.mvt_spyware_scan.") for c in declared
     )
+
+
+def _scan_with(mod, *, scan_result=None, encrypted=False, size=None, backups=("abc123",)):
+    """Run an opted-in check() over fake backups with the scanner stubbed."""
+    paths = [Path(f"/fake/backup/{b}") for b in backups]
+    with patch.object(Path, "exists", return_value=True), \
+         patch.object(Path, "is_dir", return_value=True), \
+         patch.object(Path, "iterdir", return_value=paths), \
+         patch("shutil.which", return_value="/usr/local/bin/mvt-ios"), \
+         patch.object(mod, "_is_encrypted", return_value=encrypted), \
+         patch.object(mod, "_estimate_backup_size", return_value=size) as est, \
+         patch.object(mod, "_run_mvt_scan", return_value=scan_result) as run:
+        result = mod.check(_make_profile())
+    return result, run, est
+
+
+def _checks(result):
+    return [f.data.get("check") for f in result.findings]
+
+
+def test_large_backup_is_scanned_by_default():
+    """No size limit unless one is configured: most real iPhone backups are
+    tens of GB, and skipping them made the iPhone check skip almost everyone."""
+    mod = _get_module()
+    mod.configure({"scan_backups": True})
+    result, run, est = _scan_with(mod, scan_result=[], size=60 * 1024**3)
+    run.assert_called_once()
+    est.assert_not_called()
+    assert "mvt_backup_too_large" not in _checks(result)
+    assert "mvt_clean_scan" in _checks(result)
+
+
+def test_scanning_raises_the_module_timeout():
+    """The orchestrator's 60s default would abandon every real scan."""
+    mod = _get_module()
+    mod.configure({"scan_backups": True})
+    assert getattr(mod, "check_timeout", 0) >= mod.mvt_timeout
+
+
+def test_encrypted_backup_is_not_scanned_and_not_clean():
+    mod = _get_module()
+    mod.configure({"scan_backups": True})
+    result, run, _ = _scan_with(mod, encrypted=True)
+    run.assert_not_called()
+    checks = _checks(result)
+    assert "mvt_backup_encrypted" in checks
+    assert "mvt_clean_scan" not in checks
+    enc = next(f for f in result.findings if f.data.get("check") == "mvt_backup_encrypted")
+    assert "decrypt-backup" in enc.description
+
+
+def test_failed_scan_is_incomplete_not_clean():
+    """A scan that failed or timed out must never read as a clean result."""
+    mod = _get_module()
+    mod.configure({"scan_backups": True})
+    result, _, _ = _scan_with(mod, scan_result=None)
+    checks = _checks(result)
+    assert "mvt_scan_incomplete" in checks
+    assert "mvt_clean_scan" not in checks
+
+
+def test_clean_count_only_includes_finished_scans():
+    mod = _get_module()
+    mod.configure({"scan_backups": True})
+    with patch.object(Path, "exists", return_value=True), \
+         patch.object(Path, "is_dir", return_value=True), \
+         patch.object(Path, "iterdir", return_value=[Path("/fake/a"), Path("/fake/b")]), \
+         patch("shutil.which", return_value="/usr/local/bin/mvt-ios"), \
+         patch.object(mod, "_is_encrypted", return_value=False), \
+         patch.object(mod, "_run_mvt_scan", side_effect=[[], None]):
+        result = mod.check(_make_profile())
+    clean = [f for f in result.findings if f.data.get("check") == "mvt_clean_scan"]
+    assert len(clean) == 1 and clean[0].data["backups_scanned"] == 1
+    assert "mvt_scan_incomplete" in _checks(result)
+
+
+def test_run_mvt_scan_nonzero_exit_returns_none(tmp_path):
+    import subprocess as sp
+    mod = _get_module()
+    with patch("subprocess.run", return_value=sp.CompletedProcess([], 1)):
+        assert mod._run_mvt_scan("/usr/local/bin/mvt-ios", tmp_path) is None
+    with patch("subprocess.run", side_effect=sp.TimeoutExpired("mvt", 1)):
+        assert mod._run_mvt_scan("/usr/local/bin/mvt-ios", tmp_path) is None
+    with patch("subprocess.run", return_value=sp.CompletedProcess([], 0)):
+        assert mod._run_mvt_scan("/usr/local/bin/mvt-ios", tmp_path) == []
+
+
+def test_is_encrypted_reads_manifest(tmp_path):
+    import plistlib
+    mod = _get_module()
+    (tmp_path / "Manifest.plist").write_bytes(plistlib.dumps({"IsEncrypted": True}))
+    assert mod._is_encrypted(tmp_path) is True
+    (tmp_path / "Manifest.plist").write_bytes(plistlib.dumps({"IsEncrypted": False}))
+    assert mod._is_encrypted(tmp_path) is False
+    assert mod._is_encrypted(tmp_path / "missing") is False
