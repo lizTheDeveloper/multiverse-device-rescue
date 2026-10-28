@@ -211,3 +211,59 @@ def test_scan_json_attaches_the_fix_walkthrough_to_coded_findings():
         "all_steps": True,
     }
     assert "remediation" not in findings[1]
+
+
+def _live_run(args, findings):
+    mod = type('MockModule', (), {'name': 'disk_space', 'category': 'performance',
+                                  'report': lambda self, check, fix=None: ''})()
+    check = CheckResult(module_name='disk_space', findings=findings)
+
+    def fake_run_checks(on_progress=None):
+        if on_progress is not None:
+            on_progress('start', 1, 1, mod, None)
+            on_progress('done', 1, 1, mod, check)
+        return [(mod, check)]
+
+    with patch('rescue.cli.Orchestrator') as MockOrch:
+        MockOrch.return_value.run_checks.side_effect = fake_run_checks
+        result = CliRunner().invoke(main, ["scan", "--json", *args])
+    events = [json.loads(line)["progress"] for line in result.stderr.splitlines()
+              if line.startswith('{"progress"')]
+    return result, events
+
+
+def test_scan_live_puts_each_finished_check_on_its_progress_line_as_in_the_final_json():
+    # The sweep shows signals as they arrive: the line's "result" is the final module entry.
+    finding = Finding(title="Disk almost full", description="d", severity=Severity.WARNING, category="performance")
+    for flag in ("--progress", "--trace"):
+        result, events = _live_run([flag, "--live", "--no-attribution"], [finding])
+        assert result.exit_code == 0, result.output
+        final = json.loads(result.stdout)["modules"][0]
+        assert "result" not in events[0], "a check that hasn't finished has nothing to show"
+        assert events[1]["result"] == final
+        assert final["findings"][0]["title"] == "Disk almost full"
+
+
+def test_scan_live_needs_json_and_progress_and_changes_nothing_without_them():
+    finding = Finding(title="Disk almost full", description="d", severity=Severity.WARNING, category="performance")
+    _, plain = _live_run(["--progress"], [finding])
+    assert all("result" not in e for e in plain)
+    result, events = _live_run(["--live"], [finding])
+    assert events == [] and json.loads(result.stdout)["modules"][0]["findings"]
+
+
+def test_scan_live_looks_up_makers_once_and_reuses_them_in_the_final_json():
+    finding = Finding(title="Odd helper", description="d", severity=Severity.WARNING, category="security",
+                      data={"program": "/Applications/Odd.app/Contents/MacOS/odd"})
+    calls = []
+
+    def fake_compute(results, platform, **kw):
+        calls.append([id(c) for _, c in results])
+        return {id(f): [{"subject": "x", "name": "Odd Ltd", "verified": True}] for _, c in results for f in c.findings}
+
+    with patch('rescue.attribution.compute_made_by', side_effect=fake_compute):
+        result, events = _live_run(["--progress", "--live"], [finding])
+    assert result.exit_code == 0, result.output
+    assert len(calls) == 1, "the final JSON reuses the live lookup"
+    assert events[1]["result"]["findings"][0]["made_by"][0]["name"] == "Odd Ltd"
+    assert json.loads(result.stdout)["modules"][0]["findings"][0]["made_by"][0]["name"] == "Odd Ltd"
