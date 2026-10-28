@@ -155,3 +155,16 @@ def test_start_here_has_the_safety_note_and_unsigned_app_steps():
         for _, folder in stick.INSTALLERS:
             assert folder in text
     assert txt.isascii()
+
+
+def test_start_here_covers_an_infected_computer_kept_offline():
+    steps = stick.install_steps()
+    txt = stick.ascii_text(stick.start_here_txt("v9.9.9", steps, with_cli=False, has_tools=False))
+    html = stick.start_here_html("v9.9.9", steps, with_cli=False, has_tools=False)
+    for text in (txt, html, stick.QUICK_REFERENCE):
+        assert "Airplane mode" in text
+        assert "A computer I don" in text  # the worry to pick in the app
+        assert "different" in text  # passwords from a different device
+    for text in (txt, html):
+        assert "docs/scenarios/infected-device/" in text
+    assert txt.isascii() and stick.ascii_text(stick.QUICK_REFERENCE).isascii()

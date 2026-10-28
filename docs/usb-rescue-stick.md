@@ -159,6 +159,31 @@ They plug in the drive, open it, and double-click `START-HERE.html` (or read
        **Run anyway**.
     3. Click **Get started**.
 
+### If the computer is infected and kept offline
+
+The stick is how an infected computer gets Reclaim City without going online.
+Full walkthrough: [An infected computer you don't want on your
+network](scenarios/infected-device.md). The short version:
+
+1. **Network off first.** Cable out before it's turned on; Wi-Fi off as soon
+   as it starts (Mac: **System Settings** > **Wi-Fi**; Windows: **Settings** >
+   **Network & internet** > **Airplane mode**). Don't sign in to anything on it.
+2. **Plug in the stick and install** as above. Nothing needs the internet. Plug
+   in nothing else you care about: malware can copy itself onto USB drives.
+3. **Choose "A computer I don't want to turn on or connect"**, go through the
+   checklist, then **Check this computer**. That runs the `infected_device`
+   checkup: only checks that work offline. The AI tools check says "couldn't
+   check" unless its helper was saved earlier; that's expected.
+4. **Afterwards, treat the stick as exposed.** Before you use it on another
+   computer, re-check the installers (see [Checking the stick
+   later](#checking-the-stick-later)), or rebuild it. Don't open anything on
+   it that you didn't put there.
+
+If the computer **won't start**, the stick can't help: Reclaim City runs inside
+the computer's own system, and it can't check one computer from another. The
+walkthrough covers macOS Recovery, Windows Recovery, copying files off, and
+reinstalling.
+
 ## Checking the stick later
 
 If the stick has been out of your sight, `For helpers/CHECKSUMS.txt` explains

@@ -1334,3 +1334,18 @@ body:has(#app[data-screen="city"]) { background: #090B10; }
 .link-button { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; opacity: 0.75; }
 .link-button:hover, .link-button:focus-visible { opacity: 1; }
 .question-back { margin: 0 0 1rem; }
+
+/* "A computer I don't want to turn on or connect": one step at a time, then the whole checklist */
+.steps-current { border: 1.5px solid var(--brand); border-radius: var(--radius-md); padding: 1rem 1.2rem; margin: 1rem 0; }
+.steps-count { margin: 0 0 0.25rem; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.steps-current h2 { font-size: 1.2rem; }
+.steps-current h2:focus { outline: none; }
+.steps-lines { margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; line-height: 1.55; }
+.steps-lines li { margin: 0 0 0.35rem; }
+.steps-nav { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 0.5rem 0 0; }
+.steps-list { list-style: none; padding: 0; margin: 0 0 1.25rem; display: grid; gap: 0.35rem; }
+.steps-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.3rem 0.5rem; border-radius: var(--radius-sm); }
+.steps-item input { width: 1.15rem; height: 1.15rem; flex: none; accent-color: var(--brand); }
+.steps-item--current { background: var(--surface-muted); }
+.steps-item--current .link-button { font-weight: 600; opacity: 1; }
+.steps-check { border-top: 1px solid var(--border); padding-top: 1rem; margin: 1rem 0 1.25rem; }

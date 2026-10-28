@@ -134,6 +134,8 @@ def _module(env, runner, monkeypatch):
     mod.system_node_dirs = []
     mod.vendor_dir = env["vendor"]
     mod.elevated = False
+    # No real DNS lookups in tests: the registry "resolves" unless a test says otherwise.
+    mod.registry_resolves = lambda: True
     return mod
 
 
@@ -523,6 +525,85 @@ def test_scan_no_downloads_flag(env, monkeypatch):
     [finding] = mod["findings"]
     assert finding["code"] == CODE + "could_not_check"
     assert finding["data"]["reason"] == "downloads_off"
+
+
+# --- no internet ------------------------------------------------------------------------
+
+
+def test_no_internet_skips_the_fetch_quickly_and_says_so(env, monkeypatch):
+    runner = FakeRunner()
+    mod = _module(env, runner, monkeypatch)
+    mod.registry_resolves = lambda: False
+    f = _one(mod.check(_profile()), "could_not_check")
+    assert f.data["reason"] == "offline"
+    assert "isn't connected to the internet" in f.description
+    # npm never ran, so no minute-long retries against a network that isn't there.
+    assert runner.named("ci") == []
+    assert not _install_dir(env).exists()
+
+
+def test_no_internet_still_runs_a_copy_already_fetched(env, monkeypatch):
+    _write_install(_install_dir(env))
+    runner = FakeRunner()
+    mod = _module(env, runner, monkeypatch)
+    mod.registry_resolves = lambda: False
+    result = mod.check(_profile())
+    assert CODE + "ai_inventory" in _codes(result)
+
+
+def test_the_registry_check_is_bounded_and_never_raises(monkeypatch):
+    code = _code_module()
+    import socket
+
+    def boom(*a, **k):
+        raise socket.gaierror("nodename nor servname provided")
+    monkeypatch.setattr(socket, "getaddrinfo", boom)
+    assert code.registry_resolves() is False
+
+    def slow(*a, **k):
+        import time
+        time.sleep(5)
+        return [object()]
+    monkeypatch.setattr(socket, "getaddrinfo", slow)
+    import time
+    start = time.monotonic()
+    assert code.registry_resolves(timeout=0.2) is False
+    assert time.monotonic() - start < 2
+
+    monkeypatch.setattr(socket, "getaddrinfo", lambda *a, **k: [object()])
+    assert code.registry_resolves() is True
+
+
+# --- a profile for a computer kept offline ---------------------------------------------
+
+
+def test_profile_config_downloads_false_skips_the_fetch(env, monkeypatch):
+    runner = FakeRunner()
+    mod = _module(env, runner, monkeypatch)
+    mod.configure({"downloads": False})
+    f = _one(mod.check(_profile()), "could_not_check")
+    assert f.data["reason"] == "kept_offline"
+    assert "off the internet" in f.description
+    assert runner.calls == []
+
+
+def test_profile_config_downloads_false_still_runs_a_copy_already_fetched(env, monkeypatch):
+    _write_install(_install_dir(env))
+    runner = FakeRunner()
+    mod = _module(env, runner, monkeypatch)
+    mod.configure({"downloads": False})
+    result = mod.check(_profile())
+    assert runner.named("ci") == []
+    assert CODE + "ai_inventory" in _codes(result)
+
+
+def test_configure_without_the_setting_allows_downloads_again(env, monkeypatch):
+    runner = FakeRunner()
+    mod = _module(env, runner, monkeypatch)
+    mod.configure({"downloads": False})
+    mod.configure({})
+    mod.check(_profile())
+    assert len(runner.named("ci")) == 1
 
 
 # --- vendor files ------------------------------------------------------------------------

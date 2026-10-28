@@ -163,6 +163,13 @@ Run `RESCUE_ENGINE="$PWD/.venv/bin/rescue" npm --prefix desktop start` on a clea
 6. DevTools → Local Storage → `device-rescue.game.accounts.v1` holds only `version`, `provider` (google, microsoft, apple or other) and each step's answer with a date. Nothing else, and nothing about the safety question.
 7. Start over and answer **Could this be someone you know?** with **YES, OR I'M NOT SURE**: "Talk to an advocate before you change account settings" shows on the list and every step. Quit and reopen: the question is asked again. With the monitoring fake engine from "City mode" step 6 and the hacked worry, the note shows without asking.
 8. Nowhere does the app ask for a password, a code or an email address.
+## An infected computer, kept offline
+
+1. **Get started** → **A computer I don’t want to turn on or connect**. No scan starts and no question is asked. The screen "Keep that computer off your network" shows Step 1 of 5, five unticked checkboxes, **Open the full guide**, **Check this computer** and **Back to the list**. The "Your worry" dot stays lit.
+2. **Done** moves to Step 2 and ticks Step 1. Clicking a title in the list jumps to that step; ticking a box ticks only that step. Step 5 has **Open the accounts guide**, which opens the Digital security reset page in the browser. **Open the full guide** opens `…/docs/scenarios/infected-device/`.
+3. **Back to the list**, then pick the worry again: the list starts fresh, nothing ticked.
+4. **Check this computer**: plain view goes to the scan screen ("Checking for: A computer I don’t want to turn on or connect") and **Run checkup** runs `scan --json --profile infected_device --trace`. In city mode (`device-rescue.display` = `city`), it goes straight to the sweep with the same profile.
+5. Offline for real: turn Wi-Fi off and unplug the cable, then run the check. It finishes (about a minute or two on a Mac), and the AI tools card says "This checkup is for a computer you’re keeping off the internet…" unless HackMyAgent was saved earlier. With the full checkup (**I’m not sure**) offline, the same card says "This computer isn’t connected to the internet…" within a second or two, not after a minute.
 
 ## Before publishing (the owner's steps, never an agent's)
 
