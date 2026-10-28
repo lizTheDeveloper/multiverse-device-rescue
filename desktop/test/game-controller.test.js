@@ -1308,7 +1308,7 @@ test('watch: findings score nothing and nothing about them is stored', async () 
   // The tag holds for this session: it's sorted on the deck, LOOK CLOSER.
   t.click({ 'data-act': 'close-signal' });
   t.click({ 'data-act': 'toggle-low' });
-  assert.match(t.html(), /LOOK CLOSER<\/span><\/span><span class="sig-title">Connection watch: /);
+  assert.match(t.html(), /LOOK CLOSER<\/span><\/span> <span class="sig-title">Connection watch: /);
   // "These are all fine" sorts them too, still without storing anything.
   t.click({ 'data-act': 'batch-fine' });
   assert.match(t.html(), /KNOWN AND NOTED \(\d+\)[\s\S]*Connection watch: /);

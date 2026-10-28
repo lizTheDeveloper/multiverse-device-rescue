@@ -74,7 +74,7 @@ function nowPanel(boss, scout, line) {
   }
   return `
     <section class="panel active sweep-now" aria-label="Now checking">
-      <div class="label">NOW CHECKING${count}</div>
+      <h2 class="label">NOW CHECKING${count}</h2>
       <div class="now-row">${scout('proud', 64)}<div class="now-body">${body}</div></div>
       <p class="working"><i aria-hidden="true"></i>Working. Some checks take longer than others; a long pause is normal.</p>
       <p class="say">${esc(line)}</p>
@@ -84,7 +84,7 @@ function nowPanel(boss, scout, line) {
 // WHILE YOU WAIT: the lesson open inline, or the next one on offer.
 // `offer`: { lesson, reason } | null. `lessonsLoaded`: false while they load.
 function learnPanel({ lessonHtml, offer, lessonsLoaded, lessonsDone, lessonsTotal, now }) {
-  const head = `<div class="label">WHILE YOU WAIT${lessonsTotal ? ` · ${esc(lessonsDone)}/${esc(lessonsTotal)} LESSONS DONE` : ''}</div>`;
+  const head = `<h2 class="label">WHILE YOU WAIT${lessonsTotal ? ` · ${esc(lessonsDone)}/${esc(lessonsTotal)} LESSONS DONE` : ''}</h2>`;
   if (lessonHtml) return `<section class="panel sweep-learn open quiz" aria-label="A lesson while you wait">${head}${lessonHtml}</section>`;
   let body;
   if (offer && offer.lesson) {
@@ -120,7 +120,7 @@ function logPanel(boss) {
   }).join('');
   const more = (boss.log || []).length > SWEEP_LOG_SHOWN ? `<p class="intel">And ${boss.log.length - SWEEP_LOG_SHOWN} earlier.</p>` : '';
   return `
-    <section class="panel deck-log sweep-log" aria-label="Sweep log"><div class="label">SWEEP LOG · FINISHED CHECKS</div>
+    <section class="panel deck-log sweep-log" aria-label="Sweep log"><h2 class="label">SWEEP LOG · FINISHED CHECKS</h2>
       ${rows ? `<ol class="log">${rows}</ol>${more}` : '<p class="intel">Each check shows up here as it finishes.</p>'}
     </section>`;
 }

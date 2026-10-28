@@ -470,7 +470,7 @@ code.clue-line.code { display: block; margin: 4px 0; padding: 6px 8px; font-size
 .y-maker.unknown { color: var(--faint); }
 /* ---------- reading comfort (a11y) ---------- */
 /* Screen titles are real headings (h1 in the top bar, h2 for a section), drawn as before. */
-h1.hud-title, h2.label { margin: 0; }
+h1.hud-title, h2.label, h3.label { margin: 0; }
 h1.hud-title { line-height: inherit; }
 /* A heading focused for a new screen (a11y.js) takes focus quietly; controls keep their ring. */
 [tabindex="-1"]:focus { outline: none; }
@@ -482,6 +482,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, [role="button
 .switch b, .switch button, .scout-name { font-size: 10px; }
 .badge { font-size: 10px; }
 .stat-label { font-size: 9px !important; }
+.sweep-top .stat small { font-size: 9px; }
+.evidence dt { font-size: 10px; }
+.sweep-city .district .cue, .btn-mine { font-size: 10px; }
 .section-label { font-size: 10px !important; }
 /* Plain lettering: the body face everywhere the display face was. */
 :host([data-font="plain"]) { --font-display: var(--font-body); }

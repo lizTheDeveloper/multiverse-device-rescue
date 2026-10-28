@@ -28,9 +28,10 @@ export function signalRow(sig, districtName = () => '', { extra = '', chips = ''
     sig.tag === 'closer' ? '<span class="badge cyan">LOOK CLOSER</span>' : '',
     sig.stale ? '<span class="badge warn">CHANGED SINCE YOU MARKED IT</span>' : '',
     sig.changed ? '<span class="badge warn">CHANGED SINCE YOU TAGGED IT</span>' : '',
-  ].join('');
+  ].filter(Boolean).join(' ');
+  // Spaces between the parts, so a screen reader hears "WARNING Old-style driver…", not one run-on word.
   return `<li${extra ? ' class="has-mine"' : ''}><button type="button" class="sig sev-${esc(sig.severity)}${drill ? ' drill' : ''}" data-go="signal:${esc(sig.id)}">
-      <span class="sig-badges">${badges}</span><span class="sig-title">${esc(sig.title)}</span>${chips}<small>${esc(districtName(sig.districtId))}</small><span class="sig-open" aria-hidden="true">OPEN ▶</span></button>${extra}</li>`;
+      <span class="sig-badges">${badges}</span> <span class="sig-title">${esc(sig.title)}</span> ${chips} <small>${esc(districtName(sig.districtId))}</small><span class="sig-open" aria-hidden="true">OPEN ▶</span></button>${extra}</li>`;
 }
 
 // THREAT's next move: the finding's own briefing, where any real fix asks first.

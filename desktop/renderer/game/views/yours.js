@@ -74,11 +74,11 @@ export function renderYours({ inv, picked = new Set(), scout = () => '', toast =
   const back = (it) => `<button type="button" class="btn-t" data-act="unmine:${esc(it.id)}" aria-label="${esc(`Not mine: ${it.name}`)}">NOT MINE ↩</button>`;
   const look = (it) => `<button type="button" class="btn-s" data-go="signal:${esc(it.id)}">LOOK AGAIN ▶</button>`;
   const changed = inv.changed.length ? `
-    <section class="panel y-changed" aria-label="Changed since you marked it"><div class="label"><span class="badge warn">CHANGED SINCE YOU MARKED IT</span> (${esc(inv.changed.length)})</div>
+    <section class="panel y-changed" aria-label="Changed since you marked it"><h2 class="label"><span class="badge warn">CHANGED SINCE YOU MARKED IT</span> (${esc(inv.changed.length)})</h2>
       <p class="intel">Back in your queue until you look again.</p>
       <ul class="y-list">${inv.changed.map((it) => itemRow(it, false, look, false)).join('')}</ul></section>` : '';
   const groups = inv.groups.map((g) => `
-    <section class="panel y-group" aria-label="${esc(g.kind.label)}"><div class="label"><span aria-hidden="true">${esc(g.kind.icon)}</span> ${esc(g.kind.label.toUpperCase())} (${esc(g.items.length)})</div>
+    <section class="panel y-group" aria-label="${esc(g.kind.label)}"><h2 class="label"><span aria-hidden="true">${esc(g.kind.icon)}</span> ${esc(g.kind.label.toUpperCase())} (${esc(g.items.length)})</h2>
       <ul class="y-list">${g.items.map((it) => itemRow(it, picked.has(it.id), back)).join('')}</ul></section>`).join('');
   const n = [...picked].filter((id) => inv.items.some((it) => it.id === id)).length;
   const bar = n ? `<div class="mine-bulk"><span>${esc(n)} SELECTED</span>
@@ -87,7 +87,7 @@ export function renderYours({ inv, picked = new Set(), scout = () => '', toast =
   const empty = !inv.count && !inv.changed.length ? '<p class="intel">Nothing here yet. Press MINE ✓ on a signal you set up yourself.</p>' : '';
   return `
   <section class="yours-screen" aria-labelledby="yours-title">
-    <header class="hud"><h2 class="hud-title" id="yours-title" tabindex="-1">YOURS <small>${esc(inv.count)}</small></h2>
+    <header class="hud"><h1 class="hud-title" id="yours-title" tabindex="-1">YOURS <small>${esc(inv.count)}</small></h1>
       <button type="button" class="btn-p" data-act="yours-back">BACK TO THE DECK</button></header>
     <div class="scout-row">${scout('happy', 54)}<p class="say">Your own programs and settings, and what they do. Still listed, not warned about.</p></div>
     <p class="intel"><button type="button" class="btn-t" data-go="lesson:${esc(KIND_LESSON)}">WHAT DO THE LABELS MEAN? ▶</button></p>

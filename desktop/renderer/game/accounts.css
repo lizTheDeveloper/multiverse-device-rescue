@@ -22,6 +22,7 @@
 .acct-provider-block + .acct-provider-block { margin-top: 12px; }
 .acct-providers { display: grid; gap: 8px; margin: 10px 0; }
 .acct-providers .opt small { color: var(--dim); }
-.acct-providers .opt[aria-pressed="true"], .acct-answers [aria-pressed="true"] { outline: 2px solid var(--lime); outline-offset: 2px; }
+/* Chosen: a lime ring drawn with a shadow, so the cyan focus outline still shows on top of it. */
+.acct-providers .opt[aria-pressed="true"], .acct-answers [aria-pressed="true"] { box-shadow: 0 0 0 2px var(--midnight), 0 0 0 4px var(--lime); }
 .acct-answers { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
 .acct-safety .intel strong { color: var(--offwhite); }
