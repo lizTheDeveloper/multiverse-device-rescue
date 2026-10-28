@@ -222,3 +222,17 @@ test('sorting on the sweep counts, and its XP isn’t paid again once the sweep 
   t.click({ 'data-go': `signal:${t.idOf(1)}` });
   assert.strictEqual(t.deck().points, paid, 'the same clues pay once');
 });
+
+test('the radar: an SVG picture with the same numbers in a table, and a plain line before anything is filed', async () => {
+  const { renderRadar } = await game('views/radar.js');
+  const empty = renderRadar({ counts: {} });
+  assert.doesNotMatch(empty, /<svg/);
+  assert.match(empty, /say what it’s for/);
+  const html = renderRadar({ counts: { dev: 3, chat: 1, other: 2 }, running: { dev: 2 } });
+  assert.match(html, /<svg class="radar-svg"[^>]*role="img" aria-labelledby="radar-title" aria-describedby="radar-table"/);
+  assert.match(html, /<g aria-hidden="true">/);
+  assert.match(html, /Developer tools<\/th><td>3<\/td><td>2<\/td>/);
+  assert.match(html, /Chat and calls<\/th><td>1<\/td><td>0<\/td>/);
+  assert.match(html, /Something else<\/th><td>2<\/td>/);
+  assert.doesNotMatch(html, /Media and games/, 'only what was filed');
+});

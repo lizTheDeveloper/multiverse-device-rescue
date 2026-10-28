@@ -633,3 +633,15 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, [role="button
 .sb-small, .sb-session { margin: 0; font-size: 14px; color: var(--dim); }
 .sb-small b, .sb-session b { color: var(--offwhite); }
 .moment-recap { border-left-color: var(--cyan); }
+/* YOUR COMPUTER'S RADAR (views/radar.js). */
+.radar-body { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 18px; align-items: center; }
+@media (max-width: 700px) { .radar-body { grid-template-columns: minmax(0, 1fr); } }
+.radar-svg { width: 100%; max-width: 220px; height: auto; }
+.r-ring { fill: none; stroke: rgba(0,229,255,0.18); stroke-width: 1; }
+.r-spoke { stroke: rgba(0,229,255,0.18); stroke-width: 1; }
+.r-shape { fill: rgba(198,255,0,0.22); stroke: var(--lime); stroke-width: 2; }
+.r-label { fill: var(--offwhite); font-size: 13px; }
+.radar-table { border-collapse: collapse; font-size: 14px; }
+.radar-table th, .radar-table td { padding: 4px 10px; text-align: left; border-bottom: 1px solid var(--line); }
+.radar-table td { font-variant-numeric: tabular-nums; color: var(--lime); }
+.radar-table thead th { font-family: var(--font-display); font-size: 10px; letter-spacing: 1.5px; color: var(--dim); }

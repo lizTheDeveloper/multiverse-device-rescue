@@ -57,7 +57,8 @@ import { guidedPanelHtml, catPickerHtml, arrivalsHtml, caseBadgeHtml, inlineCase
 // The incident report (case-file.js): leads, open doors, upkeep, blind spots.
 import { caseOf, compareCases, mergeEchoes, caseReport } from './case-file.js';
 import { renderScoreboard, reportHtml, recapText } from './views/scoreboard.js';
-import { suggestCategory, OWN_CATEGORY_IDS, OWN_CATEGORIES } from './own-categories.js';
+import { suggestCategory, OWN_CATEGORY_IDS, OWN_CATEGORIES, radarOf } from './own-categories.js';
+import { renderRadar } from './views/radar.js';
 import { countSort, restoreTag } from './ledger.js';
 import { sweepLine, sweepDoneLine, fixRcControls, focusScreenHeading } from './a11y.js';
 import { attachDisplayPanel } from './display-panel.js';
@@ -545,6 +546,18 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   }
   const calmCases = (list) => mergeEchoes(list.map((x) => ({ ...x, case: caseFor(x) }))
     .filter((x) => x.case.type === 'lead' || x.case.type === 'door').sort(compareCases));
+  // YOUR COMPUTER'S RADAR (views/radar.js): what the things called MINE are
+  // for, and how many of each are running now, from the deck's own tags.
+  function radarHtml() {
+    const deck = s.progress.deck;
+    const running = {};
+    for (const x of signalsNow()) {
+      const t = deck.tags[x.id];
+      if (!t || t.tag !== 'mine' || !t.cat || x.kind !== 'real') continue;
+      if (kindsOf(x.finding, programCtx).some((k) => k.id === 'running')) running[t.cat] = (running[t.cat] || 0) + 1;
+    }
+    return renderRadar({ counts: radarOf(deck), running });
+  }
   const caseFor = (sig) => caseOf(sig, { kinds: sig.kind === 'real' ? kindsOf(sig.finding, programCtx) : [] });
   // A district's note opens its signal on the deck, when the note is one (a
   // grouped connection-watch note isn't on its own).
@@ -1092,7 +1105,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       s.screen = s.city ? 'map' : 'training';
     }
     if (s.screen === 'yours') {
-      if (s.city) return renderYours({ inv: yoursNow(), picked: desk.ypicked, scout, toast: desk.toast, fold: policy().foldRaw });
+      if (s.city) return renderYours({ inv: yoursNow(), picked: desk.ypicked, scout, toast: desk.toast, fold: policy().foldRaw, radarHtml: radarHtml() });
       s.screen = 'training';
     }
     if (s.screen === 'range') return rangeHtml();
