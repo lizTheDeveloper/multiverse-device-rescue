@@ -7,7 +7,11 @@ const QID = '20261016T120000Z-com.example.a';
 const finding = (title) => ({ title, description: 'd', severity: 'critical', category: 'security', data: {} });
 const mod = (name, findings) => ({ name, category: 'security', status: 'ok', error: null, supported: true, findings });
 const scan = (...mods) => ({ schema_version: 1, platform: 'darwin', modules: mods });
-const memStore = () => { const s = {}; return { getItem: (k) => (k in s ? s[k] : null), setItem: (k, v) => { s[k] = String(v); } }; };
+// Seeded past the guided walkthrough's first signals (guided.js), so a signal
+// opens in the ordinary panel; game-guided.test.js covers the walkthrough.
+const SEASONED = JSON.stringify({ version: 3, missions: {}, lessons: {}, deck: { points: 0, rank: 0, drills: { right: 0, tried: 0 }, tags: {},
+  confirmed: {}, once: {}, sweep: { at: null, keys: {} }, sweeps: [], sorts: 50 } });
+const memStore = () => { const s = { 'device-rescue.game.v1': SEASONED }; return { getItem: (k) => (k in s ? s[k] : null), setItem: (k, v) => { s[k] = String(v); } }; };
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
 function stubWin(recheckDocs) {

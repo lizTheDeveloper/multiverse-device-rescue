@@ -37,6 +37,7 @@ export function signalRow(sig, districtName = () => '', { extra = '', chips = ''
 // THREAT's next move: the finding's own briefing, where any real fix asks first.
 // Breach Protocol (piece 3) and account steps (piece 5) aren't built yet.
 export function nextMoveHtml(sig) {
+  if (sig.live) return ''; // found during the sweep: its steps wait for the deck (LIVE_NOTE)
   if (sig.missionId) {
     return `<button type="button" class="btn-s mag" data-go="mission:${esc(sig.missionId)}">${sig.fixable ? 'SEE THE FIX ▶' : 'SEE THE STEPS ▶'}</button>`;
   }

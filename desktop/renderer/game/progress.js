@@ -58,7 +58,8 @@ export function validDeck(d) {
     && plainObject(d.sweep) && (d.sweep.at === null || typeof d.sweep.at === 'string') && plainObject(d.sweep.keys)
     && (d.sweep.carry === undefined || typeof d.sweep.carry === 'boolean')
     && (d.sweep.marked === undefined || typeof d.sweep.marked === 'boolean')
-    && Array.isArray(d.sweeps) && d.sweeps.every(sweepFieldsOk);
+    && Array.isArray(d.sweeps) && d.sweeps.every(sweepFieldsOk)
+    && (d.sorts === undefined || count(d.sorts));
 }
 
 // The deck rebuilt from its known fields only, or null when it isn't a valid
@@ -83,6 +84,9 @@ export function cleanDeck(d) {
       // so the next sweep's clean board isn't paid. A bare flag, like carry.
       ...(d.sweep.marked === true ? { marked: true } : {}) },
     sweeps: d.sweeps.map((w) => Object.fromEntries([['at', w.at], ...SWEEP_FIELDS.map((k) => [k, w[k]])])),
+    // `sorts`: how many real signals the person has sorted after looking, ever.
+    // A bare count, never which ones: the guided walkthrough fades with it (guided.js).
+    ...(count(d.sorts) ? { sorts: d.sorts } : {}),
   };
 }
 

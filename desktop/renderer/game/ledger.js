@@ -140,6 +140,13 @@ export function recordSweep(deck, counts, now, { carry = false } = {}) {
   return { ...award(next, 'clean', entry.at), clean: true };
 }
 
+// A real signal sorted for the first time (a game tag after opening it): one
+// more on the lifetime count the guided walkthrough fades with. No points.
+export function countSort(deck) {
+  const d = deckOf(deck);
+  return { ...d, sorts: (d.sorts || 0) + 1 };
+}
+
 // "This is mine" is sorting, not a fix: it pays nothing, and the sweep after
 // a mark isn't paid as clean either, so mark / unmark / re-sweep can't farm
 // the clean bonus. A bare flag on the current sweep (see progress.js).

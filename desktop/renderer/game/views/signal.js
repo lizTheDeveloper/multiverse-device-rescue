@@ -5,6 +5,8 @@ import { esc } from '../escape.js';
 import { SEV_BADGE, nextMoveHtml } from './deck.js';
 
 export const TAG_NOTE = 'Tags are game sorting only. They change nothing on your computer.';
+// A signal opened during the sweep: its steps, and any fix, wait for the deck.
+export const LIVE_NOTE = 'Found during the sweep. Its steps open on the deck when the checkup is done.';
 const TAG_BUTTONS = [['mine', 'MINE'], ['closer', 'LOOK CLOSER'], ['threat', 'THREAT']];
 
 // A clue line is text, or { text, code: true } for a command or a raw value (copyable).
@@ -40,8 +42,15 @@ function clueItem(c, opened, sig, fold = false) {
 // Real findings pay for looking, so the points show with the clues, before any tag.
 const cluePoints = (sig, points) => (sig.kind === 'real' && points > 0 ? `<p class="points">+${esc(points)} POINTS for looking at the clues</p>` : '');
 
+// `quickHtml`: the one-click "mark it in Reclaim City" control, or ''; it and
+// MarkFlow's `mineHtml` are offered only after the MINE call, as one optional
+// step, so the panel never shows two MINE buttons. `catHtml`: after MINE,
+// "what is it for?" (views/guided.js catPickerHtml). `live`: found during the
+// sweep, so its steps open on the deck afterwards. `onSweep`: the panel is over
+// the sweep, so its way back says so.
 export function renderSignalPanel({ signal: sig, districtName = '', clues = [], opened = [], tagged = null, right = false, read = '',
-  points = 0, scout, mineHtml = '', range = null, quickHtml = '', chipsHtml = '', fold = false, evidenceHtml = '' }) {
+  points = 0, scout, mineHtml = '', range = null, quickHtml = '', chipsHtml = '', fold = false, evidenceHtml = '', catHtml = '',
+  onSweep = false, caseHtml = '' }) {
   const drill = sig.kind === 'drill';
   const couldnt = sig.kind === 'couldnt';
   const stamp = drill ? `<p class="drill-banner"><span class="badge drill-stamp">DRILL</span> Practice. This isn’t on your computer.</p>
@@ -68,29 +77,30 @@ export function renderSignalPanel({ signal: sig, districtName = '', clues = [], 
   const after = !tagged ? '' : `
     ${read ? `<div class="scout-row">${scout(drill && !right ? 'thinkingA' : 'happy', 54)}<p class="say">${esc(read)}</p></div>` : ''}
     ${drill && points > 0 ? `<p class="points">+${esc(points)} POINTS</p>` : ''}
-    ${!drill && tagged === 'mine' && mineHtml ? `<div class="panel"><div class="label">OPTIONAL: TELL RECLAIM CITY TOO</div>
-      <p class="intel">The MINE pile is the game’s sorting. This asks Reclaim City itself to remember it’s yours, so it stops flagging it. It asks first, and you can undo it.</p>${mineHtml}</div>` : ''}
+    ${!drill && tagged === 'mine' ? catHtml : ''}
+    ${!drill && tagged === 'mine' && (quickHtml || mineHtml) ? `<div class="panel"><div class="label">OPTIONAL: TELL RECLAIM CITY TOO</div>
+      <p class="intel">The MINE pile is the game’s sorting. This asks Reclaim City itself to remember it’s yours, so it stops flagging it. It asks first, and you can undo it.</p>${quickHtml || mineHtml}</div>` : ''}
     ${!drill && tagged === 'threat' ? `<div class="panel"><div class="label">ON YOUR THREAT BOARD</div><p class="intel">Your next move:</p>${nextMoveHtml(sig)}</div>` : ''}
     ${!drill && tagged === 'closer' ? '<p class="intel">It stays in your queue. Open its clues again any time, or use LIST for every detail the scan recorded.</p>' : ''}`;
   // The steps for a real finding stay one click away whatever the call, so
   // someone who only wants to know what to do is never stuck sorting first.
   // After THREAT, or once a WHAT TO DO NEXT clue is open, they're already offered.
   const moveShown = clues.some((c) => c.move && opened.includes(c.kind));
-  const steps = !drill && !couldnt && sig.missionId && tagged !== 'threat' && !moveShown
+  const steps = !drill && !couldnt && sig.missionId && tagged !== 'threat' && !moveShown && !sig.live
     ? `<button type="button" class="btn-t" data-go="mission:${esc(sig.missionId)}">${sig.fixable ? 'SEE THE FIX ▶' : 'SEE THE STEPS ▶'}</button>` : '';
   const foot = range
     ? `<div class="row"><button type="button" class="btn-p" data-act="next-drill">NEXT DRILL ▶</button>
       <button type="button" class="btn-t" data-act="leave-range">${range.hasCity ? 'BACK TO THE DECK' : 'BACK TO THE TRAINING GROUNDS'}</button></div>`
-    : `<div class="row">${steps}<button type="button" class="btn-t" data-act="close-signal">BACK TO THE DECK</button></div>`;
+    : `${sig.live ? `<p class="intel faint">${esc(LIVE_NOTE)}</p>` : ''}<div class="row">${steps}<button type="button" class="btn-t" data-act="close-signal">${onSweep ? 'BACK TO THE SWEEP' : 'BACK TO THE DECK'}</button></div>`;
   return `
   <section class="sig-panel${drill ? ' drill' : ''}" role="region" aria-labelledby="sig-title">
     ${stamp}
-    <div class="sig-head">${SEV_BADGE[sig.severity] || ''} <small>${esc(districtName)}</small></div>
+    <div class="sig-head">${caseHtml || SEV_BADGE[sig.severity] || ''} <small>${esc(districtName)}</small></div>
     <h2 class="m-title" id="sig-title" tabindex="-1">${esc(sig.title)}</h2>${chipsHtml}
     ${notes}
     ${drill ? '' : evidenceHtml}
     <div class="label">CLUES</div>${clueHtml}
-    <div class="label">YOUR CALL</div>${quickHtml}${call}
+    <div class="label">YOUR CALL</div>${call}
     <p class="intel faint">${esc(drill ? 'Practice only. A drill never touches your computer.' : TAG_NOTE)}</p>
     ${after}
     ${foot}

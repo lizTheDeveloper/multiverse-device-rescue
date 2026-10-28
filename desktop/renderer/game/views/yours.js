@@ -18,15 +18,16 @@ export function confirmHtml({ target, count = 1, watch = false }) {
     <button type="button" class="btn-t" data-act="mine-no">CANCEL</button></div></div>`;
 }
 
-// The row's own controls in the queue: a checkbox (unticked) and MINE ✓.
+// The row's own controls in the queue: a checkbox (unticked) and MARK AS MINE ✓,
+// both with their words on screen.
 // `qm`: quickMarkOf(…). `state`: {picked, confirming, saving, watch}.
 export function mineRowHtml(sig, qm, { picked = false, confirming = false, saving = false, watch = false } = {}) {
   if (!qm) return '';
   if (saving) return '<span class="mine-saving" role="status"><span aria-hidden="true">✓</span> SORTING…</span>';
   if (confirming) return confirmHtml({ target: sig.id, watch });
   return `<span class="mine-row">
-    <label class="pick"><input type="checkbox" data-act="pick:${esc(sig.id)}"${picked ? ' checked' : ''} aria-label="${esc(`Select: ${sig.title}`)}"></label>
-    <button type="button" class="btn-mine" data-act="mine:${esc(sig.id)}" aria-label="${esc(`Mine: ${sig.title}`)}">MINE ✓</button></span>`;
+    <label class="pick"><input type="checkbox" data-act="pick:${esc(sig.id)}"${picked ? ' checked' : ''} aria-label="${esc(`Select: ${sig.title}`)}"> <span aria-hidden="true">SELECT</span></label>
+    <button type="button" class="btn-mine" data-act="mine:${esc(sig.id)}" aria-label="${esc(`Mark as mine: ${sig.title}`)}">MARK AS MINE ✓</button></span>`;
 }
 
 // The selection bar, above the queue, once something is ticked.

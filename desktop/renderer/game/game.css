@@ -562,5 +562,39 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, [role="button
 .display-group { border: 1px solid var(--line); margin: 0 0 10px; padding: 4px 12px 6px; display: grid; gap: 2px; }
 .display-group legend { font-weight: 600; padding: 0 4px; }
 .display-choice { display: flex; gap: 10px; align-items: center; min-height: 32px; cursor: pointer; }
-.display-note { margin: -4px 0 12px; font-size: 13px; color: var(--grey, #9aa3b5); }
+.display-note { margin: -4px 0 12px; font-size: 13px; color: var(--dim); }
 .display-choice input { width: 18px; height: 18px; margin: 0; accent-color: var(--cyan); flex: none; }
+
+/* The guided walkthrough, FOUND SO FAR on the sweep, and "what is it for?" (views/guided.js). */
+.sig-panel.guided { border-color: rgba(198,255,0,0.45); }
+.g-kicker { margin: 0; display: flex; gap: 8px; align-items: center; font-size: 14px; color: var(--dim); }
+.g-dots { margin: 2px 0 0; display: flex; gap: 6px; align-items: center; font-family: var(--font-display); font-size: 10px; letter-spacing: 1.5px; color: var(--dim); }
+.g-dots i { width: 22px; height: 6px; border: 1px solid rgba(0,229,255,0.5); }
+.g-dots i.done { background: rgba(0,229,255,0.5); }
+.g-dots i.now { background: var(--cyan); box-shadow: 0 0 8px rgba(0,229,255,0.6); }
+.g-dots span { margin-left: 6px; }
+.g-step { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line); background: rgba(0,229,255,0.03); }
+.g-step .clue-plain, .g-step .clue-line { margin: 0; font-size: 17px; line-height: 1.5; }
+.g-calls { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.g-calls li { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 12px; align-items: center; }
+.g-calls span { font-size: 14px; color: var(--dim); }
+.g-xp { animation: g-pop 0.35s ease-out; }
+@keyframes g-pop { from { transform: scale(0.9); opacity: 0.4; } to { transform: none; opacity: 1; } }
+.g-optional summary { cursor: pointer; }
+.g-cat { display: grid; gap: 10px; }
+.cat-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cat-chip { min-height: 36px; padding: 6px 10px; font-size: 13px; color: var(--offwhite); border: 1px solid rgba(255,255,255,0.22); background: transparent; cursor: pointer; }
+.cat-chip:hover, .cat-chip:focus-visible { border-color: var(--lime); color: var(--lime); }
+.cat-chip.suggested { border-color: var(--lime); background: rgba(198,255,0,0.08); }
+.g-cat-done { color: var(--lime); }
+.arrivals { display: grid; gap: 10px; }
+.arrivals-count { margin: 0; font-size: 15px; color: var(--dim); }
+.arrivals-count b { font-family: var(--font-display); font-size: 20px; color: var(--offwhite); }
+.arrival-next { margin: 0; font-size: 16px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.arrival-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.arrival { width: 100%; display: flex; gap: 8px; align-items: baseline; text-align: left; padding: 8px 10px; font-size: 14px; color: var(--offwhite);
+  background: rgba(255,255,255,0.02); border: 1px solid var(--line); cursor: pointer; }
+.arrival.sev-critical { border-left: 3px solid var(--magenta); }
+.arrival.sev-warning { border-left: 3px solid var(--amber); }
+.arrival:hover, .arrival:focus-visible { border-color: var(--cyan); }
+.cmds-from { margin: 4px 0 0; }

@@ -5,7 +5,7 @@
 import { findingsToCity, DISTRICTS, findingIdentity } from './findings-to-city.js';
 import { splitHeld, heldOnly, briefingNote, heldPanelHtml, HELD_MODULES } from './held.js';
 import { loadProgress, saveProgress, reconcile, setStatus, setLessonDone, lessonDone, ranOkModules, recheckOutcome, setDeck } from './progress.js';
-import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds } from './signals.js';
+import { buildSignals, compareSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds } from './signals.js';
 import { award, setTag, recordDrill, recordSweep, confirmFix, reconcileDeck, rankOf, sweepPercent, POINTS, MONITORING_MODULES,
   isWatchKey, sessionTag, withSessionTags } from './ledger.js';
 import { cluesFor, drillClues, scoutRead, drillRead, COULDNT_READ } from './clues.js';
@@ -50,6 +50,14 @@ import { renderYours, yoursTileHtml, mineRowHtml, bulkBarHtml, toastHtml, confir
 // How much detail is shown (level.js): never what is safe.
 import { readLevel, levelOf, writeLevel, levelPolicy, LEVELS, canTestOut } from './level.js';
 import { renderLevelPicker, evidenceHtml } from './views/level.js';
+// Found during the sweep (live.js) and the guided walkthrough (guided.js).
+import { liveInit, liveApply, liveDoc, liveSignals } from './live.js';
+import { guideMode, guideSteps } from './guided.js';
+import { guidedPanelHtml, catPickerHtml, arrivalsHtml, caseBadgeHtml } from './views/guided.js';
+// The incident report (case-file.js): leads, open doors, upkeep, blind spots.
+import { caseOf, compareCases, mergeEchoes } from './case-file.js';
+import { suggestCategory, OWN_CATEGORY_IDS } from './own-categories.js';
+import { countSort } from './ledger.js';
 import { sweepLine, sweepDoneLine, fixRcControls, focusScreenHeading } from './a11y.js';
 import { attachDisplayPanel } from './display-panel.js';
 
@@ -139,8 +147,11 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     sideTicket: 0, sideNotice: false, heldOpen: false,
     // The connection watch, and its findings' tags (memory only: ledger sessionTag).
     watch: idleWatch(), watchTags: {},
+    // What this sweep found so far (live.js), and how many of those were sorted on the sweep. Memory only.
+    live: liveInit(), liveSorted: 0,
   };
   let drawnScreen = null; // the screen the last render drew
+  let sweepKeys0 = null; // the sweep's award keys when a game sweep started (showBoss)
   let drawnKey = null; // ...and which one of it (a district, a lesson question, a game route)
   let sweepSaid = 0; // the last quarter of the sweep said aloud (a11y.js sweepLine)
 
@@ -355,7 +366,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       routerHtml: () => (win.RouterLink ? win.RouterLink.gameLinkHtml(routerFor()) : '') }) : '';
     return renderBoss({ boss: s.boss, scout, tips: s.tips, tipsOpen: s.tipsOpen, learn: learnFor(), lessonHtml,
       offer: inline || !s.lessonsLoaded ? null : sweepOfferNow(), lessonsLoaded: s.lessonsLoaded,
-      lessonsDone: s.lessons.filter((l) => lessonDone(s.progress, l.id)).length, lessonsTotal: s.lessons.length });
+      lessonsDone: s.lessons.filter((l) => lessonDone(s.progress, l.id)).length, lessonsTotal: s.lessons.length,
+      arrivalsHtml: arrivalsNow(), panelHtml: s.signal ? signalPanelHtml() : '', calm: level() !== 'technical' });
   }
 
   // Lessons show before any scan, so the platform falls back to what preload says.
@@ -427,7 +439,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   const chipsFor = (sig) => (sig && sig.kind === 'real' ? kindChipsHtml(kindsOf(sig.finding, programCtx)) : '');
   // The quick MINE control for one signal, where it is shown (a queue row, the panel, the briefing).
   function quickControl(sig, inRow) {
-    const qm = desk.qmOf(sig);
+    // Found during the sweep: marking it in Reclaim City waits for the finished scan.
+    const qm = sig && !sig.live ? desk.qmOf(sig) : null;
     if (!qm) return '';
     const watch = desk.isWatch(sig);
     if (desk.saving.has(sig.id)) return mineRowHtml(sig, qm, { saving: true });
@@ -494,8 +507,37 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const d = s.drillBank.find((x) => x.id === id.slice(6));
       return d ? drillSignal(d) : null;
     }
-    return signalsNow().find((x) => x.id === id) || null;
+    return signalsNow().find((x) => x.id === id) || (s.scan.running ? liveNow().find((x) => x.id === id) : null) || null;
   }
+  // The sweep's live signals: what the finished checks found, built the way
+  // rebuild() builds the city (held split off, the list's own quieting), but
+  // never reconciled or stored. Rebuilt only when another check lands.
+  let liveMemo = { n: -1, list: [] };
+  function liveNow() {
+    const d = s.scan.running ? liveDoc(s.live, platform()) : null;
+    if (!d) return [];
+    if (liveMemo.n === d.modules.length) return liveMemo.list;
+    const city = findingsToCity(quietDoc(splitHeld(d).doc));
+    const list = liveSignals(buildSignals(city, withSessionTags(s.progress.deck, s.watchTags), s.changedTags)).sort(compareSignals);
+    liveMemo = { n: d.modules.length, list };
+    return list;
+  }
+  // FOUND SO FAR on the sweep: technical opens each at once; new and everyday
+  // see one at a time, guided, once a lesson is done.
+  // Calm: cases, not severities. Leads (is this yours?) and open doors come
+  // first, the same door said by several checks is one, and upkeep waits for the deck.
+  function arrivalsNow() {
+    const all = liveNow();
+    const open = all.filter((x) => !x.tag || x.tag === 'closer');
+    const calm = level() !== 'technical';
+    const unlocked = !calm || s.lessons.some((l) => lessonDone(s.progress, l.id)) || !s.lessons.length;
+    if (!calm) return arrivalsHtml({ items: open, calm, unlocked, sortedNow: s.liveSorted });
+    const cases = calmCases(open);
+    return arrivalsHtml({ items: cases, calm, unlocked, sortedNow: s.liveSorted, badge: (x) => caseBadgeHtml(x.case) });
+  }
+  const calmCases = (list) => mergeEchoes(list.map((x) => ({ ...x, case: caseFor(x) }))
+    .filter((x) => x.case.type === 'lead' || x.case.type === 'door').sort(compareCases));
+  const caseFor = (sig) => caseOf(sig, { kinds: sig.kind === 'real' ? kindsOf(sig.finding, programCtx) : [] });
   // A district's note opens its signal on the deck, when the note is one (a
   // grouped connection-watch note isn't on its own).
   function noteSignalGo() {
@@ -514,10 +556,54 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // The quick MINE step comes first; MarkFlow's own panel only where the quick one can't be offered.
     const quick = quickControl(sig, false);
     const mine = !quick && sig.kind === 'real' && sig.missionId && !sig.marked ? win.MarkFlow.markControlsHtml(sig.finding, watchedOpts()) : '';
+    const onSweep = s.screen === 'boss';
+    // After MINE: what is it for? (own-categories.js). Never for the watch's session-only tags.
+    const c = sig.kind === 'real' || sig.kind === 'couldnt' ? caseFor(sig) : null;
+    // New and everyday read the case (case-file.js) where the severity was.
+    const caseHtml = c && level() !== 'technical' ? caseBadgeHtml(c) : '';
+    const cat = c && c.type === 'lead' && sig.kind === 'real' && !isWatchKey(sig.id) ? catPickerHtml({ picked: s.signal.cat,
+      suggested: suggestCategory(sig.finding, kindsOf(sig.finding, programCtx).map((k) => k.id)), looked: openedFor(sig.id).length > 0 }) : '';
+    if (s.signal.guided === 'full' || s.signal.guided === 'light') return guidedHtml(sig, { quick, mine, cat, onSweep, caseHtml, door: !!c && c.type === 'door' });
     return renderSignalPanel({ signal: sig, districtName: nameOf(sig.districtId), clues: cluesOf(sig), opened: openedFor(sig.id),
       tagged: s.signal.tagged, right: s.signal.right, read: s.signal.read, points: s.signal.points, scout, mineHtml: mine,
       range: s.screen === 'range' ? { hasCity: !!s.city } : null, quickHtml: quick, chipsHtml: chipsFor(sig),
-      fold: policy().foldRaw, evidenceHtml: sig.kind === 'real' ? evidenceFor(sig.finding, cluesOf(sig)) : '' });
+      fold: policy().foldRaw, evidenceHtml: sig.kind === 'real' ? evidenceFor(sig.finding, cluesOf(sig)) : '', catHtml: cat, onSweep, caseHtml });
+  }
+
+  // The guided walkthrough's panel (guided.js): the steps, then after the
+  // call the same read, XP and optional steps as the ordinary panel.
+  function guidedHtml(sig, { quick, mine, cat, onSweep, caseHtml, door }) {
+    const g = s.signal;
+    let after = '';
+    if (g.tagged) {
+      after = `${g.read ? `<div class="scout-row">${scout('happy', 54)}<p class="say">${esc(g.read)}</p></div>` : ''}
+        ${g.points > 0 ? `<p class="points g-xp">+${esc(g.points)} INCIDENT RESPONSE XP</p>` : '<p class="intel faint">Sorted. Open the clues before your call to earn XP.</p>'}
+        ${g.tagged === 'mine' ? cat : ''}
+        ${g.tagged === 'mine' && (quick || mine) ? `<details class="panel g-optional"><summary class="label">OPTIONAL: TELL RECLAIM CITY TOO</summary>
+          <p class="intel">This asks Reclaim City itself to stop flagging it. It asks first, and you can undo it.</p>${quick || mine}</details>` : ''}
+        ${g.tagged === 'threat' ? `<p class="intel">${door ? 'To close it, follow its steps' : 'It’s on your THREAT BOARD'}${sig.live ? ' on the deck when the checkup is done.' : '. They’re one click away there.'}</p>` : ''}
+        ${g.tagged === 'closer' ? '<p class="intel">It stays in your queue for later.</p>' : ''}`;
+    }
+    const next = g.tagged ? nextGuided(sig.id) : null;
+    return guidedPanelHtml({ sig, mode: g.guided, steps: guideSteps(cluesOf(sig)), step: g.step || 0, districtName: nameOf(sig.districtId),
+      tagged: g.tagged, fold: true, chipsHtml: chipsFor(sig), earned: g.points, after, onSweep, caseHtml, door,
+      nextHtml: next ? '<button type="button" class="btn-p" data-act="guide-another">NEXT ONE ▶</button>' : '' });
+  }
+  // The next signal still to sort after this one: on the sweep, what it found
+  // so far; on the deck, the queue (drills aside).
+  function nextGuided(afterId) {
+    const base = s.screen === 'boss' ? liveNow() : deckQueue().items.filter((x) => x.kind === 'real');
+    const list = level() === 'technical' ? base : calmCases(base);
+    return list.find((x) => x.id !== afterId && (!x.tag || x.tag === 'closer')) || null;
+  }
+  // A guided step's clue pays as it's shown, like SCAN CLUE: once per finding per sweep.
+  function payStep(sig, i) {
+    const st = guideSteps(cluesOf(sig))[i];
+    if (!st || !st.clue) return;
+    const opened = openedFor(sig.id);
+    if (opened.includes(st.clue.kind)) return;
+    opened.push(st.clue.kind);
+    s.signal.points += commitAward(award(s.progress.deck, 'clue', `${sig.id}#${st.clue.kind}`));
   }
 
   function deckHtml() {
@@ -549,7 +635,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       lastSweep: deck.sweeps.length ? deck.sweeps[deck.sweeps.length - 1] : null,
       // Marked as yours: in YOURS, not the KNOWN AND NOTED pile. Each queue row carries MINE ✓ and its kind.
       items, low: q.low, lowOpen: s.lowOpen, threats: q.threats, known: [...q.known.filter((x) => !x.marked), ...q.noted],
-      rowParts: (x) => ({ extra: quickControl(x, true), chips: chipsFor(x) }), pickerHtml: pickerHtml(),
+      // "new": rows only open, so a first signal is looked at before it's marked; the row controls come with "everyday".
+      rowParts: (x) => ({ extra: level() === 'new' ? '' : quickControl(x, true), chips: chipsFor(x) }), pickerHtml: pickerHtml(),
       queueTop: toastHtml(desk.toast) + bulkBarHtml({ count: desk.picked.size, confirming: !!(desk.confirm && desk.confirm.target === '*'),
         watch: !!(desk.confirm && desk.confirm.watch) }),
       filter: fd ? { id: fd.id, name: fd.name } : null, cityHtml,
@@ -564,14 +651,17 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
 
   function openSignal(id) {
     const sig = findSignal(id);
-    s.signal = sig ? { id: sig.id, tagged: null, right: false, read: '', points: 0 } : null;
+    // New and everyday: the first few real signals not yet sorted are walked through (guided.js).
+    const guided = sig && (!sig.tag || sig.tag === 'closer') ? guideMode(level(), s.progress.deck, sig) : 'none';
+    s.signal = sig ? { id: sig.id, tagged: null, right: false, read: '', points: 0, guided, step: 0, cat: null } : null;
     // A drill already answered this sweep opens with that answer: it takes one.
     const was = sig && sig.kind === 'drill' ? s.drillAnswers[sig.drill.id] : null;
     if (was) s.signal = { ...s.signal, tagged: was.tag, right: was.right, read: drillRead(sig.drill, was.right) };
     // FixFlow and MarkFlow results re-check s.missionId. An info signal has no mission.
     if (sig) s.missionId = sig.missionId || null;
-    if (sig && sig.kind === 'real') lookAtClues(sig);
-    s.screen = 'map';
+    if (sig && sig.kind === 'real') { if (guided === 'full') payStep(sig, 0); else lookAtClues(sig); }
+    // Opened from FOUND SO FAR: the panel sits over the sweep, which keeps running.
+    s.screen = s.screen === 'boss' && s.scan.running ? 'boss' : 'map';
     render();
     const title = s.signal ? frame.querySelector('#sig-title') : null;
     if (title && typeof title.focus === 'function') title.focus();
@@ -618,7 +708,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
   // on the signal's row in the queue, or else INVESTIGATE NEXT.
   function closeSignal() {
     const id = s.signal && s.signal.id;
-    s.signal = null; s.screen = 'map';
+    s.signal = null; s.screen = s.screen === 'boss' && s.scan.running ? 'boss' : 'map';
     render();
     if (id && focusEl(findByAttr(frame, 'data-go', `signal:${id}`))) return;
     if (focusEl(findByAttr(frame, 'data-act', 'investigate-next'))) return;
@@ -639,13 +729,30 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (!sig) return;
     if (sig.kind === 'drill') { answerDrill(sig, tag); return; }
     if (!(sig.kind === 'couldnt' ? ['noted'] : ['mine', 'threat', 'closer']).includes(tag)) return;
-    commitDeck(tagOne(s.progress.deck, sig, tag));
+    // A real signal sorted for the first time counts toward the walkthrough's fading (guided.js).
+    const first = sig.kind === 'real' && (!sig.tag || sig.tag === 'closer') && tag !== 'closer';
+    commitDeck(tagOne(first ? countSort(s.progress.deck) : s.progress.deck, sig, tag));
+    if (first && sig.live) s.liveSorted += 1;
+    liveMemo = { n: -1, list: [] }; // its tag changes what FOUND SO FAR shows
     s.changedTags.delete(sig.id);
     if (sig.kind === 'real' && openedFor(sig.id).length >= 2) s.signal.points += commitAward(award(s.progress.deck, 'tagBonus', sig.id));
-    s.signal = { ...s.signal, tagged: tag, read: sig.kind === 'couldnt' ? COULDNT_READ : scoutRead(sig, tag) };
+    s.signal = { ...s.signal, tagged: tag, cat: null, read: sig.kind === 'couldnt' ? COULDNT_READ : scoutRead(sig, tag) };
     logEntry('TAG', `${TAG_WORD[tag]}: ${sig.title}`);
     render();
     focusRead();
+  }
+
+  // "What is it for?" after MINE: the category goes on the MINE tag
+  // (ledger setTag). It pays INCIDENT RESPONSE XP once per thing, ever, and
+  // only when its clues were opened first. Monitoring is never a signal, so
+  // it never gets here; the watch's session-only tags take no category.
+  function fileCategory(cat) {
+    const sig = s.signal && findSignal(s.signal.id);
+    if (!sig || sig.kind !== 'real' || s.signal.tagged !== 'mine' || s.signal.cat || isWatchKey(sig.id) || !OWN_CATEGORY_IDS.has(cat)) return;
+    commitDeck(setTag(s.progress.deck, sig.id, 'mine', sig.fp, now(), cat));
+    if (openedFor(sig.id).length > 0) s.signal.points += commitAward(award(s.progress.deck, 'identify', sig.id));
+    s.signal = { ...s.signal, cat };
+    render();
   }
 
   // After a tag, keyboard and screen-reader users land on Scout's read (an
@@ -710,8 +817,16 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     // The mark stays until the monitoring checks ran and found nothing held:
     // a sweep where one timed out or couldn't look (fog) keeps it.
     const carry = heldDistrictIds(s.heldCity).size > 0 || (s.progress.deck.sweep.carry === true && !monitoringRanClear(doc));
+    // XP paid on the sweep for what it found (FOUND SO FAR) stays paid in the
+    // sweep that starts now, so the same clue can't pay again on the deck.
+    const earned = sweepKeys0 ? Object.keys(s.progress.deck.sweep.keys).filter((k) => !(k in sweepKeys0)) : [];
+    sweepKeys0 = null;
     const r = recordSweep(s.progress.deck, counts, now(), { carry });
     commitAward(r);
+    if (earned.length) {
+      const d = s.progress.deck;
+      commitDeck({ ...d, sweep: { ...d.sweep, keys: { ...d.sweep.keys, ...Object.fromEntries(earned.map((k) => [k, true])) } } });
+    }
     logEntry('SWEEP', `${counts.checks} check${counts.checks === 1 ? '' : 's'}: ${counts.critical} critical, ${counts.warning} warning, ${counts.fog} couldn’t check.`);
     if (r.clean) {
       addMoment({ kind: 'clean', title: 'CLEAN SWEEP', text: 'No critical or warning signal is open in any district that could be checked.' });
@@ -721,7 +836,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     for (const p of prev) {
       if (p.kind === 'real' && (p.tag || p.severity !== 'info') && !here.has(p.id)) logEntry('NO LONGER SEEN', p.title);
     }
-    s.opened = {};
+    // Clues opened on the sweep stay opened (their XP is already paid); drills start over.
+    s.opened = earned.length ? Object.fromEntries(Object.entries(s.opened).filter(([id]) => !id.startsWith('drill:'))) : {};
     s.drillAnswers = {};
     s.sweepDrills = s.drillsLoaded ? sweepDrillsNow() : null;
     // A new checkup replaces the watch's results (one can't start while a watch runs).
@@ -1113,6 +1229,19 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     if (act && act.startsWith('clue:')) { scanClue(act.slice(5)); return; }
     if (act && act.startsWith('tag:')) { tagSignal(act.slice(4)); return; }
+    if (act && act.startsWith('cat:')) { fileCategory(act.slice(4)); return; }
+    // The guided walkthrough (guided.js): the next step, straight to the call, or the next signal.
+    if ((act === 'guide-next' || act === 'guide-call') && s.signal && s.signal.guided === 'full' && !s.signal.tagged) {
+      const sig = findSignal(s.signal.id);
+      if (!sig) return;
+      const last = guideSteps(cluesOf(sig)).length - 1;
+      s.signal.step = act === 'guide-call' ? last : Math.min(last, (s.signal.step || 0) + 1);
+      payStep(sig, s.signal.step);
+      render();
+      focusEl(frame.querySelector('#g-step-title')) || focusEl(frame.querySelector('#sig-title'));
+      return;
+    }
+    if (act === 'guide-another' && s.signal) { const n = nextGuided(s.signal.id); if (n) openSignal(n.id); return; }
     if (act === 'close-signal') { closeSignal(); return; }
     if (act === 'toggle-low') { s.lowOpen = !s.lowOpen; render(); return; }
     if (act === 'batch-fine') { batchFine(); return; }
@@ -1425,6 +1554,9 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     },
     showBoss() {
       s.boss = bossInit();
+      s.live = liveInit(); s.liveSorted = 0; liveMemo = { n: -1, list: [] };
+      // Clue and tag XP earned on the sweep belongs to the sweep it found (newSweep keeps it).
+      sweepKeys0 = { ...s.progress.deck.sweep.keys };
       s.sweepOffer = null; s.sweepPassed = [];
       s.scan = { running: true, index: 0, total: 0, error: null };
       s.pendingCity = false;
@@ -1443,10 +1575,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       if (!s.scan.running) return;
       s.boss = bossApply(s.boss, ev);
       s.scan = { ...s.scan, index: s.boss.index, total: s.boss.total };
+      s.live = liveApply(s.live, ev);
       const line = sweepLine(s.boss, sweepSaid);
       sweepSaid = line.said;
       say(line.text);
-      if (s.screen === 'boss' || s.screen === 'training') render();
+      // A signal open over the sweep isn't redrawn under the person while they read it.
+      if ((s.screen === 'boss' && !s.signal) || s.screen === 'training') render();
     },
     // Mid-lesson, the person stays in the lesson with a banner; otherwise the city.
     scanDone(doc, situation) {
