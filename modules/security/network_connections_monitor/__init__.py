@@ -1,9 +1,10 @@
+import re
+import shlex
 from collections import defaultdict
 from pathlib import Path
 
 from rescue import command
 from rescue import netaddr
-from rescue.case import redact
 from rescue.models import (
     Action,
     CheckResult,
@@ -288,11 +289,77 @@ def _process_details(pids, platform: str) -> dict:
         if len(parts) < 2 or not parts[0].isdigit() or not parts[1].isdigit():
             continue
         entry = {"ppid": int(parts[1])}
-        if len(parts) == 3 and parts[2].strip():
-            # Credential-shaped text (tokens, passwords, keys) never reaches the data.
-            entry["command"] = redact(parts[2].strip())[:_COMMAND_MAX]
+        summary = _command_summary(parts[2]) if len(parts) == 3 else None
+        if summary:
+            entry["command"] = summary
         out[int(parts[0])] = entry
     return out
+
+
+# Keep less rather than redact more: command lines carry secrets in too many
+# shapes (--password x, -pSECRET, sshpass -p x, user:pass@host…). Only the
+# program's name is kept, plus, for ssh and its kin, the destination host and
+# port (what ~/.ssh/config is matched on), or a script path a program runs.
+_SSH_LIKE = {"ssh", "scp", "sftp", "mosh", "autossh"}
+# ssh options that take a value (man ssh); the destination is the first word after them.
+_SSH_VALUE_OPTS = set("bcDEeFIiJLlmOoPpQRSWw")
+_SCRIPT_EXTS = (".sh", ".bash", ".zsh", ".py", ".js", ".mjs", ".rb", ".pl", ".ps1")
+_HOST_RE = re.compile(r"^[A-Za-z0-9._-]+$|^\[[0-9A-Fa-f:.]+\]$")
+
+
+def _words(text: str) -> list[str]:
+    try:
+        return shlex.split(text)
+    except ValueError:
+        return text.split()
+
+
+def _ssh_destination(exe: str, args: list[str]) -> tuple[str | None, str | None]:
+    """(host, port) from an ssh-like command line; never a user name or anything else."""
+    host = port = None
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a.startswith("-") and len(a) > 1:
+            opt = a[1:2]
+            if opt in _SSH_VALUE_OPTS:
+                value = a[2:] or (args[i + 1] if i + 1 < len(args) else "")
+                if opt == ("P" if exe == "scp" else "p") and value.isdigit():
+                    port = value
+                i += 1 if a[2:] else 2
+                continue
+            i += 1
+            continue
+        if exe == "scp" and ":" not in a:
+            i += 1
+            continue
+        target = a.split(":", 1)[0] if exe == "scp" else a
+        target = target.rsplit("@", 1)[-1]
+        if "://" not in a and _HOST_RE.match(target):
+            host = target
+        break
+    return host, port
+
+
+def _command_summary(text: str) -> str | None:
+    words = _words(text.strip())
+    if not words:
+        return None
+    exe = words[0].rsplit("/", 1)[-1][:64]
+    if not exe or not re.match(r"^[\w.+-]+$", exe):
+        return None
+    if exe in _SSH_LIKE:
+        host, port = _ssh_destination(exe, words[1:])
+        if host:
+            return f"{exe} {host}" + (f" -p {port}" if port else "")
+        return exe
+    for w in words[1:]:
+        if w.startswith("-"):
+            continue
+        if w.endswith(_SCRIPT_EXTS) and re.match(r"^[\w./~-]+$", w):
+            return f"{exe} {w}"[:_COMMAND_MAX]
+        break
+    return exe
 
 
 def _ssh_hosts() -> list[tuple[str, str, int]]:

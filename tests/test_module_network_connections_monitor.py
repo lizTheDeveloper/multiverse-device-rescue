@@ -694,8 +694,8 @@ def test_outgoing_uncommon_port_item_names_program_parent_and_ssh_host(tmp_path)
     assert item["state"] == "ESTABLISHED" and item["proto"] == "tcp"
     assert item["remote_scope"] == "public"
     assert item["ssh_host"] == "vast-tests"
-    # Credential-shaped text in a command line never reaches the data.
-    assert "abc123" not in item["command"] and item["command"].startswith("ssh -T vast-tests")
+    # Only the program and its SSH destination are kept from the command line.
+    assert item["command"] == "ssh vast-tests"
     # Nothing else from the SSH settings is kept.
     assert "id_vast" not in json.dumps(odd[0].data)
     assert ["ps", "-o", "pid=,ppid=,command=", "-p", "31674"] in seen
@@ -729,3 +729,43 @@ def test_no_ssh_config_is_fine(tmp_path):
     result, _ = _darwin_check([_SSH_OUT], tmp_path=tmp_path)
     (item,) = [f for f in result.findings if f.data.get("check") == "unusual_ports"][0].data["items"]
     assert item["direction"] == "out" and "ssh_host" not in item
+
+
+SECRET = "S3cr3tV4lue"
+
+
+@pytest.mark.parametrize("cmdline, kept", [
+    (f"mysql -uroot -p{SECRET} -h db.example", "mysql"),
+    (f"mysql --password {SECRET} prod", "mysql"),
+    (f"myapp --password={SECRET}", "myapp"),
+    (f"myapp --token {SECRET} --api-key {SECRET}", "myapp"),
+    (f"myapp --auth {SECRET}", "myapp"),
+    (f"myapp --secret={SECRET} --key {SECRET}", "myapp"),
+    (f"sshpass -p {SECRET} ssh root@host", "sshpass"),
+    (f"curl https://user:{SECRET}@example.com/x", "curl"),
+    (f"psql postgres://admin:{SECRET}@10.0.0.5/db", "psql"),
+    (f"env API_KEY={SECRET} node server.js", "env"),
+    (f"/usr/bin/ssh -i ~/.ssh/id_{SECRET} -o ProxyCommand={SECRET} -l {SECRET} -p 64456 deploy@vast-tests ls",
+     "ssh vast-tests -p 64456"),
+    (f"ssh {SECRET}:{SECRET}@vast-tests", "ssh vast-tests"),
+    (f"ssh -T vast-tests bash -c 'echo {SECRET}'", "ssh vast-tests"),
+    (f"scp -P 2222 ./f {SECRET}@host.example:/tmp/x", "scp host.example -p 2222"),
+    (f"python3 /opt/tools/run.py --token {SECRET}", "python3 /opt/tools/run.py"),
+    (f"node --inspect {SECRET}.js", f"node {SECRET}.js"),  # a script path is kept; its name isn't a credential form
+])
+def test_command_line_keeps_only_the_program_and_ssh_destination(tmp_path, cmdline, kept):
+    import importlib
+
+    from rescue.case import RescueCase, case_to_json
+
+    result, _ = _darwin_check([_SSH_OUT], ps_out=f"31674 31627 {cmdline}\n", tmp_path=tmp_path)
+    (finding,) = [f for f in result.findings if f.data.get("check") == "unusual_ports"]
+    (item,) = finding.data["items"]
+    assert item["command"] == kept
+    if SECRET not in kept:
+        assert SECRET not in json.dumps(finding.data)
+        case = RescueCase()
+        case.add(_get_module(), result)
+        assert SECRET not in case_to_json(case), "nor in rescue export"
+    module = importlib.import_module(type(_get_module()).__module__)
+    assert module._command_summary("") is None
