@@ -61,7 +61,7 @@ function providerPart(step, store) {
 }
 
 function devicePart(prereqs) {
-  if (!prereqs.length) return `<p class="intel">${esc('This computer’s checkup has nothing open in the checks that matter most for a hack.')}</p>`;
+  if (!prereqs.length) return `<p class="intel">${esc('This computer’s checkup has nothing open in the checks that matter most for a hack. If you’d still rather not use it, do the account steps on your phone or another device you trust.')}</p>`;
   return `<p class="intel">${esc(`This computer’s checkup has ${prereqs.length} thing${prereqs.length === 1 ? '' : 's'} open that can let someone in or read what you type. Until ${prereqs.length === 1 ? 'it’s' : 'they’re'} sorted, do the account steps on your phone or another device you trust.`)}</p>
     <ul class="missions">${prereqs.map((m) => `<li><button type="button" class="mission-row" data-go="mission:${esc(m.id)}">
       <span class="badge ${m.severity === 'critical' ? 'crit' : 'warn'}">${m.severity === 'critical' ? 'CRITICAL' : 'WARNING'}</span>
@@ -93,9 +93,10 @@ export function renderAccountStep({ step, store, safety, devicePrereqs = [], sco
     body = `<p class="intel">${esc(step.short)}</p>${providerButtons(store)}
       <p class="from">${esc('Only the kind of email is saved, never the address.')}</p>`;
   } else {
-    body = `<p class="intel">${esc(step.short)}</p>
-      ${step.id === 'device' ? devicePart(devicePrereqs) : ''}
-      <div class="panel active">${step.id === 'device' ? `<p class="intel">${esc(step.generic)}</p>` : providerPart(step, store)}</div>
+    // The device step's own list says it all; other steps show where the setting lives.
+    body = step.id === 'device' ? devicePart(devicePrereqs) : `<p class="intel">${esc(step.short)}</p>
+      <div class="panel active">${providerPart(step, store)}</div>`;
+    body += `
       ${answerRow(step, store)}
       ${answerOf(store, step.id) === 'help' ? helpPanel(store) : ''}`;
   }
@@ -105,7 +106,7 @@ export function renderAccountStep({ step, store, safety, devicePrereqs = [], sco
   return `
   <section class="brief acct-step">
     <div class="brief-main">
-      <div class="crumbs"><button type="button" data-go="map">City</button> / <button type="button" data-go="accounts">Your accounts</button> / <b>${esc(`STEP ${i + 1} OF ${STEPS.length}`)}</b></div>
+      <div class="crumbs"><button type="button" data-go="map">City</button> / <button type="button" data-go="accounts">Your accounts</button> / <b>${esc(`STEP ${i + 1}`)}</b></div>
       <h2 class="m-title"><span>${esc(step.title)}</span></h2>
       ${safety === 'maybe' ? safetyPanel({ sideName }) : ''}
       ${body}
