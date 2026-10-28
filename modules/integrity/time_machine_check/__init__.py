@@ -17,9 +17,6 @@ from rescue.models import (
 from rescue import backup_tools
 from rescue.module_base import ModuleBase
 
-NO_BACKUP = "integrity.time_machine_check.no_backup"
-OTHER_BACKUP_TOOL = "integrity.time_machine_check.other_backup_tool"
-SYNC_ONLY = "integrity.time_machine_check.sync_only"
 
 
 class Module(ModuleBase):
@@ -32,7 +29,11 @@ class Module(ModuleBase):
     estimated_duration = "5s"
     # This check owns "is anything backing this Mac up?". time_machine_health
     # and backup_status only look at a Time Machine disk that exists.
-    emits_codes = [NO_BACKUP, OTHER_BACKUP_TOOL, SYNC_ONLY]
+    emits_codes = [
+        "integrity.time_machine_check.no_backup",
+        "integrity.time_machine_check.other_backup_tool",
+        "integrity.time_machine_check.sync_only",
+    ]
 
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
@@ -216,7 +217,7 @@ class Module(ModuleBase):
                 ),
                 severity=Severity.INFO,
                 category=self.category,
-                code=OTHER_BACKUP_TOOL,
+                code="integrity.time_machine_check.other_backup_tool",
                 data={"check": "other_backup_tool", **data},
             )
         if syncs:
@@ -234,7 +235,7 @@ class Module(ModuleBase):
                 ),
                 severity=Severity.WARNING,
                 category=self.category,
-                code=SYNC_ONLY,
+                code="integrity.time_machine_check.sync_only",
                 data={"check": "sync_only", **data},
             )
         return Finding(
@@ -251,7 +252,7 @@ class Module(ModuleBase):
             ),
             severity=Severity.CRITICAL,
             category=self.category,
-            code=NO_BACKUP,
+            code="integrity.time_machine_check.no_backup",
             data={"check": "not_configured", **data},
         )
 
