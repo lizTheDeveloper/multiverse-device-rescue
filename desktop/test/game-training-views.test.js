@@ -120,6 +120,19 @@ test('the briefing doesn’t repeat “What to do” above YOUR MOVE when the st
   assert.strictEqual(v.whatItIs({ ...mission, description: 'Just a note.' }), 'Just a note.');
 });
 
+test('a briefing whose only step is its own description shows it once, under WHAT IT IS', async () => {
+  const v = await views();
+  const description = 'It starts from a hidden folder. Look at who made it before you decide.';
+  const mission = { id: 'm1', districtId: 'gatehouse', severity: 'warning', title: 'T', description, steps: [{ number: 1, title: description, body: '' }],
+    walkthroughTitle: null, safetyNote: null, findings: [{}], primary: {} };
+  const html = v.renderBriefing({ mission, status: 'open', controlsHtml: '<b>CONTROLS</b>', scout, busy: false, wantsSafety: false });
+  assert.strictEqual(html.split(description).length - 1, 1);
+  assert.doesNotMatch(html, /YOUR MOVE/);
+  assert.match(html, /CONTROLS[\s\S]*I DID IT MYSELF/, 'still something to do');
+  const two = { ...mission, steps: [{ number: 1, title: 'Open Login Items', body: '' }] };
+  assert.match(v.renderBriefing({ mission: two, status: 'open', controlsHtml: '', scout, busy: false, wantsSafety: false }), /YOUR MOVE/);
+});
+
 test('the briefing links back to a finished lesson only when given one', async () => {
   const v = await views();
   const mission = { id: 'm1', districtId: 'gatehouse', severity: 'warning', title: 'T', description: 'D', steps: [{ number: 1, title: 'S', body: '' }],
@@ -260,4 +273,9 @@ test('a walkthrough step body renders as paragraphs and lists, escaped', async (
   const html = v.renderBriefing({ mission, status: 'open', controlsHtml: '', scout, busy: false, wantsSafety: false });
   assert.match(html, /<div class="step-body"><p>First line wraps here\.<\/p><ul><li><strong>Mac:<\/strong> <code>lsof -i<\/code><\/li>/);
   assert.doesNotMatch(html, /<img/);
+});
+
+test('inside the city, [hidden] always wins over a component’s display', () => {
+  const css = require('node:fs').readFileSync(require('node:path').join(__dirname, '../renderer/game/game.css'), 'utf8');
+  assert.match(css, /^\[hidden\] \{ display: none !important; \}$/m);
 });

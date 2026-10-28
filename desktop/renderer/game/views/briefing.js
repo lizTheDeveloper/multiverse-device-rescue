@@ -5,6 +5,13 @@ import { missionSteps } from '../findings-to-city.js';
 
 // WHAT IT IS without the "What to do: …" tail when YOUR MOVE was made from
 // that very tail (findings-to-city.js missionSteps), so it isn't said twice.
+// With no advice of its own, the finding's description becomes its only step
+// (missionSteps), so YOUR MOVE would just repeat WHAT IT IS word for word.
+export function echoOnly(m) {
+  const st = m.steps || [];
+  return st.length === 1 && !st[0].body && String(st[0].title).trim() === String(m.description || '').trim();
+}
+
 export function whatItIs(m) {
   const text = String(m.description || '');
   const head = text.split(/what to do:?/i)[0].trim();
@@ -45,7 +52,7 @@ export function renderBriefing({ mission: m, status, controlsHtml, scout, busy, 
       <div class="panel"><div class="label">WHAT IT IS</div><p class="intel">${esc(held ? note.description : whatItIs(m))}</p></div>
       ${learned ? `<p class="from"><button type="button" class="link" data-go="lesson:${esc(learned.id)}">You learned about this in the Training Grounds: ${esc(learned.title)} →</button></p>` : ''}
       ${safety}
-      ${held ? '' : `<div class="panel active"><div class="label">YOUR MOVE</div>
+      ${held || echoOnly(m) ? '' : `<div class="panel active"><div class="label">YOUR MOVE</div>
         ${m.walkthroughTitle ? `<p class="from">From the walkthrough “${esc(m.walkthroughTitle)}”.</p>` : ''}
         <ol class="steps">${steps}</ol></div>`}
       ${also}
