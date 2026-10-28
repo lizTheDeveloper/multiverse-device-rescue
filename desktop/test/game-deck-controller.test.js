@@ -93,40 +93,37 @@ test('the deck is the city’s home: queue, city, instruments, log, and its own 
   assert.doesNotMatch(html, /class="hud">/, 'the deck’s top bar replaces the HUD');
 });
 
-test('INVESTIGATE NEXT opens the most important signal; clues unlock one at a time and pay once per scan', async () => {
+test('opening a real signal shows every clue and pays for looking at once, before any tag, once per scan', async () => {
   const t = await deckSetup(DOC);
   t.click({ 'data-act': 'investigate-next' });
   assert.match(t.html(), /id="sig-title"[^>]*>Unsigned helper/);
-  assert.match(t.html(), /data-act="clue:maker"/);
-  assert.doesNotMatch(t.html(), /How to read this/);
-  t.click({ 'data-act': 'clue:maker' });
+  assert.doesNotMatch(t.html(), /data-act="clue:/, 'nothing to unlock');
   assert.match(t.html(), /WHO MADE IT[\s\S]*Unknown maker, not verified \(unsigned\)[\s\S]*How to read this/);
-  assert.strictEqual(t.saved().deck.points, 5);
+  assert.match(t.html(), /WHERE IT LIVES[\s\S]*WHAT IT DOES/);
+  assert.strictEqual(t.saved().deck.points, 15, 'three clues, five points each');
+  assert.match(t.html(), /\+15 POINTS for looking at the clues/);
   t.click({ 'data-act': 'clue:maker' });
+  t.click({ 'data-act': 'clue:when' });
   t.click({ 'data-act': 'close-signal' });
   assert.doesNotMatch(t.html(), /id="sig-title"/);
   t.click({ 'data-act': 'investigate-next' });
-  assert.match(t.html(), /Unknown maker, not verified/, 'an opened clue stays open this scan');
-  t.click({ 'data-act': 'clue:maker' });
-  assert.strictEqual(t.saved().deck.points, 5, 'the same clue pays once per scan');
-  t.click({ 'data-act': 'clue:when' });
-  assert.strictEqual(t.saved().deck.points, 5, 'a clue the evidence doesn’t support can’t be opened');
+  assert.match(t.html(), /Unknown maker, not verified/);
+  assert.strictEqual(t.saved().deck.points, 15, 'looking again pays nothing more this scan');
+  assert.doesNotMatch(t.html(), /POINTS for looking/, 'and claims nothing');
 });
 
-test('tagging after two clues pays a bonus once; tags are keyed by identity; re-tagging pays nothing more', async () => {
+test('tagging after looking pays a bonus once; tags are keyed by identity; re-tagging pays nothing more', async () => {
   const [id] = await ids(DOC);
   const t = await deckSetup(DOC);
   t.click({ 'data-go': `signal:${id}` });
-  t.click({ 'data-act': 'clue:maker' });
-  t.click({ 'data-act': 'clue:where' });
   t.click({ 'data-act': 'tag:threat' });
   const saved = t.saved();
-  assert.strictEqual(saved.deck.points, 5 + 5 + 10);
+  assert.strictEqual(saved.deck.points, 15 + 10);
   assert.strictEqual(saved.deck.tags[id].tag, 'threat');
   assert.ok(!JSON.stringify(saved.deck.tags).includes('Unsigned helper'), 'tags keep identities, not titles');
   t.click({ 'data-act': 'tag:mine' });
   t.click({ 'data-act': 'tag:threat' });
-  assert.strictEqual(t.saved().deck.points, 20);
+  assert.strictEqual(t.saved().deck.points, 25);
   assert.match(t.html(), /OPS LOG[\s\S]*THREAT: Unsigned helper/);
   assert.doesNotMatch(t.html(), /\bwrong\b/i);
 });
@@ -263,10 +260,9 @@ test('a rank-up is a moment and a log entry', async () => {
   storage.setItem(STORE, JSON.stringify({ version: 3, missions: {}, lessons: {}, deck: { ...emptyDeck(), points: 95 } }));
   const t = await deckSetup(DOC, { storage });
   t.click({ 'data-act': 'investigate-next' });
-  t.click({ 'data-act': 'clue:maker' });
   assert.match(t.html(), /class="moment moment-rank" role="status"><b>RANK UP<\/b> You’re now SIGNAL ANALYST/);
   assert.match(t.html(), /RANK UP<\/span> SIGNAL ANALYST/);
-  t.click({ 'data-act': 'clue:where' });
+  t.click({ 'data-act': 'tag:closer' });
   assert.doesNotMatch(t.html(), /class="moment/, 'a moment shows once');
 });
 
@@ -352,6 +348,8 @@ test('after a tag, focus moves to Scout’s read (real signals and drills)', asy
   t.click({ 'data-go': `signal:${id}` });
   assert.strictEqual(reads.length, 0, 'no read before a tag');
   t.click({ 'data-act': 'tag:closer' });
+  assert.strictEqual(reads.length, 0, 'Scout agrees with nothing to add: no read, so focus stays on the tag');
+  t.click({ 'data-act': 'tag:mine' });
   assert.strictEqual(reads.length, 1);
   assert.deepStrictEqual([reads[0].focused, reads[0].attrs.tabindex], [true, '-1']);
   t.click({ 'data-go': 'signal:drill:gate-1' });
@@ -525,9 +523,9 @@ test('a drill answered in the queue can still be practised on the DRILL RANGE', 
 });
 
 // Final review 1: SCAN CLUE replaces its button with text, so focus moves on.
-test('after SCAN CLUE, focus moves to the next locked clue, and to the opened clue when none is left', async () => {
+test('after SCAN CLUE (drills), focus moves to the next locked clue, and to the opened clue when none is left', async () => {
   const t = await deckSetup(DOC);
-  t.click({ 'data-act': 'investigate-next' });
+  t.click({ 'data-go': 'signal:drill:gate-1' });
   t.focusOn({ 'data-act': 'clue:where' });
   t.click({ 'data-act': 'clue:where' });
   assert.deepStrictEqual(t.focused.slice(-1), ['[data-act="clue:what"]'], 'the next locked clue after this one');

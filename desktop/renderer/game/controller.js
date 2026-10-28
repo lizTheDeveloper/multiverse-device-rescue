@@ -2,7 +2,7 @@
 // "city" screen and wires clicks, fixes, marks and re-checks. With Reclaim City
 // loaded, the same map also holds the accounts' districts, and the game's own
 // screens render here (its app.js is never loaded).
-import { findingsToCity, DISTRICTS } from './findings-to-city.js';
+import { findingsToCity, DISTRICTS, findingIdentity } from './findings-to-city.js';
 import { splitHeld, heldOnly, briefingNote, heldPanelHtml, HELD_MODULES } from './held.js';
 import { loadProgress, saveProgress, reconcile, setStatus, setLessonDone, lessonDone, ranOkModules, recheckOutcome, setDeck } from './progress.js';
 import { buildSignals, queueOf, cityIntegrity, districtHeat, sortedCount, sweepCounts, heldDistrictIds } from './signals.js';
@@ -339,6 +339,12 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     }
     return signalsNow().find((x) => x.id === id) || null;
   }
+  // A district's note opens its signal on the deck, when the note is one (a
+  // grouped connection-watch note isn't on its own).
+  function noteSignalGo() {
+    const ids = new Set(signalsNow().map((x) => x.id));
+    return (n) => (ids.has(findingIdentity(n)) ? `signal:${findingIdentity(n)}` : null);
+  }
   // Clues opened this sweep, per signal. Memory only.
   const openedFor = (id) => { if (!s.opened[id]) s.opened[id] = []; return s.opened[id]; };
   const cluesOf = (sig) => (sig.kind === 'drill' ? drillClues(sig.drill) : sig.kind === 'real' ? cluesFor(sig.finding) : []);
@@ -399,10 +405,23 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (was) s.signal = { ...s.signal, tagged: was.tag, right: was.right, read: drillRead(sig.drill, was.right) };
     // FixFlow and MarkFlow results re-check s.missionId. An info signal has no mission.
     if (sig) s.missionId = sig.missionId || null;
+    if (sig && sig.kind === 'real') lookAtClues(sig);
     s.screen = 'map';
     render();
     const title = s.signal ? frame.querySelector('#sig-title') : null;
     if (title && typeof title.focus === 'function') title.focus();
+  }
+
+  // A real finding's clues are all shown as soon as it opens, and looking pays
+  // then: each clue once per finding per sweep (the same ledger keys as SCAN
+  // CLUE), so re-opening pays nothing more. Drills keep SCAN CLUE.
+  function lookAtClues(sig) {
+    const opened = openedFor(sig.id);
+    for (const c of cluesOf(sig)) {
+      if (opened.includes(c.kind)) continue;
+      opened.push(c.kind);
+      s.signal.points += commitAward(award(s.progress.deck, 'clue', `${sig.id}#${c.kind}`));
+    }
   }
 
   // Opening a clue on a real finding pays once per finding per sweep (the ledger keys it).
@@ -659,7 +678,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       return renderMilestone({ district: district(s.districtId), progress: s.progress, scout });
     }
     if (s.screen === 'district' && district(s.districtId)) {
-      return renderDistrict({ district: district(s.districtId), progress: s.progress, scout });
+      return renderDistrict({ district: district(s.districtId), progress: s.progress, scout, noteGo: noteSignalGo() });
     }
     // During an Undo re-check the mission was reclaimed, so it isn't in the
     // city: show the checking briefing from the mission we last showed.
