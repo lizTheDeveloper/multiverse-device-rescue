@@ -270,13 +270,15 @@ code { font-family: var(--font-mono); font-size: 0.92em; background: rgba(0,229,
 
 /* ---------- the command center (the deck) ---------- */
 .deck { display: grid; gap: 14px; padding: 14px 18px; grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr) minmax(220px, 1fr); grid-template-areas: "queue city instruments" "log log log"; }
-.deck-queue { grid-area: queue; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.deck-queue { grid-area: queue; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; min-width: 0; }
 .deck-city { grid-area: city; min-width: 0; }
 .deck-instruments { grid-area: instruments; min-width: 0; }
 .deck-log { grid-area: log; }
-@media (max-width: 900px) { .deck { grid-template-columns: 1fr; grid-template-areas: "queue" "city" "instruments" "log"; } }
-.queue { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.sig { display: grid; gap: 4px; width: 100%; padding: 10px 12px; border: 1px solid var(--line); background: var(--panel); }
+/* Narrow, or zoomed by the text-size setting: the instruments drop below first. */
+@media (max-width: 1200px) { .deck { grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr); grid-template-areas: "queue city" "instruments instruments" "log log"; } }
+@media (max-width: 900px) { .deck { grid-template-columns: minmax(0, 1fr); grid-template-areas: "queue" "city" "instruments" "log"; } }
+.queue { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.sig { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; width: 100%; min-width: 0; overflow-wrap: anywhere; padding: 10px 12px; border: 1px solid var(--line); background: var(--panel); }
 .sig.sev-critical { border-left: 3px solid var(--magenta); }
 .sig.sev-warning { border-left: 3px solid var(--amber); }
 .sig.sev-couldnt { border-left: 3px dashed #9fb3c8; }
