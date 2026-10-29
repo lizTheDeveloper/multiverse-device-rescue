@@ -349,3 +349,16 @@ test('main, its engine runner and the game ledger agree on the monitoring module
     assert.deepStrictEqual([...MONITORING_MODULES].sort(), names, file);
   }
 });
+
+test('a failed watch says why in one plain line, never the engine’s stderr', async () => {
+  const { whyFailed } = require('../watch');
+  const enoent = Object.assign(new Error('spawn rescue ENOENT'), { code: 'ENOENT' });
+  assert.match(whyFailed(enoent), /couldn’t be found/);
+  assert.match(whyFailed(new SyntaxError('Unexpected token')), /couldn’t be read/);
+  assert.match(whyFailed(new Error('engine exited null Traceback /Users/me/x')), /time limit/);
+  assert.strictEqual(whyFailed(new Error('engine exited 2 Traceback /Users/me/x')), 'The engine stopped with an error (code 2).');
+  const r = await handleWatch(5, deps({ runWatch: async () => { throw new Error('engine exited 1 /Users/me/secret'); }, logError: () => {} }).d);
+  assert.strictEqual(r.why, 'The engine stopped with an error (code 1).');
+  const empty = await handleWatch(5, deps({ runWatch: async () => ({ modules: [] }), logError: () => {} }).d);
+  assert.match(empty.why, /no watch in it/);
+});

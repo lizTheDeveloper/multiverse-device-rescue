@@ -1,0 +1,31 @@
+/* "Take your accounts back" (views/account-recovery.js). Uses game.css's tokens. */
+.acct-tile { display: grid; gap: 6px; width: 100%; text-align: left; margin: 0 0 14px; padding: 14px 16px;
+  border: 1px solid rgba(0,229,255,0.55); background: rgba(0,229,255,0.06); box-shadow: 0 0 18px rgba(0,229,255,0.15); }
+.acct-tile .label { color: var(--cyan); }
+.acct-tile .badge { justify-self: start; }
+.acct-tile-line { color: var(--offwhite); font-size: 14px; }
+.acct-tile-next { font-family: var(--font-display); font-size: 11px; letter-spacing: 2px; color: var(--cyan); }
+.acct-tile:hover, .acct-tile:focus-visible { background: rgba(0,229,255,0.12); }
+
+.acct-row { display: flex; gap: 12px; align-items: center; }
+/* The title and its one line on the left, the ▶ beside them: wrapped flex put
+   the ▶ on a third line of its own and made every row twice as tall. */
+.acct-row .mission-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; row-gap: 2px; text-align: left; }
+.acct-row .mission-row small { grid-column: 1; color: var(--dim); font-size: 12px; }
+.acct-row .mission-row::after { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+.acct-box, .acct-box-spacer { flex: 0 0 26px; width: 26px; height: 26px; }
+.acct-box { border: 1px solid rgba(0,229,255,0.5); background: transparent; color: var(--lime);
+  font-family: var(--font-mono); font-size: 15px; line-height: 24px; text-align: center; padding: 0; }
+.acct-box[aria-checked="true"] { border-color: rgba(198,255,0,0.6); background: rgba(198,255,0,0.08); }
+
+.acct-step .acct-where { list-style: none; margin: 6px 0 10px; padding: 0; display: grid; gap: 6px; }
+.acct-step .acct-where code { font-family: var(--font-mono); font-size: 12.5px; color: var(--offwhite);
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); padding: 4px 8px; display: inline-block; overflow-wrap: anywhere; }
+.acct-links { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.acct-provider-block + .acct-provider-block { margin-top: 12px; }
+.acct-providers { display: grid; gap: 8px; margin: 10px 0; }
+.acct-providers .opt small { color: var(--dim); }
+/* Chosen: a lime ring drawn with a shadow, so the cyan focus outline still shows on top of it. */
+.acct-providers .opt[aria-pressed="true"], .acct-answers [aria-pressed="true"] { box-shadow: 0 0 0 2px var(--midnight), 0 0 0 4px var(--lime); }
+.acct-answers { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
+.acct-safety .intel strong { color: var(--offwhite); }

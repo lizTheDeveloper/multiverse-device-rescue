@@ -48,8 +48,12 @@ const SITUATIONS = [
   { id: 'helping', icon: '\u{1F381}', title: 'I\u2019m helping a family member',
     sub: 'A friendly tune-up and safety check on someone else\u2019s computer',
     profile: 'home_for_the_holidays', guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/home-for-the-holidays/' },
+  // Opens a short checklist (IsolateSteps), not a scan: this computer may be the clean one.
+  { id: 'offline', icon: '\u{1F50C}', title: 'A computer I don\u2019t want to turn on or connect',
+    sub: 'It\u2019s clearly infected, or it won\u2019t start. Keep it off your network first',
+    profile: 'infected_device', guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/infected-device/', steps: 'isolate' },
   { id: 'unsure', icon: '\u{1F937}', title: 'I\u2019m not sure \u2014 check everything',
-    sub: 'The full checkup. It takes longer: often 10 minutes or more',
+    sub: 'The full checkup: every check, so it takes the longest',
     profile: null, guide: 'https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/' },
 ];
 
@@ -200,7 +204,7 @@ const RECLAIM_CITY_URL = 'https://play.multiversegames.ai/reclaim-city/';
  * #/district/<id>, and its Quick Quests are links to those same districts.
  * Worries with no real match get nothing.
  */
-const GAME_INTRO = 'Reclaim City also comes as a free game you play in your web browser.';
+const GAME_INTRO = 'It also comes as a free game you play in your web browser.';
 const LEARN_MORE = {
   hacked: { path: '#/district/master-keys',
     text: 'Its “My email got hacked” Quick Quest opens The Master Keys, which walks you through checking who has signed in, setting new passwords and turning on two-step sign-in for your email, one account at a time.' },
@@ -449,11 +453,11 @@ if (typeof document !== 'undefined') {
       welcome: document.getElementById('screen-welcome'),
       worry: document.getElementById('screen-worry'),
       question: document.getElementById('screen-question'),
+      steps: document.getElementById('screen-steps'),
       scan: document.getElementById('screen-scan'),
       results: document.getElementById('screen-results'),
       city: document.getElementById('screen-city'),
     };
-    const stepDots = document.querySelectorAll('[data-step-dot]');
     const appRoot = document.getElementById('app');
 
     let permissionsContent = null;
@@ -570,7 +574,6 @@ if (typeof document !== 'undefined') {
     };
     window.addEventListener('rescue-game-ready', () => { if (lastScanDoc) renderCitySwitch(lastScanDoc); });
 
-    let activeDot = null;
     function showScreen(name) {
       Object.keys(screens).forEach((key) => {
         if (!screens[key]) return;
@@ -580,12 +583,6 @@ if (typeof document !== 'undefined') {
       appRoot.dataset.screen = name;
       if (name === 'city') visitedCity = true;
       renderBackToCity();
-      // The question screen keeps the step the person was on (worry, or the checkup's follow-up).
-      const dotName = name === 'question' ? activeDot : name === 'city' ? 'results' : name;
-      activeDot = dotName;
-      stepDots.forEach((dot) => {
-        dot.classList.toggle('step-dot--active', dot.dataset.stepDot === dotName);
-      });
       window.scrollTo(0, 0);
     }
 
@@ -654,13 +651,25 @@ if (typeof document !== 'undefined') {
       list.querySelectorAll('[data-situation]').forEach((btn) => {
         btn.addEventListener('click', () => {
           situation = SITUATIONS.find((s) => s.id === btn.dataset.situation) || null;
-          const next = FirstQuestion.afterWorry(situation, mode);
-          if (next === 'ask') { ask('first', startWorry); return; }
-          if (next !== mode) setMode(next);
-          startWorry();
+          if (IsolateSteps.opensFirst(situation)) { isolateSteps.show(); showScreen('steps'); return; }
+          worryPicked();
         });
       });
     }
+    // The question if it's due, then the worry's checkup.
+    function worryPicked() {
+      const next = FirstQuestion.afterWorry(situation, mode);
+      if (next === 'ask') { ask('first', startWorry); return; }
+      if (next !== mode) setMode(next);
+      startWorry();
+    }
+    // "A computer I don't want to turn on or connect": "Check this computer" carries on as any worry.
+    const isolateSteps = IsolateSteps.attach(document.getElementById('steps-card'), {
+      esc: escapeHtml,
+      openGuide: (url) => window.rescue.openGuide(url),
+      onCheck: worryPicked,
+      onLeave: () => showScreen('worry'),
+    });
 
     // What a picked worry does once the display preference is known.
     function startWorry() {
@@ -1071,10 +1080,14 @@ if (typeof document !== 'undefined') {
     // "Back to the city", in the plain header once the city has been on screen:
     // the sweep if a scan is running, this worry's city if it has one, or the
     // Training Grounds.
+    // Once it shows, the city's HUD already names the app, so the plain
+    // header drops its brand rather than say "Reclaim City" twice.
     function renderBackToCity() {
-      document.getElementById('btn-back-to-city').hidden = !(visitedCity
+      const show = !!(visitedCity
         && window.RescueGame && window.RescueGame.isReady
         && (!situation || gameOfferedFor(situation)));
+      document.getElementById('btn-back-to-city').hidden = !show;
+      document.getElementById('app-brand').hidden = show;
     }
     document.getElementById('btn-back-to-city').addEventListener('click', () => {
       if (!(window.RescueGame && window.RescueGame.isReady)) return;

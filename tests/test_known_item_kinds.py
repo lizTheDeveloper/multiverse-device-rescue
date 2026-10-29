@@ -91,6 +91,12 @@ CASES = {
         None,
         {"check": "ai_api_key_found", "key_name": "OPENAI_API_KEY"},
     ),
+    "backup_elsewhere": (
+        "integrity.time_machine_check.sync_only",
+        {"check": "sync_only", "backup_tools": [], "sync_tools": ["Dropbox", "iCloud Drive"]},
+        {"check": "sync_only", "backup_tools": [], "sync_tools": ["Dropbox", "iCloud Drive", "OneDrive"]},
+        None,  # one finding per check: different sync apps are the same answer, changed
+    ),
 }
 
 

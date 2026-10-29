@@ -193,3 +193,11 @@ test('stopping: the running line reads exactly that until the watch ends', async
   assert.strictEqual(watchFinished(w, { ok: true }).stopping, false);
   assert.strictEqual(watchStarted(watchFinished(w, null)).stopping, false, 'the next watch starts fresh');
 });
+
+test('the failed panel shows main’s reason under the message; a refusal shows none', async () => {
+  const { watchFinished, renderWatch, idleWatch } = await import('../renderer/game/views/watch.js');
+  const failed = watchFinished(idleWatch(5), { ok: false, reason: 'failed', message: 'M', why: 'The engine stopped with an error (code 1).' });
+  assert.match(renderWatch(failed), /watch-why">The engine stopped with an error \(code 1\)\./);
+  const refused = watchFinished(idleWatch(5), { ok: false, reason: 'busy', message: 'Busy', why: 'x' });
+  assert.doesNotMatch(renderWatch(refused), /watch-why/);
+});

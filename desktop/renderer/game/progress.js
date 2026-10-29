@@ -9,6 +9,7 @@
 // The key keeps its v1 name so a saved Plan A store is found and migrated.
 // monitoringSeen is never stored here: app.js keeps it in memory only.
 import { HELD_MODULES } from './held.js';
+import { OWN_CATEGORY_IDS } from './own-categories.js';
 
 export const STORE_KEY = 'device-rescue.game.v1';
 const STATUSES = new Set(['open', 'later', 'yours', 'reclaimed']);
@@ -50,12 +51,15 @@ const sweepFieldsOk = (w) => plainObject(w) && typeof w.at === 'string' && SWEEP
 export function validDeck(d) {
   return plainObject(d) && count(d.points) && count(d.rank)
     && plainObject(d.drills) && count(d.drills.right) && count(d.drills.tried)
-    && plainObject(d.tags) && Object.values(d.tags).every((t) => plainObject(t) && TAGS.has(t.tag) && typeof t.at === 'string' && typeof t.fp === 'string')
+    && plainObject(d.tags) && Object.values(d.tags).every((t) => plainObject(t) && TAGS.has(t.tag) && typeof t.at === 'string' && typeof t.fp === 'string'
+      && (t.cat === undefined || (t.tag === 'mine' && OWN_CATEGORY_IDS.has(t.cat))))
     && plainObject(d.confirmed) && Object.values(d.confirmed).every((v) => typeof v === 'string')
     && plainObject(d.once) && Object.values(d.once).every((v) => v === true)
     && plainObject(d.sweep) && (d.sweep.at === null || typeof d.sweep.at === 'string') && plainObject(d.sweep.keys)
     && (d.sweep.carry === undefined || typeof d.sweep.carry === 'boolean')
-    && Array.isArray(d.sweeps) && d.sweeps.every(sweepFieldsOk);
+    && (d.sweep.marked === undefined || typeof d.sweep.marked === 'boolean')
+    && Array.isArray(d.sweeps) && d.sweeps.every(sweepFieldsOk)
+    && (d.sorts === undefined || count(d.sorts));
 }
 
 // The deck rebuilt from its known fields only, or null when it isn't a valid
@@ -68,14 +72,21 @@ export function cleanDeck(d) {
     points: d.points,
     rank: d.rank,
     drills: { right: d.drills.right, tried: d.drills.tried },
-    tags: map(d.tags, (t) => ({ tag: t.tag, at: t.at, fp: t.fp })),
+    // `cat`: what a MINE item is for, from own-categories.js's fixed list.
+    tags: map(d.tags, (t) => ({ tag: t.tag, at: t.at, fp: t.fp, ...(t.cat === undefined ? {} : { cat: t.cat }) })),
     confirmed: map(d.confirmed, (v) => v),
     once: map(d.once, () => true),
     // `carry`: this sweep carries something the game holds (held.js). A bare
     // flag, so the next sweep, even after a restart, isn't paid for its going.
     sweep: { at: d.sweep.at, keys: Object.fromEntries(Object.entries(d.sweep.keys).filter(([, v]) => v === true)),
-      ...(d.sweep.carry === true ? { carry: true } : {}) },
+      ...(d.sweep.carry === true ? { carry: true } : {}),
+      // `marked`: something was marked as yours this sweep (ledger noteMarked),
+      // so the next sweep's clean board isn't paid. A bare flag, like carry.
+      ...(d.sweep.marked === true ? { marked: true } : {}) },
     sweeps: d.sweeps.map((w) => Object.fromEntries([['at', w.at], ...SWEEP_FIELDS.map((k) => [k, w[k]])])),
+    // `sorts`: how many real signals the person has sorted after looking, ever.
+    // A bare count, never which ones: the guided walkthrough fades with it (guided.js).
+    ...(count(d.sorts) ? { sorts: d.sorts } : {}),
   };
 }
 

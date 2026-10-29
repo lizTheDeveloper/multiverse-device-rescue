@@ -1,4 +1,5 @@
 from rescue import command
+from rescue import netaddr
 from rescue.models import (
     Action,
     CheckResult,
@@ -42,6 +43,30 @@ RISKY_PORTS = {
 ALL_INTERFACES = {"0.0.0.0", "*", "::"}
 
 _COLLECT_KEY = "rescue_conn_common_collect"
+
+ITEMS_MAX = 50
+
+
+def _items(ports: list[dict]) -> list[dict]:
+    """One plain record per listener for the game's clue: port, program, who can reach it."""
+    items = []
+    for p in ports[:ITEMS_MAX]:
+        address = p["address"]
+        if not address:
+            reach = "unknown"
+        elif netaddr.is_loopback(address) or address == "localhost":
+            reach = "this computer"
+        else:
+            reach = "network"
+        items.append({
+            "port": p["port"],
+            "address": address,
+            "process": p["process"],
+            "pid": p["pid"],
+            "service": WELL_KNOWN_PORTS.get(p["port"]),
+            "reach": reach,
+        })
+    return items
 
 # How to see which program holds a port, per platform
 _LOOKUP_HELP = {
@@ -103,6 +128,7 @@ class Module(ModuleBase):
         # Flag WARNING for risky ports exposed to 0.0.0.0. The exposure is
         # visible even when the program that owns the port isn't.
         exposed_risky = []
+        exposed_ports = []
         for port_info in listening_ports:
             port = port_info["port"]
             address = port_info["address"]
@@ -110,6 +136,7 @@ class Module(ModuleBase):
 
             # Check if risky database port is exposed to all interfaces
             if port in RISKY_PORTS and address in ALL_INTERFACES:
+                exposed_ports.append(port_info)
                 exposed_risky.append(
                     f"{port} ({process or 'program not visible'}) listening on {address}"
                 )
@@ -137,6 +164,7 @@ class Module(ModuleBase):
                     data={
                         "check": "exposed_risky_ports",
                         "ports": exposed_risky,
+                        "items": _items(exposed_ports),
                         "platform": platform,
                     },
                 )
@@ -177,6 +205,7 @@ class Module(ModuleBase):
                         "check": "listening_ports",
                         "count": len(all_ports_info),
                         "ports": all_ports_info,
+                        "items": _items(listening_ports),
                         "unseen": unseen,
                         "platform": platform,
                     },

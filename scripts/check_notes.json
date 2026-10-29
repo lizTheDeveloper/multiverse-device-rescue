@@ -1,0 +1,1427 @@
+{
+  "accessibility_check": {
+    "what": "Accessibility settings like Zoom and VoiceOver",
+    "why": "Helpful features such as zoom, contrast and sticky keys are easy to miss or turn on by accident.",
+    "where": "`defaults read com.apple.universalaccess`, global trackpad and mouse settings"
+  },
+  "accessibility_permissions": {
+    "what": "Apps allowed to control your Mac",
+    "why": "This access lets an app click, type and read the screen, so it should only go to apps you trust.",
+    "where": "Accessibility entries in /Library/Application Support/com.apple.TCC/TCC.db"
+  },
+  "ai_agent_audit": {
+    "what": "AI tools and the add-ons they can reach",
+    "why": "AI assistants can be linked to add-ons or saved keys that reach far into your files and accounts.",
+    "where": "HackMyAgent (from npm), run as `detect <home> --json --depth 0`"
+  },
+  "ai_threat_indicators": {
+    "what": "Programs and background tasks that use AI services",
+    "why": "Programs talking to AI services that you didn't set up can be a sign of unwanted automation.",
+    "where": "`lsof -i -n -P`, `ps aux`, `crontab -l`, ~/Library/LaunchAgents, ~/.config, ~/.local"
+  },
+  "ai_worm_filesystem": {
+    "what": "Known bad files and scripts that hide what they do",
+    "why": "Some bad code packages leave scripts behind that fetch and run more code.",
+    "where": "known worm file paths and hashes; scripts in ~/.local/bin, ~/.config, ~/.cache, /tmp"
+  },
+  "ai_worm_git_ssh": {
+    "what": "Developer settings that can run hidden code",
+    "why": "Self-spreading code packages change git, npm, AI tool and SSH settings to run code or let someone in.",
+    "where": "`git config --global`, ~/.npmrc, ~/.cursor/mcp.json, ~/.ssh/authorized_keys, repo hooks"
+  },
+  "ai_worm_lateral": {
+    "what": "Signs of stolen keys and copies spread to projects",
+    "why": "Self-spreading code packages collect passwords and cloud keys and use them to publish copies.",
+    "where": "known stolen-key paths, workflow files under ~/src, `lsof -i -n -P`, `npm whoami`"
+  },
+  "ai_worm_network": {
+    "what": "Network connections to known bad or repeating servers",
+    "why": "Malware often keeps checking in with a remote server or sends saved sign-ins away.",
+    "where": "`lsof -i -n -P` (`netstat -b` on Windows), `ps aux`, /etc/hosts"
+  },
+  "ai_worm_persistence": {
+    "what": "Startup items left by self-spreading code",
+    "why": "Malware from bad code packages often sets itself to start again after a restart.",
+    "where": "~/Library/LaunchAgents, ~/.config/systemd/user, schtasks, ~/.zshrc, ~/.claude hooks"
+  },
+  "airdrop_config": {
+    "what": "Who can send you files with AirDrop",
+    "why": "When AirDrop is open to everyone, people nearby can send you files and see your device name.",
+    "where": "`defaults read com.apple.sharingd DiscoverableMode`, Bluetooth and Wi-Fi power"
+  },
+  "airdrop_security_check": {
+    "what": "AirDrop, Handoff and nearby sharing settings",
+    "why": "Nearby sharing features can make your device visible to people around you.",
+    "where": "com.apple.sharingd DiscoverableMode, ByHost/com.apple.coreservices.useractivityd.plist"
+  },
+  "airport_wifi_scan": {
+    "what": "Wi-Fi signal and nearby network crowding",
+    "why": "A weak signal or a crowded channel can make Wi-Fi drop or feel slow.",
+    "where": "`airport -s` and `airport -I` from Apple80211.framework"
+  },
+  "antivirus_status": {
+    "what": "Built-in and installed virus protection",
+    "why": "Knowing which virus protection is present and current shows how well the computer is covered.",
+    "where": "XProtect.bundle and MRT.app versions, antivirus apps in /Applications, `pgrep -i`"
+  },
+  "app_crash_analyzer": {
+    "what": "Apps that keep crashing",
+    "why": "Repeated crashes can point to an app that needs updating or a memory problem.",
+    "where": "~/Library/Logs/DiagnosticReports (.crash and .ips files)"
+  },
+  "app_permissions": {
+    "what": "Apps allowed to use the camera, microphone or screen",
+    "why": "These permissions let an app see or hear what is around the computer, so trust matters.",
+    "where": "camera, microphone and screen entries in /Library/Application Support/com.apple.TCC/TCC.db"
+  },
+  "appleid_security_check": {
+    "what": "Apple Account and iCloud privacy settings",
+    "why": "Your Apple Account links your devices and backups, so its protections cover a lot.",
+    "where": "MobileMeAccounts.plist, `system_profiler SPiCloudDataType`, Safari and Mail privacy keys"
+  },
+  "application_compatibility": {
+    "what": "Apps built for older Macs",
+    "why": "Older Intel or 32-bit apps may stop opening after a system update.",
+    "where": "`system_profiler SPApplicationsDataType`, `arch -x86_64 /usr/bin/true`"
+  },
+  "application_crash_report": {
+    "what": "How often apps have crashed lately",
+    "why": "A crash count shows which apps, including Finder, are having trouble.",
+    "where": "~/Library/Logs/DiagnosticReports (.crash and .ips files)"
+  },
+  "arp_spoof_check": {
+    "what": "Signs of a device copying your router's identity",
+    "why": "A device that pretends to be the router can read traffic passing through it.",
+    "where": "the neighbour table (`arp -a`, `ip neigh show`) and default route (`route`, `ip route`)"
+  },
+  "audio_config": {
+    "what": "Sound volume, mute and output device",
+    "why": "Missing sound is often just a muted Mac or sound going to a device that isn't there.",
+    "where": "`osascript` volume settings, `defaults read -g`, `system_profiler SPAudioDataType`"
+  },
+  "audio_troubleshoot": {
+    "what": "Speakers, microphone and where sound is going",
+    "why": "Sound or microphone trouble often comes from a setting, not broken hardware.",
+    "where": "`osascript` volume settings, `defaults read -g`, `system_profiler SPAudioDataType`"
+  },
+  "automatic_updates": {
+    "what": "Whether security updates install on their own",
+    "why": "Updates fix known security holes, and automatic installs keep them from being missed.",
+    "where": "/Library/Preferences/com.apple.SoftwareUpdate, /Library/Preferences/com.apple.commerce"
+  },
+  "backup_status": {
+    "what": "Time Machine backups",
+    "why": "A recent backup is the best way to get files back if anything goes wrong.",
+    "where": "`tmutil latestbackup`, `destinationinfo`, /Library/Preferences/com.apple.TimeMachine"
+  },
+  "battery_health": {
+    "what": "Battery condition and charge count",
+    "why": "A worn battery holds less charge and may need replacing.",
+    "where": "`ioreg -l`, `system_profiler SPPowerDataType`"
+  },
+  "bluetooth_audit": {
+    "what": "Bluetooth status and paired devices",
+    "why": "A paired device you don't recognize could connect to the computer without asking.",
+    "where": "/Library/Preferences/com.apple.Bluetooth, `system_profiler SPBluetoothDataType`"
+  },
+  "bluetooth_diagnostics": {
+    "what": "Bluetooth status and paired devices",
+    "why": "Old pairings and low device batteries can cause connection trouble.",
+    "where": "`system_profiler SPBluetoothDataType`"
+  },
+  "browser_cache_cleanup": {
+    "what": "Space used by web browser caches",
+    "why": "Browser caches can grow large and take space that the computer needs to run well.",
+    "where": "~/Library/Caches: com.apple.Safari, Google/Chrome, Firefox/Profiles, Microsoft Edge"
+  },
+  "browser_cryptojacking_check": {
+    "what": "Browser add-ons and start pages that mine cryptocurrency",
+    "why": "Mining inside a browser quietly uses the computer's power and slows everything down.",
+    "where": "extension manifests and startup pages in Chrome, Edge, Brave, Firefox profiles; /etc/hosts"
+  },
+  "browser_extension_audit": {
+    "what": "Browser extensions and what they can access",
+    "why": "Extensions can read the pages you visit, so unknown ones are worth a look.",
+    "where": "Chrome Default/Extensions, Firefox Profiles extensions, `pluginkit -mAD` for Safari"
+  },
+  "browser_hijack_check": {
+    "what": "Browser home page and search engine",
+    "why": "Unwanted software often changes the home page or search engine to send searches elsewhere.",
+    "where": "`defaults read com.apple.Safari HomePage`, Chrome Default/Preferences, Firefox prefs.js"
+  },
+  "browser_privacy_check": {
+    "what": "Safari privacy and saved-password settings",
+    "why": "Settings like scam warnings and tracking protection decide how much websites can learn.",
+    "where": "`defaults read com.apple.Safari`, `security find-internet-password`"
+  },
+  "certificate_audit": {
+    "what": "Security certificates stored on the Mac",
+    "why": "An added root certificate can let someone see secure web traffic.",
+    "where": "`security find-certificate` on System.keychain and login.keychain-db, `openssl x509`"
+  },
+  "certificate_trust_audit": {
+    "what": "Trusted root certificates added to the Mac",
+    "why": "A root certificate added by someone else can let them see secure web traffic.",
+    "where": "`security find-certificate` on System.keychain, `security dump-trust-settings`"
+  },
+  "chrome_extensions": {
+    "what": "Chrome extensions and their permissions",
+    "why": "Chrome extensions with wide permissions can read and change the websites you visit.",
+    "where": "manifest.json files in ~/Library/Application Support/Google/Chrome/Default/Extensions"
+  },
+  "clamav_scanner": {
+    "what": "Whether ClamAV antivirus is installed and current",
+    "why": "An antivirus with an old virus list can miss newer threats.",
+    "where": "`clamscan --version`, `sigtool --info` on main.cvd, `pgrep clamd`"
+  },
+  "clamshell_mode": {
+    "what": "Power settings for using a Mac with the lid closed",
+    "why": "Some settings keep a closed laptop waking up and using battery.",
+    "where": "`pmset -g` (Power Nap, proximity wake), `system_profiler SPDisplaysDataType`"
+  },
+  "code_signature_audit": {
+    "what": "Whether apps are signed by who they say",
+    "why": "A broken signature means an app was changed after its maker released it.",
+    "where": "`codesign --verify --deep --strict` and `spctl --assess` on /Applications"
+  },
+  "core_services_reset": {
+    "what": "The list macOS keeps of installed apps",
+    "why": "An oversized app list can make files open in the wrong app or show duplicates.",
+    "where": "~/Library/Caches com.apple.LaunchServices-*.csstore, `lsregister -dump`"
+  },
+  "coreaudio_reset": {
+    "what": "The Mac's background sound service",
+    "why": "If the sound service stops or points to a missing device, nothing plays.",
+    "where": "`pgrep -x coreaudiod`, ~/Library/Preferences/com.apple.coreaudio.plist"
+  },
+  "crash_log_analyzer": {
+    "what": "Apps that crashed often lately",
+    "why": "An app that crashes again and again may need an update or a reinstall.",
+    "where": "~/Library/Logs/DiagnosticReports (.crash and .ips files)"
+  },
+  "cron_jobs_audit": {
+    "what": "Scheduled tasks set to run automatically",
+    "why": "Unwanted software can use scheduled tasks to download code or keep itself running.",
+    "where": "`crontab -l`, /etc/crontab, /etc/cron.d/, /etc/periodic/"
+  },
+  "crypto_miner_detect": {
+    "what": "Programs mining cryptocurrency right now",
+    "why": "Hidden mining software uses the computer's power and can make it hot and slow.",
+    "where": "`ps aux`, `ps -eo pid,pcpu,comm`, `lsof -i -n -P` (known mining pools and ports)"
+  },
+  "crypto_miner_persistence": {
+    "what": "Startup entries that bring back a crypto miner",
+    "why": "Stopping a miner doesn't help if a startup entry brings it back after a restart.",
+    "where": "~/Library/LaunchAgents, /Library/LaunchDaemons, /etc/crontab, systemd units, Run keys"
+  },
+  "default_browser": {
+    "what": "Your default web browser and email app",
+    "why": "Unwanted software sometimes changes which browser opens your links.",
+    "where": "`defaults read com.apple.LaunchServices/com.apple.launchservices.secure LSHandlers`"
+  },
+  "directory_permissions": {
+    "what": "Who owns and can change key folders",
+    "why": "Wrong folder access can stop apps from saving or let other accounts change files.",
+    "where": "~/Library, ~/Desktop, ~/Documents, ~/Downloads, /Applications, /tmp, /usr/local"
+  },
+  "disk_encryption_recovery": {
+    "what": "Disk encryption and its recovery key",
+    "why": "Without a recovery key, a forgotten password can mean losing access to everything on the disk.",
+    "where": "`fdesetup status`, `fdesetup haspersonalrecoverykey`, `fdesetup list`, `dscl`"
+  },
+  "disk_fragmentation_check": {
+    "what": "Drive type and how full it is",
+    "why": "Spinning hard drives slow down as they fill up; solid-state drives do not need defragmenting.",
+    "where": "`diskutil info /`, `df -b /`"
+  },
+  "disk_health": {
+    "what": "Your main drive's self-reported health",
+    "why": "Drives often warn before they fail, giving a chance to back up first.",
+    "where": "`diskutil info /` (SMART status)"
+  },
+  "disk_io_health": {
+    "what": "Drive type, speed and TRIM support",
+    "why": "A slower drive type or TRIM being off can make a computer feel sluggish.",
+    "where": "`system_profiler` SPStorageDataType, SPSerialATADataType, SPNVMeDataType; `iostat -d`"
+  },
+  "disk_permissions_repair": {
+    "what": "Ownership of your home and system folders",
+    "why": "Folders owned by the wrong account can stop apps from working properly.",
+    "where": "~/Library, ~/Documents, ~/Desktop, /usr/local, /tmp, /var/tmp"
+  },
+  "disk_smart_check": {
+    "what": "Drive health, wear and free space",
+    "why": "A worn or nearly full drive can slow things down or lose data.",
+    "where": "`diskutil info /`, `diskutil apfs list`, `df -B1 /`, `system_profiler SPNVMeDataType`"
+  },
+  "disk_space": {
+    "what": "Free space on each drive",
+    "why": "A nearly full drive can slow a computer down and stop updates from installing.",
+    "where": "each drive's size and free space (`df -k`, `wmic logicaldisk`, mount points on Linux)"
+  },
+  "disk_utility_firstaid": {
+    "what": "Errors in your main drive's file system",
+    "why": "File system errors can lead to lost or damaged files if left alone.",
+    "where": "`diskutil verifyVolume /`, `diskutil info /`"
+  },
+  "display_config": {
+    "what": "Connected screens and their settings",
+    "why": "A scaled resolution can make a screen look blurry.",
+    "where": "`system_profiler SPDisplaysDataType`, `defaults read com.apple.CoreBrightness`"
+  },
+  "display_issues": {
+    "what": "Screen resolution and mirroring",
+    "why": "Mirroring or a non-native resolution can make a screen look wrong or blurry.",
+    "where": "`system_profiler SPDisplaysDataType`, `defaults read com.apple.windowserver`"
+  },
+  "dns_config": {
+    "what": "Which servers look up website names",
+    "why": "Unfamiliar lookup servers can let someone see or redirect which websites you visit.",
+    "where": "`scutil --dns`, `networksetup -getdnsservers` for Wi-Fi and Ethernet"
+  },
+  "dns_over_https_check": {
+    "what": "Whether website lookups are sent privately",
+    "why": "Unencrypted lookups let others on the network see which websites are visited.",
+    "where": "`scutil --dns`, `profiles list`, `ps aux` (local resolvers), /etc/resolv.conf"
+  },
+  "dns_poisoning_check": {
+    "what": "Which servers look up website addresses",
+    "why": "A changed address lookup server can quietly send you to fake copies of real websites.",
+    "where": "`scutil --dns`, `networksetup -getdnsservers Wi-Fi`, lookups of apple.com and google.com"
+  },
+  "docker_cleanup": {
+    "what": "Space used by Docker",
+    "why": "Old Docker images and stopped containers can quietly fill up a drive.",
+    "where": "`docker system df`, `docker images -f dangling=true`, `docker ps -a -f status=exited`"
+  },
+  "encryption_check": {
+    "what": "Whether disk encryption (FileVault) is on",
+    "why": "Encryption keeps your files private if the computer is lost or stolen.",
+    "where": "`fdesetup status`"
+  },
+  "energy_saver_check": {
+    "what": "Sleep, wake and battery power settings",
+    "why": "Settings that keep a Mac awake or waking up use more power and battery.",
+    "where": "`pmset -g`, `pmset -g sched` (scheduled wake and sleep)"
+  },
+  "energy_settings": {
+    "what": "Sleep and Power Nap settings",
+    "why": "A Mac that never sleeps or wakes on its own uses more power and battery.",
+    "where": "`pmset -g`"
+  },
+  "ethernet_diagnostics": {
+    "what": "Wired network connection health",
+    "why": "A loose cable, slow link or dropped data can make the internet feel unreliable.",
+    "where": "`networksetup -listallhardwareports`, `ifconfig`, `netstat -i`, SPEthernetDataType"
+  },
+  "evidence_bundle": {
+    "what": "Whether a record is saved before any cleanup",
+    "why": "Cleanup removes traces, so saving a record first helps if someone needs to look into it.",
+    "where": "~/.local/share/rescue/evidence (only looks; writes nothing during a scan)"
+  },
+  "filesystem_health_check": {
+    "what": "Drive format, errors, encryption and snapshots",
+    "why": "File system errors or an unencrypted laptop drive can put your files at risk.",
+    "where": "`diskutil verifyVolume /`, `diskutil apfs list`, `fdesetup status`, `df -i /`"
+  },
+  "filevault_recovery": {
+    "what": "FileVault recovery key and encrypted accounts",
+    "why": "A recovery key is the way back in if a password is forgotten.",
+    "where": "`fdesetup status`, `fdesetup haspersonalrecoverykey`, `fdesetup list`"
+  },
+  "find_my_mac_check": {
+    "what": "Find My Mac and Location Services",
+    "why": "Find My helps locate, lock or erase the computer if it goes missing.",
+    "where": "~/Library/Preferences/MobileMeAccounts.plist, com.apple.FindMyMac.plist, locationd prefs"
+  },
+  "firewall_audit": {
+    "what": "Whether the built-in firewall is on",
+    "why": "The firewall blocks unasked-for connections from other devices on the network.",
+    "where": "`socketfilterfw --getglobalstate`, `socketfilterfw --getstealthmode`"
+  },
+  "firewall_rules_audit": {
+    "what": "Firewall settings and apps allowed through",
+    "why": "Each app allowed through the firewall is another way in from the network.",
+    "where": "`socketfilterfw --listapps`, `--getallowsigned`, `--getblockall`, `--getstealthmode`"
+  },
+  "firmware_password": {
+    "what": "Startup security lock on the Mac",
+    "why": "A firmware password stops someone holding the computer from starting it from another disk.",
+    "where": "`/usr/libexec/firmwarepasswd -check`, `uname -m`"
+  },
+  "font_cache": {
+    "what": "How many fonts are installed and the font cache",
+    "why": "A very large number of fonts can slow down apps that list them.",
+    "where": "/Library/Fonts, /System/Library/Fonts, ~/Library/Fonts, /var/folders"
+  },
+  "font_cache_repair": {
+    "what": "Font cache size and font service health",
+    "why": "A very large font cache or a stuck font service can make apps slow or show odd text.",
+    "where": "`atsutil server -ping`, `atsutil databases -list`, com.apple.ATS in /private/var/folders"
+  },
+  "font_issues": {
+    "what": "Installed fonts and duplicates",
+    "why": "Too many or duplicate fonts can make apps slow to open or show text oddly.",
+    "where": "~/Library/Fonts, /Library/Fonts, /System/Library/Fonts"
+  },
+  "gatekeeper_quarantine_check": {
+    "what": "App safety check and core system protection",
+    "why": "These built-in protections block unknown apps and keep system files from being changed.",
+    "where": "`spctl --status`, `csrutil status`, `xattr -p com.apple.quarantine` on /Applications"
+  },
+  "gpu_health": {
+    "what": "Graphics chip details and errors",
+    "why": "Graphics problems can cause screen glitches, freezes or sudden restarts.",
+    "where": "`system_profiler SPDisplaysDataType`, `log show` GPU messages"
+  },
+  "guest_account_check": {
+    "what": "Guest login and guest access to shared folders",
+    "why": "A guest account lets anyone use the computer, or open shared folders, without a password.",
+    "where": "/Library/Preferences/com.apple.loginwindow GuestEnabled, AppleFileServer, smb.server"
+  },
+  "handoff_continuity": {
+    "what": "Handoff, Bluetooth, Wi-Fi and iCloud sign-in",
+    "why": "Features shared with your other Apple devices need all of these turned on.",
+    "where": "`defaults read com.apple.coreservices.useractivityd`, `networksetup -getairportpower en0`"
+  },
+  "homebrew_health": {
+    "what": "Homebrew packages, updates and cache size",
+    "why": "Outdated developer tools can miss fixes, and their cache can use a lot of space.",
+    "where": "`brew list`, `brew outdated`, `brew doctor`, ~/Library/Caches/Homebrew"
+  },
+  "hostname_check": {
+    "what": "Your computer's network names",
+    "why": "Mismatched or odd names can confuse sharing and other devices on your network.",
+    "where": "`scutil --get` ComputerName, LocalHostName, HostName"
+  },
+  "hosts_file_check": {
+    "what": "Website address overrides in the hosts file",
+    "why": "Entries here can quietly send a website name, like a bank's, to a different server.",
+    "where": "/etc/hosts"
+  },
+  "icloud_status": {
+    "what": "iCloud sign-in and Desktop and Documents sync",
+    "why": "Knowing what syncs to iCloud helps explain where files live and why some are missing.",
+    "where": "`defaults read MobileMeAccounts`, ~/Library/Mobile Documents, .icloud files"
+  },
+  "icloud_storage": {
+    "what": "iCloud storage use and large synced files",
+    "why": "A full iCloud account stops new files and photos from syncing.",
+    "where": "`defaults read com.apple.iCloud.plist`, ~/Library/Mobile Documents/com~apple~CloudDocs"
+  },
+  "icloud_storage_check": {
+    "what": "iCloud Drive, Photos and sync status",
+    "why": "Stuck uploads can mean files are not yet saved to iCloud.",
+    "where": "`brctl status`, ~/Library/Preferences/com.apple.bird.plist, Library/Logs/CloudDocs"
+  },
+  "input_devices": {
+    "what": "Keyboard, mouse and trackpad settings",
+    "why": "Very slow pointer or key repeat settings can make a computer feel broken.",
+    "where": "`system_profiler SPUSBDataType` and `SPBluetoothDataType`, `defaults read -g`"
+  },
+  "kernel_extensions_audit": {
+    "what": "Low-level drivers loaded into the system",
+    "why": "Drivers run with full control of the computer, so outdated or unknown ones matter.",
+    "where": "`kmutil showloaded`"
+  },
+  "kernel_panic_check": {
+    "what": "Whole-system crashes",
+    "why": "Repeated system crashes often point to a hardware or driver problem.",
+    "where": "/Library/Logs/DiagnosticReports, ~/Library/Logs/DiagnosticReports (.panic files)"
+  },
+  "kext_audit": {
+    "what": "Old-style driver files on the Mac",
+    "why": "Old-style drivers run with full control of the computer and are rarely needed.",
+    "where": "`kextstat`, `find /Library/Extensions -name *.kext -type d`"
+  },
+  "keychain_health": {
+    "what": "Your saved-passwords keychain",
+    "why": "A missing or locked keychain causes repeated password prompts.",
+    "where": "~/Library/Keychains/login.keychain-db, `security list-keychains`"
+  },
+  "keylogger_indicators": {
+    "what": "Apps that can see what you type",
+    "why": "Keyboard access lets an app record everything typed, including passwords.",
+    "where": "Input Monitoring entries in TCC.db, `log show` for CGEventTap"
+  },
+  "lan_device_inventory": {
+    "what": "Devices that are visible on your home network",
+    "why": "Knowing every device on the network is the first step to spotting one that doesn't belong.",
+    "where": "the neighbour table (`arp -a`, `ip neigh show`) with a maker lookup (oui_vendors.json)"
+  },
+  "large_files_finder": {
+    "what": "Very large files in your home folder",
+    "why": "A few forgotten big files, like videos or disk images, can take up much of a drive.",
+    "where": "`find ~ -type f -size +1G`, ~/Downloads, ~/Desktop"
+  },
+  "launch_agent_audit": {
+    "what": "Programs set to start on their own",
+    "why": "Unwanted software often sets itself up to come back after a restart.",
+    "where": "~/Library/LaunchAgents, /Library/LaunchAgents"
+  },
+  "launchd_persistence_audit": {
+    "what": "Background services that start with the Mac",
+    "why": "Malware often installs a background service so it keeps running after a restart.",
+    "where": "~/Library/LaunchAgents, /Library/LaunchAgents, /Library/LaunchDaemons"
+  },
+  "library_cache_cleanup": {
+    "what": "Space used by app caches",
+    "why": "App caches can grow large and take space the computer needs to run well.",
+    "where": "~/Library/Caches"
+  },
+  "linux_account_audit": {
+    "what": "Who can log in and who has admin powers",
+    "why": "An extra admin account or a no-password admin rule can let someone take full control.",
+    "where": "/etc/passwd, /etc/shadow, /etc/group, /etc/sudoers, /etc/sudoers.d"
+  },
+  "linux_disk_encryption_check": {
+    "what": "Whether the main drive and home folder are encrypted",
+    "why": "Encryption keeps your files private if the computer is lost or stolen.",
+    "where": "`lsblk -o NAME,TYPE,FSTYPE,MOUNTPOINT -P`, /proc/mounts, `zfs get encryption`"
+  },
+  "linux_firewall_check": {
+    "what": "Whether a firewall filters incoming connections",
+    "why": "A firewall blocks connections from other devices that nobody asked for.",
+    "where": "`ufw status verbose`, `firewall-cmd --state`, `nft list ruleset`, `iptables -S INPUT`"
+  },
+  "linux_journal_errors": {
+    "what": "System log warnings about hardware and crashes",
+    "why": "Drive, memory and file system errors often show up here before a failure.",
+    "where": "`journalctl --priority=0..4`"
+  },
+  "linux_memory_pressure": {
+    "what": "Memory, swap and memory pressure",
+    "why": "Running short of memory is a common reason a computer feels slow.",
+    "where": "/proc/meminfo, /proc/pressure/memory, the running program list"
+  },
+  "linux_package_updates": {
+    "what": "Waiting software and security updates",
+    "why": "Most break-ins use a flaw that already has a fix waiting to be installed.",
+    "where": "`apt list --upgradable`, `dnf check-update`, `pacman -Qu`, `zypper list-updates`"
+  },
+  "linux_persistence_audit": {
+    "what": "Places where programs are set to start on their own",
+    "why": "Unwanted software usually sets itself up to come back after a restart.",
+    "where": "systemd units, crontabs, ~/.config/autostart, /etc/ld.so.preload, ~/.bashrc, ~/.profile"
+  },
+  "linux_service_health": {
+    "what": "Background services that failed or keep restarting",
+    "why": "A failed service can quietly stop backups, printing or clock syncing.",
+    "where": "`systemctl list-units --failed`, `systemctl show` NRestarts for running services"
+  },
+  "linux_ssh_hardening": {
+    "what": "Remote login (SSH) settings",
+    "why": "Remote login that accepts passwords or root is a common target for automated guessing.",
+    "where": "`sshd -T`, `systemctl is-active sshd`, /etc/ssh/sshd_config"
+  },
+  "location_services": {
+    "what": "Location Services and which services use it",
+    "why": "Location access reveals where the computer is, so it helps to know what uses it.",
+    "where": "`defaults read com.apple.locationd`, /Library/Preferences/com.apple.locationmenu.plist"
+  },
+  "lock_screen_check": {
+    "what": "Whether the screen locks and asks for a password",
+    "why": "A screen that locks itself keeps others from using the computer while you're away.",
+    "where": "`sysadminctl -screenLock status`, com.apple.screensaver askForPassword, `pmset -g`"
+  },
+  "login_items": {
+    "what": "Apps that open by themselves when you sign in",
+    "why": "Extra apps opening at sign-in can slow a computer down, and some are bundled extras.",
+    "where": "`osascript` System Events login items, compared with a list of known extra software"
+  },
+  "login_items_cleanup": {
+    "what": "Apps and helpers that open when you sign in",
+    "why": "Many apps opening at sign-in can make starting up slow.",
+    "where": "`osascript` System Events login items, ~/Library/LaunchAgents"
+  },
+  "login_keychain_repair": {
+    "what": "Keychain lock and default settings",
+    "why": "A locked or wrong keychain leads to constant password prompts.",
+    "where": "~/Library/Keychains/login.keychain-db, `security show-keychain-info`"
+  },
+  "login_password_policy": {
+    "what": "Login, screen saver password and remote login",
+    "why": "Automatic login or no password after the screen saver lets anyone at the keyboard in.",
+    "where": "/Library/Preferences/com.apple.loginwindow, com.apple.screensaver, `systemsetup`"
+  },
+  "login_window_settings": {
+    "what": "Login screen: automatic login, user list, hints",
+    "why": "Automatic login and password hints make it easier for someone else to get in.",
+    "where": "/Library/Preferences/com.apple.loginwindow: autoLoginUser, SHOWFULLNAME, RetriesUntilHint"
+  },
+  "macos_eol_check": {
+    "what": "Whether your macOS still gets security updates",
+    "why": "Older macOS versions stop getting fixes for newly found security flaws.",
+    "where": "`sw_vers -productVersion`, `sw_vers -buildVersion`, `sysctl hw.model`"
+  },
+  "macos_user_cleanup": {
+    "what": "User accounts on this Mac and their size",
+    "why": "Unused accounts can take up space, and it is useful to know every account that exists.",
+    "where": "`dscl . -list /Users UniqueID`, `last`, `du -sk` on each home folder"
+  },
+  "macos_version_support": {
+    "what": "macOS version and update support",
+    "why": "A Mac without security fixes is more exposed to known flaws.",
+    "where": "`sw_vers -productVersion`, `system_profiler SPHardwareDataType`, `uname -m`"
+  },
+  "mail_attachment_cleanup": {
+    "what": "Space used by Mail and its attachments",
+    "why": "Saved mail and downloaded attachments can take a lot of drive space.",
+    "where": "~/Library/Mail, ~/Library/Containers/com.apple.mail/Data/Library/Mail Downloads"
+  },
+  "mail_config": {
+    "what": "Mail app accounts and storage",
+    "why": "Turned-off or POP accounts can explain missing email or a very large Mail folder.",
+    "where": "`defaults read com.apple.mail`, ~/Library/Mail"
+  },
+  "malware_scan_indicators": {
+    "what": "Known adware and malware names on the Mac",
+    "why": "Common adware and malware leave recognizable files, background tasks and extensions.",
+    "where": "/Library/LaunchAgents, /Library/LaunchDaemons, /Library/Application Support, `mdfind`"
+  },
+  "mdm_enrollment": {
+    "what": "Whether an organization manages this Mac",
+    "why": "Device management can let an organization change settings and limit which apps run.",
+    "where": "`profiles status -type enrollment`, `profiles list -verbose`"
+  },
+  "mdm_enrollment_check": {
+    "what": "Whether an organization manages this Mac",
+    "why": "A management profile can control settings and install apps, so it helps to know who set it up.",
+    "where": "`profiles status -type enrollment`, `profiles list -verbose`"
+  },
+  "memory_pressure": {
+    "what": "Memory use and swap",
+    "why": "Running short of memory is a common reason a computer feels slow.",
+    "where": "`vm_stat`, `sysctl hw.memsize`, `sysctl vm.swapusage`"
+  },
+  "memory_pressure_check": {
+    "what": "Memory use, swap and memory pressure",
+    "why": "Running short of memory is a common reason a computer feels slow.",
+    "where": "`memory_pressure`, `vm_stat`, `sysctl hw.memsize vm.swapusage vm.compressor_mode`"
+  },
+  "mvt_spyware_scan": {
+    "what": "Phone backups that can be checked for known spyware",
+    "why": "Some phone spyware leaves known traces that can be found in a backup of the phone.",
+    "where": "Amnesty's MVT (`mvt-ios`), optional, on ~/Library/Application Support/MobileSync/Backup"
+  },
+  "network_connections_monitor": {
+    "what": "Programs talking to other computers",
+    "why": "Unwanted software usually needs to connect out to send data or get instructions.",
+    "where": "`lsof +c 0 -i -n -P` (Mac), `ss -tunapH` (Linux), `Get-NetTCPConnection` (Windows)"
+  },
+  "network_diagnostics": {
+    "what": "Connection to your router and the internet",
+    "why": "This narrows down whether an internet problem is the router, the provider or settings.",
+    "where": "`ping` to 192.168.1.1, 10.0.0.1 and 8.8.8.8, `ifconfig`, `scutil --dns`"
+  },
+  "network_interface_audit": {
+    "what": "Network connections and their order",
+    "why": "A self-assigned or duplicate address usually means a connection did not set up right.",
+    "where": "`networksetup -listnetworkserviceorder`, `-listallnetworkservices`, `-getinfo`"
+  },
+  "network_interfaces_check": {
+    "what": "Network connection settings and VPNs",
+    "why": "Odd lookup servers, packet sizes or failed addresses can break browsing.",
+    "where": "`networksetup -getinfo`, `-getdnsservers`, `-getipv6`, `-listnetworkserviceorder`"
+  },
+  "network_proxy": {
+    "what": "Whether web traffic goes through a proxy",
+    "why": "A proxy set up by someone else can let them see or change what you browse.",
+    "where": "`networksetup -getwebproxy`, `-getsecurewebproxy`, `-getautoproxyurl` per network"
+  },
+  "network_proxy_check": {
+    "what": "Proxy settings that route your web traffic",
+    "why": "A proxy can let someone else see or change web traffic on its way out.",
+    "where": "`networksetup` -getwebproxy, -getsecurewebproxy, -getsocksfirewallproxy, -getautoproxyurl"
+  },
+  "network_proxy_detect": {
+    "what": "Proxies that route your web traffic",
+    "why": "A proxy you didn't set up can let someone see or change your web traffic.",
+    "where": "`networksetup -getwebproxy` and `-getautoproxyurl` on Wi-Fi, HTTP_PROXY variables"
+  },
+  "network_quality": {
+    "what": "Internet speed and responsiveness",
+    "why": "A slow or laggy connection can be mistaken for a problem with the computer itself.",
+    "where": "`networkQuality -s -v`, `ping -c 4 8.8.8.8`"
+  },
+  "network_speed_test": {
+    "what": "Network delay and Wi-Fi link speed",
+    "why": "This shows whether slowness comes from Wi-Fi, the router or the internet.",
+    "where": "`ping -c 5 8.8.8.8`, `dig google.com +stats`, `system_profiler SPAirPortDataType`"
+  },
+  "notification_center_check": {
+    "what": "Settings and storage for notifications",
+    "why": "Many apps sending alerts, or a large notification store, can be distracting and slow.",
+    "where": "~/Library/Preferences/com.apple.ncprefs.plist, Application Support/NotificationCenter"
+  },
+  "notifications_config": {
+    "what": "Previews of notifications, and Do Not Disturb",
+    "why": "Previews on the lock screen can show private messages to anyone nearby.",
+    "where": "`defaults read com.apple.ncprefs`, `defaults read com.apple.controlcenter`"
+  },
+  "open_ports_scan": {
+    "what": "Programs waiting for connections from the network",
+    "why": "Services open to the network, such as databases, can let others on it reach this computer.",
+    "where": "listening ports from `lsof` (Mac), `ss` (Linux), `Get-NetTCPConnection` (Windows)"
+  },
+  "photos_library_check": {
+    "what": "Photos library size and iCloud Photos settings",
+    "why": "A large library kept in full on the Mac can fill up the drive.",
+    "where": "~/Pictures/Photos Library.photoslibrary, `defaults read com.apple.photolibraryd`"
+  },
+  "power_settings": {
+    "what": "Sleep, screen and Power Nap settings",
+    "why": "A Mac that never sleeps uses more power and battery than it needs to.",
+    "where": "`pmset -g`"
+  },
+  "pram_nvram_check": {
+    "what": "Startup settings stored in firmware",
+    "why": "Unusual startup flags or a missing startup disk can cause boot trouble.",
+    "where": "`nvram -xp`, `nvram boot-args`, `bless --info --getBoot`"
+  },
+  "printer_diagnostics": {
+    "what": "Printers and the printing service",
+    "why": "A paused printer or stopped print service is a common reason nothing prints.",
+    "where": "`lpstat -r`, `lpstat -p`, `lpstat -d`, `lpstat -o`"
+  },
+  "printer_queue": {
+    "what": "Stuck print jobs and paused printers",
+    "why": "One stuck job can hold up everything else waiting to print.",
+    "where": "`lpstat -o`, `lpstat -p`"
+  },
+  "privacy_audit": {
+    "what": "Location, ad and data-sharing settings",
+    "why": "These settings control how much information about you is shared with Apple and apps.",
+    "where": "`defaults read` com.apple.locationd, com.apple.privacymanagementd, com.apple.analytics"
+  },
+  "privacy_permissions_audit": {
+    "what": "Apps allowed to use the camera, microphone and screen",
+    "why": "Camera, microphone and screen access can let an app see or hear what happens at the computer.",
+    "where": "/Library/Application Support/com.apple.TCC/TCC.db (system and user), via `sqlite3`"
+  },
+  "process_scanner": {
+    "what": "Known extra software running in the background",
+    "why": "Bundled extras, fake cleaners and hidden coin miners can use up a computer's power.",
+    "where": "the running program list (`ps`, `wmic process`), compared with a list of known names"
+  },
+  "recovery_partition_check": {
+    "what": "The built-in recovery area",
+    "why": "Recovery is what lets you repair or reinstall macOS if it won't start.",
+    "where": "`diskutil list`"
+  },
+  "remote_login_check": {
+    "what": "Ways to log in to or control this Mac from elsewhere",
+    "why": "Remote access is handy for support, but left on it can let someone in from another computer.",
+    "where": "`systemsetup -getremotelogin`, `launchctl print system/com.apple.screensharing`"
+  },
+  "resource_hog_identifier": {
+    "what": "Programs using a lot of processor or memory",
+    "why": "A single busy program can slow down everything else on the computer.",
+    "where": "the running program list (`ps aux`, `wmic process`, `ps -eo`)"
+  },
+  "rootkit_check": {
+    "what": "Signs of software hiding deep in the system",
+    "why": "Some unwanted software hides by changing core system files or loading into the system core.",
+    "where": "`csrutil status`, `kextstat`, `codesign -v` on /usr/bin/login, /usr/sbin/sshd, /bin/sh"
+  },
+  "rosetta_status": {
+    "what": "Rosetta, which runs older Intel apps",
+    "why": "Without Rosetta, apps made for older Intel Macs won't open on newer Macs.",
+    "where": "/Library/Apple/usr/share/rosetta, `arch -x86_64 /usr/bin/true`, `uname -m`"
+  },
+  "router_security_audit": {
+    "what": "Router admin access and automatic port opening",
+    "why": "Open admin access or UPnP on a router can let others on the network change its settings.",
+    "where": "the router's admin ports (21, 22, 23, 80, 443, 7547, 8080, 8443) and a UPnP (SSDP) query"
+  },
+  "safari_extensions": {
+    "what": "Add-ons installed in Safari",
+    "why": "Browser add-ons can read the pages you visit, so it helps to know which ones are there.",
+    "where": "`pluginkit -mAD -p com.apple.Safari.extension`, ~/Library/Safari/Extensions"
+  },
+  "safe_boot_check": {
+    "what": "Whether the Mac started in Safe Mode",
+    "why": "Safe Mode turns off add-ons, so a Mac left in it can behave oddly; long gaps between restarts matter too.",
+    "where": "`sysctl kern.safeboot`, `nvram boot-args`, `bless --info --getBoot`, kern.boottime"
+  },
+  "safe_mode_check": {
+    "what": "Safe Mode and recent system crash reports",
+    "why": "Repeated system crashes or a Mac stuck in Safe Mode often point to a faulty driver or add-on.",
+    "where": "`sysctl -n kern.safeboot`, `nvram boot-args`, ~/Library/Logs/DiagnosticReports/"
+  },
+  "scheduled_tasks_audit": {
+    "what": "Programs set to start on their own",
+    "why": "Unwanted software often sets itself up to come back after a restart.",
+    "where": "~/Library/LaunchAgents, /Library/LaunchAgents, /Library/LaunchDaemons"
+  },
+  "screen_lock_check": {
+    "what": "Screen lock, screensaver and automatic login",
+    "why": "A Mac that stays unlocked can be used by anyone who sits down at it.",
+    "where": "`defaults read com.apple.screensaver`, /Library/Preferences/com.apple.loginwindow"
+  },
+  "screen_resolution_scaling": {
+    "what": "Display resolution and scaling",
+    "why": "A scaled screen setting can make the graphics chip work harder.",
+    "where": "`system_profiler SPDisplaysDataType`"
+  },
+  "screen_time_audit": {
+    "what": "Screen Time limits and restrictions",
+    "why": "Screen Time settings show which limits are set and whether a passcode protects them.",
+    "where": "`defaults read com.apple.ScreenTimeAgent`"
+  },
+  "screen_time_parental": {
+    "what": "Parental controls and child accounts on this Mac",
+    "why": "Parental controls suit children, and are worth knowing about on an adult's computer.",
+    "where": "`defaults read com.apple.ScreenTimeAgent`, `dscl . -list /Users`, familycontrols prefs"
+  },
+  "screen_time_password": {
+    "what": "Screen Time and parental control settings",
+    "why": "Screen Time without a passcode can be switched off by anyone who can use the Mac.",
+    "where": "`defaults read com.apple.ScreenTimeAgent`, applicationaccess, `dscl . -list /Users`"
+  },
+  "security_baseline_diff": {
+    "what": "Security changes since the last check",
+    "why": "Comparing with an earlier check shows what is new instead of guessing what belongs.",
+    "where": "launch items, open ports, protections, extensions vs ~/.local/share/rescue baseline"
+  },
+  "session_revocation_scan": {
+    "what": "Sign-ins that can stay active after a password change",
+    "why": "Changing a password does not always sign out browsers, accounts or saved keys already in.",
+    "where": "browser profiles, ~/.ssh/authorized_keys, `defaults read MobileMeAccounts`, `cmdkey /list`"
+  },
+  "sharing_preferences_audit": {
+    "what": "Sharing settings, including AirDrop",
+    "why": "Sharing features can let nearby people or other computers reach files or the screen.",
+    "where": "`launchctl print` (smbd, screensharing, sshd), `cupsctl`, com.apple.sharingd"
+  },
+  "sharing_services": {
+    "what": "File, screen and printer sharing",
+    "why": "Sharing that was left on can let other computers on the network reach this Mac.",
+    "where": "`launchctl print system/com.apple.smbd` (and screensharing, sshd), `cupsctl`"
+  },
+  "sip_gatekeeper": {
+    "what": "Built-in Mac protections for system files and new apps",
+    "why": "These protections block changes to core system files and check apps before they open.",
+    "where": "`csrutil status`, `spctl --status`"
+  },
+  "siri_privacy": {
+    "what": "Siri settings, including use on the lock screen",
+    "why": "Siri can work from the lock screen, and can share voice data with Apple if allowed.",
+    "where": "`defaults read` com.apple.assistant.support, com.apple.Siri"
+  },
+  "sleep_wake_issues": {
+    "what": "What keeps the Mac awake or wakes it up",
+    "why": "Apps or devices that block sleep or wake the Mac can drain the battery and keep it running warm.",
+    "where": "`pmset -g log`, `pmset -g assertions`, `pmset -g sched`, com.apple.Bluetooth prefs"
+  },
+  "smart_status": {
+    "what": "The main drive's built-in health report",
+    "why": "Drives often report wear before they fail, which gives a chance to back up files first.",
+    "where": "`diskutil info /`, `system_profiler SPStorageDataType`, `system_profiler SPNVMeDataType`"
+  },
+  "smc_reset_check": {
+    "what": "Charging, overheating and fan behavior",
+    "why": "A battery that won't charge, fans stuck at full speed or heat slowdowns can point to a power controller fault.",
+    "where": "`system_profiler SPPowerDataType`, `pmset -g batt`, `pmset -g therm`, `sysctl machdep.cpu`"
+  },
+  "smcreset_guide": {
+    "what": "Mac model and power controller reset guidance",
+    "why": "Some power, fan and display problems on Intel Macs clear up after a power controller reset.",
+    "where": "`sysctl hw.model`, `powermetrics --samplers smc -n 1`, `system_profiler SPPowerDataType`"
+  },
+  "software_inventory": {
+    "what": "Installed apps that are old or 32-bit",
+    "why": "Apps that haven't been updated in a long while may have unfixed security holes or stop working.",
+    "where": "`system_profiler SPApplicationsDataType -json`"
+  },
+  "spotlight_rebuild": {
+    "what": "Whether Spotlight search indexing is stuck",
+    "why": "A stuck search index can keep the computer busy and make search miss files.",
+    "where": "`mdutil -s /`, `ps -eo pid,pcpu,comm` (indexer activity), ~/.Spotlight-V100"
+  },
+  "spotlight_repair": {
+    "what": "Spotlight search indexing and exclusions",
+    "why": "Search that is turned off or stuck can miss files and keep the computer busy.",
+    "where": "`mdutil -s /`, `ps -eo pid,pcpu,comm`, `defaults read com.apple.Spotlight orderedItems`"
+  },
+  "spotlight_status": {
+    "what": "Whether Spotlight search is indexing files",
+    "why": "Search indexing in progress can make a computer feel busy for a while.",
+    "where": "`mdutil -s /`, `defaults read com.apple.Spotlight orderedItems`, ~/.Spotlight-V100"
+  },
+  "ssh_key_audit": {
+    "what": "Keys for logging in to other computers, and to this one",
+    "why": "Old or weak keys, or keys others can read, can let someone log in as you.",
+    "where": "~/.ssh (keys, authorized_keys), `ssh-keygen -l`, `ssh-add -l`, /etc/ssh/sshd_config"
+  },
+  "stalkerware_scan": {
+    "what": "Known monitoring and remote control apps",
+    "why": "Monitoring apps are sometimes installed to watch a person without their knowledge.",
+    "where": "running programs, /Applications, ~/Library/LaunchAgents, Windows Uninstall registry keys"
+  },
+  "startup_auditor": {
+    "what": "Known extra software set to start on its own",
+    "why": "Bundled extras often set themselves up to start every time the computer does.",
+    "where": "`launchctl list`, compared with a list of known extra software"
+  },
+  "startup_optimizer": {
+    "what": "Background services that start on their own",
+    "why": "A long list of add-on services starting by themselves can slow a computer down.",
+    "where": "`launchctl list`, ~/Library/LaunchAgents, /Library/LaunchAgents, /Library/LaunchDaemons"
+  },
+  "storage_cleanup": {
+    "what": "Space that could be freed up",
+    "why": "Old downloads, caches, the Trash and leftover app data can fill a drive.",
+    "where": "~/Downloads, ~/Library/Caches, ~/.Trash, ~/Library/Application Support"
+  },
+  "sudo_config_audit": {
+    "what": "Rules for running admin commands",
+    "why": "A rule that skips the password for admin commands lets any program make system changes.",
+    "where": "/etc/sudoers, /etc/pam.d/sudo_local, /etc/pam.d/sudo, `dscl . -read /Users/root`"
+  },
+  "sudo_touchid": {
+    "what": "Touch ID fingerprints and admin commands",
+    "why": "Knowing how Touch ID is set up shows what a fingerprint can unlock on this Mac.",
+    "where": "`bioutil -rs`, /etc/pam.d/sudo_local, /etc/pam.d/sudo, `system_profiler SPiBridgeDataType`"
+  },
+  "suspicious_connections": {
+    "what": "Unusual network connections and listening programs",
+    "why": "Programs sending data on uncommon ports are worth a closer look.",
+    "where": "connection list from `lsof`/`ss`/`Get-NetTCPConnection`, `codesign --verify`"
+  },
+  "suspicious_processes": {
+    "what": "Running programs with unusual names or locations",
+    "why": "Unwanted programs often run from temporary folders, lack a signature, or use known names.",
+    "where": "`ps aux`, programs in /tmp and /var/tmp, unsigned apps in /Applications"
+  },
+  "swap_memory_check": {
+    "what": "Swap use and memory pressure",
+    "why": "Heavy use of swap is a sign the computer is short on memory, which slows it down.",
+    "where": "`sysctl vm.swapusage`, `vm_stat`, `sysctl kern.memorystatus_vm_pressure_level`"
+  },
+  "swap_usage": {
+    "what": "Swap use and memory compression",
+    "why": "Heavy use of swap is a sign the computer is short on memory, which slows it down.",
+    "where": "`sysctl vm.swapusage vm.compressor_mode kern.memorystatus_vm_pressure_level`"
+  },
+  "system_age_check": {
+    "what": "Mac model age and macOS version",
+    "why": "Older Macs and older macOS versions stop getting security updates from Apple.",
+    "where": "`system_profiler SPHardwareDataType`, `sw_vers`, `stat -f %SB /var/db/.AppleSetupDone`"
+  },
+  "system_extensions": {
+    "what": "Add-ons that plug deep into macOS",
+    "why": "System extensions can see network traffic or files, so it helps to know which are active.",
+    "where": "`systemextensionsctl list`"
+  },
+  "system_extensions_check": {
+    "what": "System add-ons such as security software",
+    "why": "System add-ons run deep in macOS; ones waiting for approval or stopped may not be doing their job.",
+    "where": "`systemextensionsctl list`"
+  },
+  "system_log_errors": {
+    "what": "Recent errors in the system log",
+    "why": "A flood of errors, or errors from known Mac issues, can explain crashes and slowdowns.",
+    "where": "`log show --predicate 'messageType == error' --style compact`"
+  },
+  "temp_file_scanner": {
+    "what": "Space used by temporary files, caches and logs",
+    "why": "Temporary files and logs can build up and take space the computer needs.",
+    "where": "/tmp, /var/folders, /var/log, ~/Library/Logs, /Library/Caches, ~/Library/Caches"
+  },
+  "thermal_throttle": {
+    "what": "Whether heat is slowing the processor",
+    "why": "A hot processor slows itself down to cool off, which makes everything feel sluggish.",
+    "where": "`pmset -g therm`, `sysctl hw.cpufrequency`, `sysctl hw.cpufrequency_max`"
+  },
+  "thermal_throttle_check": {
+    "what": "Temperature, fan speed and processor slowdown",
+    "why": "A hot processor slows itself down to cool off, which makes everything feel sluggish.",
+    "where": "`sudo powermetrics`, `ioreg` AppleSMC and AppleSMCFan, `pmset -g thermlog`, `sysctl`"
+  },
+  "time_machine_check": {
+    "what": "Whether this Mac is backed up, by Time Machine or not",
+    "why": "A recent backup means files can be recovered if the Mac is lost, broken or needs a reset.",
+    "where": "`tmutil destinationinfo`, `tmutil latestbackup`, backup and sync app names"
+  },
+  "time_machine_exclusions": {
+    "what": "Important folders left out of Time Machine",
+    "why": "Folders left out of the backup can't be restored if something goes wrong.",
+    "where": "`tmutil isexcluded` on ~/Documents, ~/Desktop, ~/Pictures, ~/Photos Library"
+  },
+  "time_machine_health": {
+    "what": "Time Machine backup drive space and errors",
+    "why": "A full or missing backup drive, or backup errors, can quietly stop new backups from being made.",
+    "where": "`tmutil destinationinfo`, `tmutil latestbackup`, `tmutil status`, Time Machine log"
+  },
+  "time_sync_check": {
+    "what": "Whether the clock sets itself automatically",
+    "why": "A wrong clock can break secure websites, sign-ins and updates.",
+    "where": "`systemsetup -getusingnetworktime`, `-getnetworktimeserver`, com.apple.timezone.auto"
+  },
+  "trash_cleanup": {
+    "what": "Space used by the Trash",
+    "why": "Deleted files keep using drive space until the Trash is emptied.",
+    "where": "~/.Trash and the .Trashes folder on each drive in /Volumes"
+  },
+  "update_checker": {
+    "what": "Available macOS and Homebrew updates",
+    "why": "Updates fix security holes, so pending ones are worth knowing about.",
+    "where": "`softwareupdate -l`, `brew outdated`"
+  },
+  "usb_device_audit": {
+    "what": "Devices plugged in over USB",
+    "why": "Unfamiliar USB devices, including storage and hubs, are worth knowing about.",
+    "where": "`system_profiler SPUSBDataType`"
+  },
+  "usb_devices_check": {
+    "what": "Connected USB devices and hubs",
+    "why": "Overloaded hubs, power-hungry or unrecognized devices can cause disconnects and odd behavior.",
+    "where": "`system_profiler SPUSBDataType`"
+  },
+  "user_account_audit": {
+    "what": "Guest login, automatic login and admin accounts",
+    "why": "Extra admin accounts or login without a password can let others use or change this Mac.",
+    "where": "/Library/Preferences/com.apple.loginwindow, `dscl . -read /Groups/admin`"
+  },
+  "user_account_health": {
+    "what": "User accounts, home folders and login settings",
+    "why": "Duplicate account IDs, missing home folders or broken settings files can cause sign-in problems.",
+    "where": "`dscl . -list /Users UniqueID`, /Users, Library/Preferences/.GlobalPreferences.plist"
+  },
+  "user_profile_size": {
+    "what": "How much space each user folder uses",
+    "why": "Knowing which folders are largest helps explain where drive space has gone.",
+    "where": "`du -sk` on each folder in /Users and on ~/Library"
+  },
+  "vpn_config": {
+    "what": "VPN settings and VPN apps",
+    "why": "A VPN carries your traffic, so it matters who runs it and how it is protected.",
+    "where": "`scutil --nc list`, `scutil --nc status`, `systemextensionsctl list`"
+  },
+  "vpn_leak_check": {
+    "what": "Whether your VPN covers all your traffic",
+    "why": "A VPN that lets some traffic or lookups go around it gives less privacy than expected.",
+    "where": "`scutil --nc list`, `scutil --nc status`, `scutil --dns`, `netstat -rn`"
+  },
+  "wifi_diagnostics": {
+    "what": "Wi-Fi connection and signal strength",
+    "why": "A weak signal or low connection speed can make the internet feel slow or drop out.",
+    "where": "Apple's `airport -I` tool, `system_profiler SPAirPortDataType`"
+  },
+  "wifi_password_recovery": {
+    "what": "Saved Wi-Fi networks list",
+    "why": "A long list of old saved networks lets the Mac join networks that are no longer in use.",
+    "where": "`networksetup -listpreferredwirelessnetworks en0`, Apple's `airport -I` tool"
+  },
+  "wifi_security_audit": {
+    "what": "Wi-Fi security of current and saved networks",
+    "why": "Open or old-style Wi-Fi protection can let nearby people read or join the network.",
+    "where": "`networksetup -getairportnetwork en0`, `-listpreferredwirelessnetworks`, SPAirPortDataType"
+  },
+  "win_activation": {
+    "what": "Windows license and activation status",
+    "why": "An expired grace period or missing license can limit Windows features.",
+    "where": "`Get-CimInstance SoftwareLicensingProduct` in PowerShell"
+  },
+  "win_activation_check": {
+    "what": "Whether Windows is activated",
+    "why": "Unactivated Windows shows reminders and limits some settings.",
+    "where": "`cscript //Nologo C:\\Windows\\System32\\slmgr.vbs /xpr` and `/dli`"
+  },
+  "win_antivirus_status": {
+    "what": "Antivirus programs and whether they are on",
+    "why": "Antivirus software catches known threats only when it is on and kept up to date.",
+    "where": "`Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct`"
+  },
+  "win_audio_check": {
+    "what": "Sound devices and the Windows sound services",
+    "why": "A stopped sound service or a device error is a common reason for no sound.",
+    "where": "`Get-PnpDevice -Class AudioEndpoint`, `sc query` for the Windows Audio services"
+  },
+  "win_autorun": {
+    "what": "Programs that start when a USB drive is plugged in",
+    "why": "AutoRun can start a program from a USB drive without anyone choosing to.",
+    "where": "`reg query` NoDriveTypeAutoRun (Policies\\Explorer), DisableAutoplay (AutoplayHandlers)"
+  },
+  "win_autoruns_audit": {
+    "what": "Programs set to start on their own",
+    "why": "Unwanted software often sets itself up to come back after a restart.",
+    "where": "HKLM/HKCU ...\\CurrentVersion\\Run and RunOnce, Start Menu\\Programs\\Startup folders"
+  },
+  "win_battery": {
+    "what": "Battery health and charging",
+    "why": "An aging battery holds less charge, and one that won't charge may need replacing.",
+    "where": "`Get-WmiObject Win32_Battery` in PowerShell"
+  },
+  "win_bitlocker": {
+    "what": "BitLocker encryption on the main drive",
+    "why": "Encryption keeps files unreadable if the computer is lost or stolen.",
+    "where": "`manage-bde -status`"
+  },
+  "win_bitlocker_check": {
+    "what": "Whether each drive is encrypted with BitLocker",
+    "why": "Encryption keeps files unreadable if the computer is lost or stolen.",
+    "where": "`manage-bde -status`"
+  },
+  "win_bloatware": {
+    "what": "Pre-installed and extra Store apps",
+    "why": "Apps that came with the computer can take up space and run in the background.",
+    "where": "`Get-AppxPackage` (PowerShell), compared with a list of known extra apps"
+  },
+  "win_bluetooth_check": {
+    "what": "Bluetooth adapter, paired devices and service",
+    "why": "A device error or a stopped Bluetooth service stops headphones, mice and keyboards connecting.",
+    "where": "`Get-PnpDevice -Class Bluetooth`, `sc query bthserv`"
+  },
+  "win_boot_config_check": {
+    "what": "Startup settings such as Secure Boot and recovery",
+    "why": "Secure Boot protects startup, and recovery tools give a way back if Windows won't start.",
+    "where": "`bcdedit /enum`, `Confirm-SecureBootUEFI`, `reagentc /info`, HiberbootEnabled"
+  },
+  "win_boot_time": {
+    "what": "Startup speed and Fast Startup",
+    "why": "A slow start or a long gap between restarts can make Windows feel sluggish.",
+    "where": "`Get-CimInstance Win32_OperatingSystem`, System event ID 12, HiberbootEnabled (reg)"
+  },
+  "win_bsod_analysis": {
+    "what": "Recent Windows crashes (blue screens)",
+    "why": "Repeated blue screens with the same code often point to one driver or piece of hardware.",
+    "where": "`Get-WinEvent` System log ID 1001 and WER-SystemErrorReporting events"
+  },
+  "win_cortana_telemetry": {
+    "what": "Usage data, Cortana, ad tracking and location settings",
+    "why": "These settings control how much activity and location data Windows shares with Microsoft.",
+    "where": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection, ...\\AdvertisingInfo"
+  },
+  "win_credential_guard": {
+    "what": "Sign-in protections and password rules",
+    "why": "Weak password rules or unprotected sign-in secrets make an account easier to take over.",
+    "where": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\DeviceGuard, `net accounts`, `Get-LocalUser`"
+  },
+  "win_credential_manager_audit": {
+    "what": "Passwords saved in Windows Credential Manager",
+    "why": "Saved sign-ins for networks and services are worth reviewing, especially old work ones.",
+    "where": "`cmdkey /list`, `wmic computersystem get partofdomain`"
+  },
+  "win_crypto_miner_detect": {
+    "what": "Programs using this computer to mine cryptocurrency",
+    "why": "Hidden mining software uses the computer's power to earn money for someone else.",
+    "where": "process command lines via `Get-CimInstance Win32_Process`, `netstat -ano` pool ports"
+  },
+  "win_defender": {
+    "what": "Whether Windows Defender is on and up to date",
+    "why": "Built-in antivirus only catches threats when it is on and has recent definitions.",
+    "where": "`Get-MpComputerStatus`"
+  },
+  "win_defender_deep_check": {
+    "what": "Windows Defender settings and exclusions",
+    "why": "Defender works best with its cloud, tamper and ransomware protections on and few exclusions.",
+    "where": "`Get-MpComputerStatus`, `Get-MpPreference`"
+  },
+  "win_disk_cleanup": {
+    "what": "Space Windows could free up",
+    "why": "Old update files, a previous Windows copy and temporary files can fill a drive.",
+    "where": "`dism /AnalyzeComponentStore`, C:\\Windows.old, SoftwareDistribution\\Download, Temp"
+  },
+  "win_disk_health": {
+    "what": "Drive health and disk errors",
+    "why": "Drives often report problems before they fail, which gives a chance to back up files first.",
+    "where": "`Get-PhysicalDisk`, `Get-WinEvent` System log IDs 7, 11, 51, 55"
+  },
+  "win_disk_space": {
+    "what": "Free space on each drive",
+    "why": "A nearly full drive can slow a computer down and stop updates from installing.",
+    "where": "`wmic logicaldisk get size,freespace,caption`"
+  },
+  "win_dism_health": {
+    "what": "Health of Windows' own repair files",
+    "why": "Damaged repair files can stop updates and system fixes from working.",
+    "where": "`Dism.exe /Online /Cleanup-Image /CheckHealth`, `/AnalyzeComponentStore`, wuauserv"
+  },
+  "win_display_check": {
+    "what": "Display adapters, screen drivers and scaling",
+    "why": "Old screen drivers and very high zoom settings can cause blurry text or flicker.",
+    "where": "`Get-CimInstance Win32_VideoController`, Win32_DesktopMonitor, LogPixels in the registry"
+  },
+  "win_dns_config": {
+    "what": "Which address lookup servers Windows uses",
+    "why": "Slow or failing address lookups make websites load slowly or not at all.",
+    "where": "`Get-DnsClientServerAddress`, `Resolve-DnsName google.com`, `Get-DnsClientCache`"
+  },
+  "win_driver_check": {
+    "what": "Device drivers with problems or no signature",
+    "why": "Faulty, stopped or unsigned drivers can cause crashes and devices that don't work.",
+    "where": "`Get-PnpDevice`, Win32_SystemDriver, `driverquery /v`, `Get-WindowsDriver -Online`"
+  },
+  "win_event_errors": {
+    "what": "Recent errors in the Windows event logs",
+    "why": "Clusters of errors from the same source can explain crashes and slowdowns.",
+    "where": "`Get-WinEvent` System and Application logs, Level 2 (errors), latest 50 entries"
+  },
+  "win_event_log_health": {
+    "what": "Windows event logs: crashes, shutdowns, warnings",
+    "why": "The logs record crashes, sudden shutdowns and failed sign-ins, and full logs stop recording.",
+    "where": "`sc query EventLog`, `Get-WinEvent` System IDs 41, 1001, 7031, 7034, Security log"
+  },
+  "win_firewall": {
+    "what": "Whether the Windows firewall is on",
+    "why": "The firewall blocks unwanted connections, especially on public Wi-Fi.",
+    "where": "`netsh advfirewall show allprofiles`"
+  },
+  "win_firewall_rules_audit": {
+    "what": "Firewall rules that let connections in",
+    "why": "Broad inbound rules can let other devices on the network reach programs on this computer.",
+    "where": "`Get-NetFirewallProfile`, `Get-NetFirewallRule -Direction Inbound -Action Allow`"
+  },
+  "win_group_policy_audit": {
+    "what": "Policies that control this computer's settings",
+    "why": "Leftover work or school policies can keep restricting a computer after it changes hands.",
+    "where": "`gpresult /r`, `auditpol /get /category:*`, `net accounts`, Policies\\System registry keys"
+  },
+  "win_hosts_file": {
+    "what": "Website redirects in the hosts file",
+    "why": "Entries in the hosts file can send websites, such as banks, to a different address.",
+    "where": "`Get-Content $env:windir\\System32\\drivers\\etc\\hosts`"
+  },
+  "win_hosts_file_check": {
+    "what": "The hosts file, which can redirect websites",
+    "why": "Entries in the hosts file can send websites, or security updates, to a different address.",
+    "where": "C:\\Windows\\System32\\drivers\\etc\\hosts (contents, size, permissions)"
+  },
+  "win_local_admin_audit": {
+    "what": "Administrator and Guest accounts",
+    "why": "Extra admin accounts or ones without passwords make it easier for someone to take control.",
+    "where": "`net localgroup Administrators`, `net user`, `Get-LocalUser`"
+  },
+  "win_malware_indicators": {
+    "what": "Common traces left by unwanted software",
+    "why": "Some unwanted software leaves telltale services, folders or startup entries behind.",
+    "where": "Run registry keys, non-Windows services, C:\\ProgramData folders, `bcdedit`"
+  },
+  "win_memory_diagnostics": {
+    "what": "Installed memory (RAM) and memory test results",
+    "why": "Faulty or mismatched memory can cause random crashes and slowdowns.",
+    "where": "`Get-WmiObject Win32_PhysicalMemory`, MemoryDiagnostics-Results events"
+  },
+  "win_network_adapters": {
+    "what": "Network adapters, addresses and lookup servers",
+    "why": "A switched-off adapter or missing address settings can stop the internet from working.",
+    "where": "`Get-NetAdapter`, `Get-NetIPConfiguration`, `Get-DnsClientServerAddress`"
+  },
+  "win_network_diag": {
+    "what": "Internet connection, address lookup and proxy",
+    "why": "This narrows down why websites won't load, and shows if traffic is set to go through a proxy.",
+    "where": "`nslookup google.com`, `ipconfig /all`, `ping -n 1 8.8.8.8`, `netsh winhttp show proxy`"
+  },
+  "win_network_reset": {
+    "what": "Low-level network settings and services",
+    "why": "Extra network components or changed settings, sometimes left by old software, can break the internet.",
+    "where": "`netsh winsock show catalog`, HKLM\\...\\Services\\Tcpip\\Parameters, Dnscache, Dhcp services"
+  },
+  "win_network_shares_audit": {
+    "what": "Folders shared with the network",
+    "why": "Shared folders can let other devices on the network read or change files.",
+    "where": "`net share`, `Get-SmbShare`, `Get-SmbShareAccess`, `Get-SmbServerConfiguration`"
+  },
+  "win_pagefile": {
+    "what": "Virtual memory (page file) settings",
+    "why": "A missing or squeezed page file can make programs slow or crash.",
+    "where": "Win32_PageFileSetting, Win32_PageFileUsage, `Get-Volume` (PowerShell)"
+  },
+  "win_pagefile_check": {
+    "what": "Virtual memory (page file) settings and use",
+    "why": "A page file that is too small or nearly full can make programs slow or crash.",
+    "where": "Win32_PageFileSetting, Win32_PageFileUsage, `Get-Volume` (PowerShell)"
+  },
+  "win_power_plan": {
+    "what": "Which power plan is active",
+    "why": "A power-saving plan can make the computer run slower than it could.",
+    "where": "`powercfg /getactivescheme`, `powercfg /list`"
+  },
+  "win_power_plan_check": {
+    "what": "Power plan and processor power limits",
+    "why": "Power-saving limits on the processor or drive can make a computer feel slow.",
+    "where": "`powercfg /getactivescheme`, `powercfg /query SCHEME_CURRENT` (CPU, disk, sleep, USB)"
+  },
+  "win_print_spooler_check": {
+    "what": "The printing service and whether others can reach it",
+    "why": "A print service open to other computers can let someone run code on this PC; stuck jobs block printing.",
+    "where": "`sc query Spooler`, `Get-PrintJob`, C:\\Windows\\System32\\spool\\PRINTERS"
+  },
+  "win_printer_check": {
+    "what": "Printers, the default printer and print queue",
+    "why": "A stopped print service or a stuck document is a common reason printing stops.",
+    "where": "`sc query Spooler`, `Get-Printer`, `Get-PrintJob`, Win32_Printer"
+  },
+  "win_printer_issues": {
+    "what": "Installed printers, offline printers and print jobs",
+    "why": "Offline printers and a backed-up queue are common reasons documents don't print.",
+    "where": "`Get-Printer`, `Get-Service Spooler`, `Get-PrintJob`"
+  },
+  "win_proxy_detect": {
+    "what": "Whether web traffic goes through a proxy",
+    "why": "A proxy set up by someone else can let them see or change what you browse.",
+    "where": "HKCU\\...\\CurrentVersion\\Internet Settings, `netsh winhttp show proxy`"
+  },
+  "win_rdp_check": {
+    "what": "Whether Remote Desktop is turned on",
+    "why": "Remote Desktop lets someone control this computer from elsewhere when it is on.",
+    "where": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server, its RDP-Tcp key"
+  },
+  "win_recovery_options": {
+    "what": "Windows recovery tools and System Restore",
+    "why": "Recovery tools and restore points give a way back if Windows stops starting or an update goes wrong.",
+    "where": "`reagentc /info`, `vssadmin list shadows`, `Get-ComputerRestorePoint`"
+  },
+  "win_remote_access_audit": {
+    "what": "Remote control programs like TeamViewer or AnyDesk",
+    "why": "Remote control programs have honest uses but can let someone use this computer from afar.",
+    "where": "HKLM\\SOFTWARE\\AnyDesk, TeamViewer and LogMeIn keys, `tasklist`, Remote Desktop setting"
+  },
+  "win_restore_points": {
+    "what": "Whether System Restore is on and has restore points",
+    "why": "Restore points let Windows undo a bad update or install.",
+    "where": "`Get-ComputerRestorePoint`, `vssadmin list shadows`"
+  },
+  "win_rootkit_check": {
+    "what": "Signs of software hiding deep in the system",
+    "why": "Some unwanted software hides by changing startup settings, drivers or system files.",
+    "where": "`bcdedit /enum`, `sc query` vs `Get-Service`, `driverquery /v`, Secure Boot"
+  },
+  "win_safe_mode_check": {
+    "what": "Whether Windows starts in Safe Mode",
+    "why": "A PC set to always start in Safe Mode runs with most drivers and programs turned off.",
+    "where": "`bcdedit /enum {current}`, `bcdedit /enum bootmgr`, Win32_OperatingSystem"
+  },
+  "win_scheduled_tasks": {
+    "what": "Scheduled tasks not made by Microsoft",
+    "why": "Unwanted software can use scheduled tasks to keep running or come back after removal.",
+    "where": "`Get-ScheduledTask` (tasks outside \\Microsoft\\)"
+  },
+  "win_scheduled_tasks_security": {
+    "what": "Scheduled tasks that run programs on their own",
+    "why": "Unwanted software can use scheduled tasks to keep running or come back after removal.",
+    "where": "`schtasks /query /fo CSV /v`"
+  },
+  "win_search_index": {
+    "what": "Windows Search service and index size",
+    "why": "A busy or very large search index can slow the computer down.",
+    "where": "`Get-Service WSearch`, SearchIndexer process, HKLM:\\SOFTWARE\\Microsoft\\Windows Search"
+  },
+  "win_services_audit": {
+    "what": "Background services that start automatically",
+    "why": "Services start with Windows, so unknown ones or ones in odd folders are worth a look.",
+    "where": "`Get-Service` with `Get-WmiObject Win32_Service`"
+  },
+  "win_services_security_audit": {
+    "what": "How Windows services are set up and protected",
+    "why": "A service stored in a folder anyone can change can let a program gain full control.",
+    "where": "`Get-WmiObject Win32_Service` (paths, start mode, account)"
+  },
+  "win_sfc_check": {
+    "what": "Results of the Windows system file check",
+    "why": "Damaged system files that can't be repaired can cause crashes and failed updates.",
+    "where": "C:\\Windows\\Logs\\CBS\\CBS.log, PendingFileRenameOperations in the registry"
+  },
+  "win_shadow_copies_check": {
+    "what": "Snapshot service and space for restore points",
+    "why": "Without the snapshot service or enough space, Windows can't keep restore points to undo changes.",
+    "where": "`sc qc VSS`, `vssadmin list shadows`, `vssadmin list shadowstorage`"
+  },
+  "win_startup": {
+    "what": "How many programs start with Windows",
+    "why": "Many programs starting with Windows can make startup slow.",
+    "where": "`wmic startup list full`"
+  },
+  "win_startup_programs_audit": {
+    "what": "Programs set to start on their own",
+    "why": "Too many startup programs slow things down, and odd locations can hide unwanted software.",
+    "where": "Win32_StartupCommand, HKCU/HKLM ...\\CurrentVersion\\Run, Startup folders, `schtasks /query`"
+  },
+  "win_startup_repair": {
+    "what": "Startup entries and Windows recovery mode",
+    "why": "Unusual startup entries or a disabled recovery mode can make startup problems harder to fix.",
+    "where": "`bcdedit /enum`, `{recoverysequence}`, Diagnostics-Performance/Operational log"
+  },
+  "win_suspicious_processes": {
+    "what": "Running programs with unusual names or locations",
+    "why": "Unwanted programs often run from temporary folders or use names of known malware.",
+    "where": "`Get-Process`, PowerShell command lines via `Get-CimInstance Win32_Process`"
+  },
+  "win_temp_cleanup": {
+    "what": "Space used by temporary and update files",
+    "why": "Temporary files, old update downloads and the Recycle Bin can fill a drive.",
+    "where": "%TEMP%, C:\\Windows\\Temp, C:\\Windows\\Prefetch, SoftwareDistribution\\Download, Recycle Bin"
+  },
+  "win_temp_files": {
+    "what": "Space used by temporary, installer and update files",
+    "why": "Temporary files, installer copies and old update downloads can fill a drive.",
+    "where": "$env:windir\\SoftwareDistribution\\Download, \\Installer, \\Prefetch, Local\\Temp, Recycle Bin"
+  },
+  "win_temp_files_cleanup": {
+    "what": "Space used by temporary and update files",
+    "why": "Temporary files, old update downloads and the Recycle Bin can fill a drive.",
+    "where": "$env:TEMP, C:\\Windows\\Temp, C:\\Windows\\Prefetch, SoftwareDistribution\\Download, recycle"
+  },
+  "win_uac_check": {
+    "what": "Whether Windows asks before big changes",
+    "why": "Permission prompts stop programs from making system changes without anyone noticing.",
+    "where": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System"
+  },
+  "win_update_history": {
+    "what": "Recent, pending and failed Windows updates",
+    "why": "Updates fix security holes, so failed or missing ones are worth knowing about.",
+    "where": "`sc query wuauserv`, `Get-HotFix`, Windows Update search, Windows Update error events"
+  },
+  "win_updates": {
+    "what": "Whether the Windows Update service is running",
+    "why": "If the update service is stopped, Windows can't get security fixes.",
+    "where": "`Get-Service -Name wuauserv`"
+  },
+  "win_user_accounts": {
+    "what": "Guest login, automatic login and password rules",
+    "why": "Extra admin accounts or login without a password can let others use this computer.",
+    "where": "`net user`, `net accounts`, `net localgroup Administrators`, Winlogon registry key"
+  },
+  "win_user_profiles": {
+    "what": "User profiles on this computer and their size",
+    "why": "Leftover or unused profiles take up space, and it helps to know every account here.",
+    "where": "`Get-CimInstance Win32_UserProfile`, `Get-LocalUser`, the size of each profile folder"
+  },
+  "win_visual_effects": {
+    "what": "Visual effects, transparency and animations",
+    "why": "On computers with less memory, visual effects can make things feel slower.",
+    "where": "HKCU: Explorer\\VisualEffects, Themes\\Personalize, Control Panel\\Desktop\\WindowMetrics"
+  },
+  "win_wifi_diagnostics": {
+    "what": "Wi-Fi signal, channel, driver and saved networks",
+    "why": "A weak signal, a crowded channel or an old Wi-Fi driver can make the internet slow or unreliable.",
+    "where": "`netsh wlan show interfaces`, `netsh wlan show profiles`, `netsh wlan show drivers`"
+  },
+  "win_windows_update_status": {
+    "what": "Windows Update status, pauses and waiting updates",
+    "why": "Paused, stopped or failing updates leave security holes unfixed.",
+    "where": "`sc query wuauserv`, PauseUpdatesExpiryTime, `Get-HotFix`, update error events"
+  },
+  "win_winsock_check": {
+    "what": "Low-level network settings (Winsock and TCP/IP)",
+    "why": "Extra network add-ons in this list can intercept or break internet traffic.",
+    "where": "`netsh winsock show catalog`, HKLM\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters"
+  },
+  "win_wmi_health": {
+    "what": "Health of the Windows management service (WMI)",
+    "why": "Many tools, including this checkup, rely on WMI; a damaged one makes other checks fail.",
+    "where": "`sc query winmgmt`, `winmgmt /verifyrepository`, C:\\Windows\\System32\\wbem\\Repository"
+  },
+  "xcode_cleanup": {
+    "what": "Space used by Apple developer tools",
+    "why": "Xcode build files, simulators and device support files can take a lot of space.",
+    "where": "~/Library/Developer: Xcode/DerivedData, Xcode/Archives, CoreSimulator/Devices, and more"
+  },
+  "xprotect_status": {
+    "what": "The Mac’s built-in malware protection and its updates",
+    "why": "macOS uses a built-in list of known malware to block it; an old list misses newer threats.",
+    "where": "XProtect.bundle version, `spctl --status`, `system_profiler SPInstallHistoryDataType`"
+  }
+}

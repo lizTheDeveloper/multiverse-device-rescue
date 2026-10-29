@@ -201,8 +201,27 @@ def version():
     is_flag=True,
     help='Skip the "Who made it?" lookups (code-signature checks) that add made_by to findings.',
 )
+@click.option(
+    "--live",
+    is_flag=True,
+    help='With --json and --progress or --trace, each finished check\'s progress line also carries its '
+         'module, in the same shape as the final JSON ("result"), so an app can show it at once.',
+)
+@click.option(
+    "--target-root",
+    type=click.Path(exists=True, file_okay=False),
+    default=None,
+    help="Check the disk mounted here instead of this computer. Needs --target-os.",
+)
+@click.option(
+    "--target-os",
+    type=click.Choice(["windows", "linux", "macos"]),
+    default=None,
+    help="Which system is on the disk at --target-root. Only linux works so far.",
+)
 @_no_downloads_option
-def scan(as_json, profile_name, module_names, progress, trace, no_attribution):
+def scan(as_json, profile_name, module_names, progress, trace, no_attribution, live,
+         target_root, target_os):
     """Run read-only checks. With --json, print structured results to stdout."""
     from rescue.serialize import checks_to_json
     if profile_name and module_names:
@@ -211,34 +230,95 @@ def scan(as_json, profile_name, module_names, progress, trace, no_attribution):
         threat_profile = _module_only_profile(module_names)
     else:
         threat_profile = _load_profile_or_exit(profile_name) if profile_name else None
-    profile = gather_profile()
-    orch = Orchestrator(modules_dir=_get_modules_dir(), profile=threat_profile)
+    if (target_root is None) != (target_os is None):
+        raise click.UsageError("--target-root and --target-os go together.")
+    target_doc = None
+    if target_root is not None:
+        # Absolute, so every path read from the disk and the JSON "root" agree.
+        target_root = Path(os.path.abspath(target_root))
+        profile = _gather_target_or_exit(target_root, target_os)
+        target_doc = _target_block(target_root, profile)
+        _warn_if_not_administrator()
+        no_attribution = True  # signature lookups would run on this computer, not the disk
+    else:
+        profile = gather_profile()
+    orch = Orchestrator(modules_dir=_get_modules_dir(), profile=threat_profile,
+                        system_profile=profile if target_root is not None else None)
+    shaper = _LiveResults(profile.platform.value, attribution=not no_attribution, target=target_doc) if (
+        live and as_json and (progress or trace)) else None
     if trace:
-        results = _run_traced(orch)
+        results = _run_traced(orch, shaper)
     elif progress:
-        results = orch.run_checks(on_progress=_emit_progress)
+        results = orch.run_checks(on_progress=lambda *a: _emit_progress(*a, shaper=shaper))
     else:
         results = orch.run_checks()
     if as_json:
-        walkthroughs = load_remediation_walkthroughs(_get_guides_dir() / "remediation")
-        made_by = None
-        if not no_attribution:
-            try:
-                from rescue.attribution import compute_made_by
-                made_by = compute_made_by(results, profile.platform.value)
-            except Exception:
-                made_by = None  # enrichment is optional; never break a scan
-        try:
-            app_fixes = load_app_fixes()
-        except AppFixesError:
-            app_fixes = {}  # unreadable list: offer nothing, never everything
+        if shaper is not None:
+            # The same pieces the live lines used: nothing is looked up twice.
+            walkthroughs, app_fixes, app_actions = shaper.walkthroughs, shaper.app_fixes, shaper.app_actions
+            made_by = shaper.made_by_for(results)
+        else:
+            walkthroughs, app_fixes, app_actions = _json_extras()
+            made_by = None
+            if not no_attribution:
+                try:
+                    from rescue.attribution import compute_made_by
+                    made_by = compute_made_by(results, profile.platform.value)
+                except Exception:
+                    made_by = None  # enrichment is optional; never break a scan
         click.echo(checks_to_json(
             results, profile.platform.value, walkthroughs, app_fixes, made_by,
-            app_actions=load_app_actions(),
+            app_actions=app_actions, target=target_doc,
         ))
         return
     for mod, check in results:
         click.echo(mod.report(check))
+
+
+def _gather_target_or_exit(target_root, target_os):
+    """The profile of the disk at target_root, or exit 2 with the reason on stderr."""
+    from rescue.models import Platform
+    from rescue.profiler.base import gather_target_profile
+    from rescue.target import TargetError
+
+    root = Path(target_root)
+    if root.resolve() == Path("/"):
+        raise click.UsageError(
+            "--target-root / is the running system. Use plain `rescue scan` for that."
+        )
+    platform = {"windows": Platform.WIN32, "linux": Platform.LINUX, "macos": Platform.DARWIN}[target_os]
+    try:
+        return gather_target_profile(root, platform)
+    except TargetError as exc:
+        raise click.UsageError(str(exc)) from exc
+
+
+def _warn_if_not_administrator():
+    """Say so on stderr when admin-only files on the disk can't be read."""
+    geteuid = getattr(os, "geteuid", None)
+    if geteuid is not None and geteuid() != 0:
+        click.echo(
+            "Warning: not running as an administrator, so files only an administrator "
+            "can read on that disk won't be checked. Run with sudo for a full check.",
+            err=True,
+        )
+
+
+def _target_block(target_root, profile):
+    """The JSON "target" block; warns on stderr when the disk is mounted read-write."""
+    root = Path(target_root)
+    read_only = False
+    try:
+        read_only = bool(os.statvfs(root).f_flag & os.ST_RDONLY)
+    except (OSError, AttributeError):
+        pass
+    if not read_only:
+        click.echo(
+            f"Warning: {root} is mounted read-write. This check won't change it, "
+            "but mounting read-only (-o ro) is safer.",
+            err=True,
+        )
+    return {"root": str(root), "os": profile.platform.value, "read_only": read_only}
 
 
 def _listening_verdict():
@@ -444,7 +524,70 @@ def lookup(addresses):
     ))
 
 
-def _run_traced(orch):
+def _json_extras():
+    """What --json adds to the findings: walkthroughs, the app's fix list and its actions."""
+    walkthroughs = load_remediation_walkthroughs(_get_guides_dir() / "remediation")
+    try:
+        app_fixes = load_app_fixes()
+    except AppFixesError:
+        app_fixes = {}  # unreadable list: offer nothing, never everything
+    return walkthroughs, app_fixes, load_app_actions()
+
+
+class _LiveResults:
+    """``scan --live``: one finished check as the final JSON's module entry.
+
+    The "Who made it?" lookups run per check as it finishes, with one shared
+    Attributor (its lookup budget and cache are the scan's), and the final JSON
+    reuses them. Any failure leaves the line without a result: never a broken scan.
+    """
+
+    def __init__(self, platform, attribution=True, target=None):
+        self.platform = platform
+        self.target = target  # the JSON "target" block when a disk is checked from outside
+        self.walkthroughs, self.app_fixes, self.app_actions = _json_extras()
+        self.made_by = {}
+        self.done = set()
+        self.attributor = None
+        if attribution:
+            try:
+                from rescue.attribution import Attributor
+                self.attributor = Attributor(platform)
+            except Exception:
+                self.attributor = None
+
+    def _attribute(self, results):
+        if self.attributor is None:
+            return
+        from rescue.attribution import compute_made_by
+        for pair in results:
+            if id(pair[1]) in self.done:
+                continue
+            self.done.add(id(pair[1]))
+            try:
+                self.made_by.update(compute_made_by([pair], self.platform, attributor=self.attributor))
+            except Exception:
+                pass  # enrichment is optional
+
+    def module(self, mod, check):
+        import json
+
+        from rescue.serialize import checks_to_json
+        try:
+            self._attribute([(mod, check)])
+            doc = checks_to_json([(mod, check)], self.platform, self.walkthroughs, self.app_fixes,
+                                 self.made_by or None, app_actions=self.app_actions, target=self.target)
+            return json.loads(doc)["modules"][0]
+        except Exception:
+            return None
+
+    def made_by_for(self, results):
+        """Every check's makers, looking up only the checks no live line covered."""
+        self._attribute(results)
+        return self.made_by if self.attributor is not None else None
+
+
+def _run_traced(orch, shaper=None):
     """Run the checks, reporting progress and every external command on stderr."""
     import json
 
@@ -454,7 +597,7 @@ def _run_traced(orch):
 
     def on_progress(phase, index, total, mod, check):
         current["module"] = mod.name if phase == "start" else None
-        _emit_progress(phase, index, total, mod, check)
+        _emit_progress(phase, index, total, mod, check, shaper=shaper)
 
     def on_exec(event):
         click.echo(json.dumps({"exec": event}), err=True)
@@ -463,8 +606,12 @@ def _run_traced(orch):
         return orch.run_checks(on_progress=on_progress)
 
 
-def _emit_progress(phase, index, total, mod, check):
-    """One machine-readable progress line on stderr (stdout stays pure JSON)."""
+def _emit_progress(phase, index, total, mod, check, shaper=None):
+    """One machine-readable progress line on stderr (stdout stays pure JSON).
+
+    With a ``_LiveResults`` (``scan --live``), a finished check's line also
+    carries its module entry, the same shape as in the final JSON.
+    """
     import json
 
     event = {
@@ -477,6 +624,12 @@ def _emit_progress(phase, index, total, mod, check):
     if check is not None:
         event["findings"] = len(check.findings)
         event["error"] = check.error
+        # A check that couldn't run here checked nothing: the app must not show it as "0 noted".
+        event["supported"] = bool(getattr(check, "supported", True))
+        if shaper is not None:
+            result = shaper.module(mod, check)
+            if result is not None:
+                event["result"] = result
     click.echo(json.dumps({"progress": event}), err=True)
 
 
@@ -1241,7 +1394,9 @@ def guide(profile_name, complete_step):
 
     done_steps = set(state.completed_steps.get(current_guide.phase, []))
     click.echo(f"=== {profile.display_name}: Phase {current_guide.phase} — {current_guide.title} ===")
-    click.echo(f"Estimated time: {current_guide.estimated_time}\n")
+    if current_guide.estimated_time:
+        click.echo(f"Estimated time: {current_guide.estimated_time}")
+    click.echo("")
     for step in current_guide.steps:
         tag = "automatable" if step.automatable else "human"
         status = "done" if step.number in done_steps else "pending"

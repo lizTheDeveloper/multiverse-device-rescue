@@ -27,6 +27,8 @@ function scanArgs(profile) {
 
 // With --trace, stderr carries one {"progress": {...}} JSON line per check,
 // one {"exec": {...}} line per external command, and ordinary log lines.
+// With --live, a finished check's progress line also carries its `result`
+// (the module as in the final JSON), so the sweep can show it at once.
 // Each complete line becomes an event for the window.
 function parseStderrLine(line) {
   for (const type of ['progress', 'exec']) {
@@ -43,7 +45,7 @@ function parseStderrLine(line) {
 
 function runScan(spawnFn = spawn, profile = null, onEvent = () => {}) {
   return new Promise((resolve, reject) => {
-    const p = spawnFn(resolveEnginePath(), scanArgs(profile).concat(['--trace']));
+    const p = spawnFn(resolveEnginePath(), scanArgs(profile).concat(['--trace', '--live']));
     let out = '', err = '', pending = '';
     p.stdout.on('data', d => (out += d));
     p.stderr.on('data', d => {
@@ -212,7 +214,7 @@ function clean(s, max = 1024) {
 // Settings and installed items: the engine runs the check again and matches the id.
 const ITEM_KINDS = new Set([
   'sharing_service', 'network_proxy', 'system_extension', 'browser_extension',
-  'app_permissions', 'ssh_authorized_keys', 'ai_tooling',
+  'app_permissions', 'ssh_authorized_keys', 'ai_tooling', 'backup_elsewhere',
 ]);
 const NEVER_MARKABLE_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
 

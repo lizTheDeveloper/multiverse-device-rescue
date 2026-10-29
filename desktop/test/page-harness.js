@@ -72,15 +72,13 @@ function page({ store = { 'device-rescue.display': 'standard' }, ready = true, b
     if (!els[id]) { els[id] = new El(doc); els[id].id = id; if (/^screen-/.test(id) && id !== 'screen-welcome') els[id]._hidden = true; }
     return els[id];
   };
-  // The progress dots at the top of the page, one per step.
-  const dots = ['welcome', 'worry', 'scan', 'results'].map((d) => { const e = new El(doc); e.dataset.stepDot = d; return e; });
   const calls = { game: [], scans: [], guides: [], last: null };
   const winListeners = {};
   const storage = blocked ? blockedStore() : recordingStore(store || {});
   let finishScan = () => {};
   const sandbox = {
     console, setTimeout, Promise, JSON,
-    document: Object.assign(doc, { getElementById: byId, querySelectorAll: (sel) => (sel === '[data-step-dot]' ? dots : []),
+    document: Object.assign(doc, { getElementById: byId, querySelectorAll: () => [],
       createElement: () => new El(doc), addEventListener() {} }),
     localStorage: storage,
     fetch: () => Promise.reject(new Error('no network in tests')),
@@ -114,11 +112,10 @@ function page({ store = { 'device-rescue.display': 'standard' }, ready = true, b
   const answer = (id) => byId('question-card').kids.find((b) => b.dataset.answer === id).click();
   const fire = (type) => (winListeners[type] || []).forEach((fn) => fn({ type }));
   const finish = async (d) => { finishScan(d); await tick(); await tick(); };
-  const activeDot = () => dots.filter((e) => e.classList.contains('step-dot--active')).map((e) => e.dataset.stepDot);
   // Reads a top-level name from the page's scripts (a const isn't on window).
   const run = (code) => vm.runInContext(code, sandbox);
   const revealed = () => doc.revealed.slice();
-  return { byId, calls, sandbox, storage, shown, pick, answer, fire, finish, activeDot, run, revealed };
+  return { byId, calls, sandbox, storage, shown, pick, answer, fire, finish, run, revealed };
 }
 
 const clean = { schema_version: 1, platform: 'darwin', modules: [] };

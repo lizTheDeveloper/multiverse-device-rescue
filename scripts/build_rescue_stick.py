@@ -258,6 +258,22 @@ is fine. A clean result makes a problem less likely, but can't rule one out.
 Nothing is changed unless you click to fix something and say yes.
 
 
+IF THIS COMPUTER IS INFECTED -- KEEP IT OFFLINE
+-----------------------------------------------
+
+  * Keep its network cable out. Turn its Wi-Fi off as soon as it starts.
+    Mac: System Settings > Wi-Fi.
+    Windows: Settings > Network & internet > Airplane mode.
+  * Don't sign in to anything on it, and don't plug in drives you care about.
+  * Install from this drive as above (no internet needed), then choose
+    "A computer I don't want to turn on or connect" and follow the checklist.
+  * Change your passwords later from a different, clean device.
+  * It won't start? The app can't check it. The full walkthrough covers
+    recovery, saving your files and reinstalling: guides/index.html
+    ("Infected Device"), or online from another device:
+    https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/infected-device/
+
+
 WHAT IT WILL NEVER ASK FOR
 --------------------------
 
@@ -424,6 +440,22 @@ in plain words, what it found and what to do about it.</p>
 </section>
 
 <section>
+  <h2>If this computer is infected, keep it offline</h2>
+  <ul>
+    <li>Keep its network cable out. Turn its Wi-Fi off as soon as it starts.
+      Mac: <b>System Settings &gt; Wi-Fi</b>. Windows: <b>Settings &gt; Network &amp; internet &gt;
+      Airplane mode</b>.</li>
+    <li>Don't sign in to anything on it, and don't plug in drives you care about.</li>
+    <li>Install from this drive as above (no internet needed), then choose
+      <b>&ldquo;A computer I don&rsquo;t want to turn on or connect&rdquo;</b> and follow the checklist.</li>
+    <li>Change your passwords later from a different, clean device.</li>
+  </ul>
+  <p class="small">It won't start? The app can't check it. The full walkthrough covers recovery, saving
+  your files and reinstalling: <a href="guides/index.html">guides</a> (&ldquo;Infected Device&rdquo;), or
+  online from another device: https://lizthedeveloper.github.io/multiverse-device-rescue/docs/scenarios/infected-device/</p>
+</section>
+
+<section>
   <h2>What it will never ask for</h2>
   <p>Your passwords, two-step sign-in codes (2FA codes), or recovery keys. If anything asks
   for these while claiming to be Reclaim City, it is not Reclaim City. Close it.</p>
@@ -511,6 +543,12 @@ READ THE RESULTS
 
 IT WILL NEVER ASK FOR
   Passwords, 2FA codes, recovery keys or recovery codes.
+
+INFECTED? KEEP IT OFFLINE
+  Cable out. Wi-Fi off as soon as it starts (Mac: System Settings > Wi-Fi;
+  Windows: Settings > Network & internet > Airplane mode). Sign in to nothing.
+  In the app: "A computer I don't want to turn on or connect".
+  Change passwords from a different, clean device.
 
 SAFETY
   If someone you know may be monitoring you, removing their software can

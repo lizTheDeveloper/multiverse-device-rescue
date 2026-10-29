@@ -1,7 +1,9 @@
-const { contextBridge, ipcRenderer, shell } = require('electron');
+const { contextBridge, ipcRenderer, shell, webFrame } = require('electron');
 contextBridge.exposeInMainWorld('rescue', {
   // Read-only: which OS this is ("darwin", "win32", "linux"), known before any scan.
   platform: process.platform,
+  // The text-size setting (DisplayPrefs): zooms this window only, to one of its three sizes.
+  setZoom: (factor) => { if ([1, 1.25, 1.5].includes(factor)) webFrame.setZoomFactor(factor); },
   runScan: (profile) => ipcRenderer.invoke('run-scan', profile),
   runFix: (moduleName) => ipcRenderer.invoke('run-fix', moduleName),
   runAction: (action, target) => ipcRenderer.invoke('run-fix-action', action, target),

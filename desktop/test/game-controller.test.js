@@ -7,7 +7,11 @@ const QID = '20261016T120000Z-com.example.a';
 const finding = (title) => ({ title, description: 'd', severity: 'critical', category: 'security', data: {} });
 const mod = (name, findings) => ({ name, category: 'security', status: 'ok', error: null, supported: true, findings });
 const scan = (...mods) => ({ schema_version: 1, platform: 'darwin', modules: mods });
-const memStore = () => { const s = {}; return { getItem: (k) => (k in s ? s[k] : null), setItem: (k, v) => { s[k] = String(v); } }; };
+// Seeded past the guided walkthrough's first signals (guided.js), so a signal
+// opens in the ordinary panel; game-guided.test.js covers the walkthrough.
+const SEASONED = JSON.stringify({ version: 3, missions: {}, lessons: {}, deck: { points: 0, rank: 0, drills: { right: 0, tried: 0 }, tags: {},
+  confirmed: {}, once: {}, sweep: { at: null, keys: {} }, sweeps: [], sorts: 50 } });
+const memStore = () => { const s = { 'device-rescue.game.v1': SEASONED, 'device-rescue.level': 'technical' }; return { getItem: (k) => (k in s ? s[k] : null), setItem: (k, v) => { s[k] = String(v); } }; };
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
 function stubWin(recheckDocs) {
@@ -317,7 +321,7 @@ async function rcSetup({ doc = scan(...macBase), situation = { id: 'hacked' }, s
   ctl.show(doc, situation);
   return { ...stub, ctl, rc, storage, html: () => stub.frame.innerHTML };
 }
-const hudCount = (html, label) => Number((new RegExp(`<b>(\\d+)</b> <small>${label}</small>`).exec(html) || [])[1]);
+const hudCount = (html, label) => Number((new RegExp(`<b>(\\d+)</b> <small>${label}</small>`).exec(html) || [0, 0])[1]);
 
 test('one map: the computer’s districts, then the accounts’, scrolled to the starting point', async () => {
   const t = await rcSetup();
@@ -623,7 +627,7 @@ test('the checkup as the boss: one start, the meter and the skip bar agree, tips
   t.ctl.scanEvent(prog('start', 1, 4));
   t.ctl.scanEvent(prog('done', 1, 4, 'security', 2));
   t.ctl.scanEvent(prog('start', 2, 4, 'network'));
-  assert.match(t.html(), /1 \/ 4 CHECKS/);
+  assert.match(t.html(), /<b>1\/4<\/b> <small>CHECKS DONE/);
   assert.match(t.html(), /SWEEPING/);
   assert.doesNotMatch(t.html(), /\bsafe\b|\bclear\b/i);
   t.click({ 'data-go': 'training' });
@@ -786,14 +790,14 @@ test('the boss screen’s pop-up tips stay closed once the person closes them', 
   const t = await trainingSetup();
   t.ctl.showBoss();
   await tick(); await tick();
-  assert.match(t.html(), /<details class="panel" open>/);
+  assert.match(t.html(), /<details class="panel tips" open>/);
   // The summary's own click toggles the <details>; the controller only remembers it.
   t.click({ 'data-act': 'toggle-tips' });
   t.ctl.scanEvent(prog('start', 1, 4));
-  assert.match(t.html(), /<details class="panel">[\s\S]*POP-UPS YOU MIGHT SEE/, 'closed stays closed after a redraw');
+  assert.match(t.html(), /<details class="panel tips">[\s\S]*POP-UPS YOU MIGHT SEE/, 'closed stays closed after a redraw');
   t.click({ 'data-act': 'toggle-tips' });
   t.ctl.scanEvent(prog('done', 1, 4));
-  assert.match(t.html(), /<details class="panel" open>/);
+  assert.match(t.html(), /<details class="panel tips" open>/);
 });
 
 // The new flow: a worry starts its scan at once; the sweep's districts open the lessons.
@@ -812,7 +816,7 @@ test('the sweep: districts with a lesson are buttons with a cue; the one being c
   assert.match(html, /data-go="learn:wires"/);
   assert.match(html, /data-go="learn:foundations"/);
   assert.doesNotMatch(html, /data-go="learn:(engine-room|junkyard|outskirts)"/, 'no lesson teaches these');
-  assert.match(html, /<div class="district waiting"><h4>THE ENGINE ROOM/);
+  assert.match(html, /<div class="district waiting"><h3 class="d-name">THE ENGINE ROOM/);
   assert.match(html, /LEARN ▶/);
   assert.match(html, /data-go="training"[^>]*>ALL LESSONS/);
   assert.match(html, /POP-UPS YOU MIGHT SEE/, 'the pop-up tips still show as soon as the scan starts');
@@ -823,17 +827,19 @@ test('the sweep: districts with a lesson are buttons with a cue; the one being c
   assert.strictEqual((html.match(/Scanning now/g) || []).length, 1);
 });
 
-test('clicking a district opens its lesson; finishing it mid-scan goes back to the sweep, marked DONE ✓', async () => {
+test('clicking a district opens its lesson inline on the sweep; finishing it marks the district DONE ✓', async () => {
   const t = await sweepSetup();
+  t.ctl.scanEvent(prog('start', 1, 4, 'network'));
   t.click({ 'data-go': 'learn:wires' });
   assert.match(t.html(), /Who’s on your Wi-Fi/);
-  assert.match(t.html(), /data-go="boss"[^>]*>BACK TO THE CHECKUP ▶/);
+  assert.match(t.html(), /THE SWEEP[\s\S]*role="progressbar"[\s\S]*WHILE YOU WAIT[\s\S]*QUESTION 1 OF/, 'the progress stays on screen above the lesson');
+  assert.match(t.html(), /data-act="sweep-close"/);
   t.lesson('whos-on-wifi').questions.forEach((q, n, all) => {
     t.click({ 'data-act': `answer:${correctIndex(q)}` });
     t.click({ 'data-act': n === all.length - 1 ? 'finish-lesson' : 'next-question' });
   });
   assert.match(t.html(), /THE SWEEP/);
-  assert.match(t.html(), /<h4>THE WIRES[\s\S]*?DONE ✓[\s\S]*?data-go="review:wires"/);
+  assert.match(t.html(), /<h3 class="d-name">THE WIRES[\s\S]*?DONE ✓[\s\S]*?data-go="review:wires"/);
   assert.doesNotMatch(t.html(), /data-go="learn:wires"/, 'a DONE district is no longer a lesson button');
   // The Gatehouse has several lessons, in this worry's order: the next unfinished one each time.
   t.click({ 'data-go': 'learn:gatehouse' });
@@ -905,11 +911,14 @@ const answerAll = (t, id, { finish = true } = {}) => t.lesson(id).questions.forE
   if (n < all.length - 1) t.click({ 'data-act': 'next-question' });
   else if (finish) t.click({ 'data-act': 'finish-lesson' });
 });
-const GATEHOUSE = ['password-asker', 'starts-on-its-own', 'browser-add-ons', 'locked-door', 'poisoned-packages'];
+// Every lesson The Gatehouse's card can open, from the lesson files themselves.
+const gatehouseOf = (t) => t.lessons.filter((l) => (l.districts || []).includes('gatehouse')).map((l) => l.id);
 
 test('a DONE ✓ district mid-scan opens no quiz; the review is a separate, optional button', async () => {
   const storage = memStore();
   let t = await sweepSetup({ storage, situation: HACKED });
+  const GATEHOUSE = gatehouseOf(t);
+  assert.ok(GATEHOUSE.length >= 5);
   // The Gatehouse's lessons, each opened from its card ("the next unfinished one").
   for (let i = 0; i < GATEHOUSE.length; i += 1) {
     t.click({ 'data-go': 'learn:gatehouse' });
@@ -920,7 +929,7 @@ test('a DONE ✓ district mid-scan opens no quiz; the review is a separate, opti
   t = await sweepSetup({ storage, situation: HACKED });
   t.ctl.scanEvent(prog('done', 1, 4, 'security'));
   const html = t.html();
-  assert.match(html, /class="district learned[^"]*"><h4>THE GATEHOUSE[\s\S]*?DONE ✓/);
+  assert.match(html, /class="district learned[^"]*"><h3 class="d-name">THE GATEHOUSE[\s\S]*?DONE ✓/);
   assert.doesNotMatch(html, /data-go="learn:gatehouse"/, 'the DONE card is not a lesson button');
   assert.match(html, /data-go="review:gatehouse"[^>]*>REVIEW ONE\? \(OPTIONAL\)/);
   assert.match(html, /data-go="review:gatehouse" aria-label="Review one\? \(optional\): a lesson about/i, 'the accessible name starts with the visible words');
@@ -936,6 +945,7 @@ test('a DONE ✓ district mid-scan opens no quiz; the review is a separate, opti
 test('REVIEW rotates through a district’s done lessons, least recently reviewed first, in memory only', async () => {
   const storage = memStore();
   let t = await sweepSetup({ storage, situation: HACKED });
+  const GATEHOUSE = gatehouseOf(t);
   for (let i = 0; i < GATEHOUSE.length; i += 1) {
     t.click({ 'data-go': 'learn:gatehouse' });
     const open = t.lessons.find((l) => GATEHOUSE.includes(l.id) && t.html().includes(l.title.replace(/[<>&"]/g, '')));
@@ -983,6 +993,89 @@ test('finishing a sweep lesson after the checkup is done goes to the city, not t
   assert.doesNotMatch(t.html(), /THE TRAINING GROUNDS/);
   assert.match(t.html(), /YOUR COMPUTER/);
   assert.doesNotMatch(t.html(), /Your checkup is done\./, 'the banner has done its job');
+});
+
+// The owner: "the sweeps don't show you what they're doing or why", and lessons
+// should be striped in while people wait.
+const mprog = (phase, index, total, module, category, extra = {}) => ({ type: 'progress', phase, index, total, module, category, ...extra });
+
+test('the sweep names the check running now, why, and where; finished checks go into the log', async () => {
+  const t = await sweepSetup();
+  assert.match(t.html(), /NOW CHECKING[\s\S]*Starting the checkup engine/);
+  t.ctl.scanEvent(mprog('start', 1, 3, 'launch_agent_audit', 'security'));
+  let html = t.html();
+  assert.match(html, /NOW CHECKING · CHECK 1 OF 3/);
+  assert.match(html, /Programs set to start on their own/);
+  assert.match(html, /LOOKS AT<\/dt><dd><code class="where">~\/Library\/LaunchAgents/);
+  assert.match(html, /<code>launch_agent_audit<\/code> · The Gatehouse/);
+  t.ctl.scanEvent(mprog('done', 1, 3, 'launch_agent_audit', 'security', { findings: 2, supported: true, error: null }));
+  t.ctl.scanEvent(mprog('done', 2, 3, 'firewall_audit', 'security', { findings: 0, supported: false, error: null }));
+  html = t.html();
+  assert.match(html, /SWEEP LOG[\s\S]*Whether the built-in firewall is on<\/span><span class="badge fog">COULDN’T CHECK[\s\S]*Programs set to start on their own<\/span><span class="badge amb">2 NOTED/, 'newest first');
+  assert.match(html, /<b>1<\/b> <small>COULDN’T CHECK/);
+  assert.match(html, /Starting the next check/);
+});
+
+test('WHILE YOU WAIT offers a lesson about the check running now, one after another, never hiding the progress', async () => {
+  const t = await sweepSetup({ situation: { id: 'unsure', title: 'Not sure' } });
+  t.ctl.scanEvent(mprog('start', 1, 9, 'launch_agent_audit', 'security'));
+  let html = t.html();
+  assert.match(html, /WHILE YOU WAIT[\s\S]*About the check running now: programs set to start on their own\.[\s\S]*Things that start on their own/);
+  assert.match(html, /data-act="sweep-start:starts-on-its-own"/);
+  // The offer stays put while checks move on.
+  t.ctl.scanEvent(mprog('done', 1, 9, 'launch_agent_audit', 'security'));
+  t.ctl.scanEvent(mprog('start', 2, 9, 'lan_device_inventory', 'network'));
+  assert.match(t.html(), /data-act="sweep-start:starts-on-its-own"/);
+  // Passed over: the next offer follows the check running now.
+  t.click({ 'data-act': 'sweep-pass' });
+  assert.match(t.html(), /data-act="sweep-start:whos-on-wifi"/);
+  t.click({ 'data-act': 'sweep-start:whos-on-wifi' });
+  html = t.html();
+  assert.match(html, /role="progressbar"[\s\S]*QUESTION 1 OF/);
+  assert.doesNotMatch(html, /data-act="sweep-start:/, 'no offer while a lesson is open');
+  t.ctl.scanEvent(mprog('done', 2, 9, 'lan_device_inventory', 'network'));
+  assert.match(t.html(), /QUESTION 1 OF/, 'a progress event leaves the lesson where it was');
+  answerAll(t, 'whos-on-wifi');
+  html = t.html();
+  assert.match(html, /THE SWEEP/);
+  assert.match(html, /data-act="sweep-start:/, 'and the next one is offered');
+  assert.doesNotMatch(html, /data-act="sweep-start:whos-on-wifi"/);
+});
+
+test('PUT IT AWAY closes an inline lesson and offers another; nothing is recorded', async () => {
+  const t = await sweepSetup();
+  const first = t.html().match(/data-act="sweep-start:([^"]+)"/)[1];
+  t.click({ 'data-act': `sweep-start:${first}` });
+  t.click({ 'data-act': 'sweep-close' });
+  const html = t.html();
+  assert.doesNotMatch(html, /QUESTION 1 OF/);
+  assert.doesNotMatch(html, new RegExp(`data-act="sweep-start:${first}"`));
+  assert.doesNotMatch(String(t.storage.getItem('device-rescue.game.v1') || ''), new RegExp(first));
+});
+
+test('the scan finishes mid-way through an inline lesson: it carries on as the lesson screen with the city banner', async () => {
+  const t = await sweepSetup();
+  const first = t.html().match(/data-act="sweep-start:([^"]+)"/)[1];
+  t.click({ 'data-act': `sweep-start:${first}` });
+  const q0 = t.lesson(first).questions[0];
+  t.click({ 'data-act': `answer:${wrongIndex(q0)}` });
+  t.ctl.scanDone(scan(mod('mod_a', [finding('A')])), WIFI);
+  assert.match(t.html(), /QUESTION 1 OF/);
+  assert.match(t.html(), /class="opt wrong"/);
+  assert.match(t.html(), /Your checkup is done\.[\s\S]*SEE YOUR CITY ▶/);
+});
+
+test('a second try at a lesson asks its questions a different way (the next item in each bank)', async () => {
+  const t = await trainingSetup();
+  const banked = t.lessons.find((l) => l.questions.every((q) => Array.isArray(q.variants) && q.variants.length));
+  t.click({ 'data-go': `lesson:${banked.id}` });
+  const firstPrompt = banked.questions[0].prompt;
+  const second = banked.questions[0].variants[0].prompt;
+  const plain = (s) => s.replace(/`[^`]*`/g, '').slice(0, 25);
+  assert.ok(t.html().includes(plain(firstPrompt).replace(/&/g, '&amp;')), 'first time: the question as written');
+  t.click({ 'data-go': 'training' });
+  t.click({ 'data-go': `lesson:${banked.id}` });
+  assert.ok(t.html().includes(plain(second).replace(/&/g, '&amp;')), 'second time: its first variant');
 });
 
 // "Open your router's settings" on a router mission: only the address goes to window.rescue.
@@ -1219,7 +1312,7 @@ test('watch: findings score nothing and nothing about them is stored', async () 
   // The tag holds for this session: it's sorted on the deck, LOOK CLOSER.
   t.click({ 'data-act': 'close-signal' });
   t.click({ 'data-act': 'toggle-low' });
-  assert.match(t.html(), /LOOK CLOSER<\/span><\/span><span class="sig-title">Connection watch: /);
+  assert.match(t.html(), /LOOK CLOSER<\/span><\/span> <span class="sig-title">Connection watch: /);
   // "These are all fine" sorts them too, still without storing anything.
   t.click({ 'data-act': 'batch-fine' });
   assert.match(t.html(), /KNOWN AND NOTED \(\d+\)[\s\S]*Connection watch: /);

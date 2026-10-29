@@ -20,8 +20,20 @@ const STOP_GRACE_MS = 75000;
 const QUIT_GRACE_MS = 5000;
 const SCAN_BUSY_MESSAGE = 'A connection watch is running. Stop it, or let it finish, then run the checkup.';
 
-function fail(reason, message) {
-  return { ok: false, reason, message };
+function fail(reason, message, why) {
+  return why ? { ok: false, reason, message, why } : { ok: false, reason, message };
+}
+
+// One plain line on why a watch failed, for the panel under its message: never
+// the engine's own stderr (paths, tracebacks), which only goes to the log.
+function whyFailed(err) {
+  const m = String((err && err.message) || '');
+  if (err && err.code === 'ENOENT') return 'The checkup engine couldn’t be found.';
+  if (err instanceof SyntaxError || /JSON/.test(m)) return 'The engine finished, but its answer couldn’t be read.';
+  if (/^engine exited null/.test(m)) return 'The watch ran past its time limit and was stopped.';
+  const code = m.match(/^engine exited (\d+)/);
+  if (code) return `The engine stopped with an error (code ${code[1]}).`;
+  return 'The engine couldn’t run the watch.';
 }
 
 // The same test the renderer's game gate uses (app.js mayBeWatched): a warning
@@ -47,16 +59,21 @@ async function handleWatch(minutes, { lookups = true, getLastDoc, setLastDoc, ru
     return fail('monitoring', 'The connection watch is off while this checkup has found possible monitoring software.');
   }
   let result;
+  let why = null;
   try {
     result = await runWatch(minutes, onEvent, lookups);
   } catch (err) {
     logError('The connection watch failed:', err);
     result = null;
+    why = whyFailed(err);
   }
   // Merge into the checkup as it is now: a re-check may have landed meanwhile.
   // (A new checkup can't: it is refused while a watch runs.)
   const { doc, module } = mergeModuleResult(getLastDoc(), result, WATCH_MODULE);
-  if (!module) return fail('failed', 'The connection watch couldn’t finish. Your checkup results are unchanged.');
+  if (!module) {
+    return fail('failed', 'The connection watch couldn’t finish. Your checkup results are unchanged.',
+      why || 'The engine’s answer had no watch in it.');
+  }
   setLastDoc(doc);
   for (const p of policies) p.remember(doc);
   return { ok: true, doc };
@@ -81,5 +98,6 @@ function quitActiveWatch(handle, { graceMs = QUIT_GRACE_MS } = {}) {
   return stopActiveWatch(handle, { graceMs, stops: 2 });
 }
 
-module.exports = { WATCH_MINUTES, WATCH_MODULE, SCAN_BUSY_MESSAGE, STOP_GRACE_MS, QUIT_GRACE_MS, handleWatch,
+module.exports = {
+  whyFailed, WATCH_MINUTES, WATCH_MODULE, SCAN_BUSY_MESSAGE, STOP_GRACE_MS, QUIT_GRACE_MS, handleWatch,
   stopActiveWatch, quitActiveWatch };

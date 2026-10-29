@@ -1,7 +1,7 @@
 # Scenarios
 
 A **profile** is a scenario. It selects the modules that matter for one
-situation, configures them for that threat, and — for four of the seven — pairs
+situation, configures them for that threat, and — for five of the eight — pairs
 them with a phased human walkthrough that tracks your progress across sessions.
 
 ```console
@@ -21,6 +21,7 @@ $ rescue guide <name>                    # the human walkthrough, where one exis
 | I think there's spyware on my iPhone or iPad. | [iPhone / iPad spyware check](iphone-spyware-check.md) |
 | I want a security review of a Linux machine. | [Linux security checkup](linux-security-checkup.md) |
 | I'm visiting family and want to leave their laptop in better shape. | [Home for the holidays](home-for-the-holidays.md) |
+| A computer is clearly infected, barely starts or won't start, and I don't want it on my network. | [Infected computer, kept offline](infected-device.md) |
 
 Not sure? Start with `rescue scan` — a plain whole-machine read-only pass — and
 come back once you know more. If you have an AI provider configured,
@@ -37,6 +38,7 @@ come back once you know more. If you have an AI provider configured,
 | [`iphone_spyware_check`](iphone-spyware-check.md) | 1 | none — see the [walkthrough](../CHECK_IPHONE_FOR_SPYWARE.md) | all three (scans a backup on your computer) |
 | [`linux_security_checkup`](linux-security-checkup.md) | 10 | none | Linux |
 | [`home_for_the_holidays`](home-for-the-holidays.md) | 4 | 1 phase, 13 steps | macOS |
+| [`infected_device`](infected-device.md) | 41 | 6 phases | macOS, Windows (works offline) |
 
 Modules that do not support your platform are filtered out before the scan
 starts, so a profile on the "wrong" platform runs a subset rather than failing.

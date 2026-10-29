@@ -2,7 +2,7 @@
 // Pure, except loadLessons, which takes the import function it should use.
 import { lessonDone } from './progress.js';
 
-export const WORRY_IDS = ['hacked', 'watched', 'wifi', 'identity', 'sketchy', 'phone', 'helping', 'unsure'];
+export const WORRY_IDS = ['hacked', 'watched', 'wifi', 'identity', 'sketchy', 'phone', 'helping', 'offline', 'unsure'];
 export const FIRST_LESSON = 'password-asker';
 
 // Specifiers relative to this file. Order is the order shown under "ALSO HERE".
@@ -14,6 +14,14 @@ export const LESSON_FILES = [
   './lessons/browser-add-ons.js',
   './lessons/couldnt-check.js',
   './lessons/poisoned-packages.js',
+  './lessons/taking-accounts-back.js',
+  // With item banks (a concept and variants per question), for the sweep's WHILE YOU WAIT.
+  './lessons/what-a-checkup-sees.js',
+  './lessons/who-made-this.js',
+  './lessons/firewall-and-sharing.js',
+  './lessons/remote-access.js',
+  './lessons/after-a-finding.js',
+  './lessons/what-kind-of-program.js',
 ];
 
 // Lessons teach; the scan diagnoses. None of these may appear in lesson text.

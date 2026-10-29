@@ -1,6 +1,10 @@
+import re
+import shlex
 from collections import defaultdict
+from pathlib import Path
 
 from rescue import command
+from rescue import netaddr
 from rescue.models import (
     Action,
     CheckResult,
@@ -242,6 +246,258 @@ def _monitor_steps(platform: str) -> list[str]:
     ]
 
 
+# --- connection items: what the game's clue shows for each connection --------
+# Read-only and local: the connection list already gathered, one `ps` for the
+# few flagged programs (macOS and Linux), and the Host/HostName/Port lines of
+# ~/.ssh/config. Nothing else from the SSH settings is kept.
+
+ITEMS_MAX = 20
+# The flagged programs' parent and command line; the pids go on the end.
+PS_ARGS = ["ps", "-o", "pid=,ppid=,command=", "-p"]
+_COMMAND_MAX = 300
+_SSH_CONFIG_MAX = 64 * 1024
+
+
+def _listening(records: list[dict]) -> set:
+    """(proto, local port) of every listening socket."""
+    return {
+        (r.get("proto"), r.get("local_port"))
+        for r in records
+        if r.get("state") == "LISTEN" and r.get("local_port")
+    }
+
+
+def _scope(addr: str | None) -> str:
+    if netaddr.is_loopback(addr):
+        return "this computer"
+    return "public" if netaddr.is_public(addr) else "local network"
+
+
+def _process_details(pids, platform: str) -> dict:
+    """{pid: {"ppid", "command"}} from one `ps`; empty when it can't say."""
+    pids = sorted({p for p in pids if isinstance(p, int) and p > 0})
+    if not pids or platform not in ("darwin", "linux"):
+        return {}
+    result = command.run(
+        [*PS_ARGS, ",".join(str(p) for p in pids)], timeout=5
+    )
+    if result.returncode != 0 or not result.stdout:
+        return {}
+    out = {}
+    for line in result.stdout.splitlines():
+        parts = line.split(None, 2)
+        if len(parts) < 2 or not parts[0].isdigit() or not parts[1].isdigit():
+            continue
+        entry = {"ppid": int(parts[1])}
+        summary = _command_summary(parts[2]) if len(parts) == 3 else None
+        if summary:
+            entry["command"] = summary
+        out[int(parts[0])] = entry
+    return out
+
+
+# Keep less rather than redact more: command lines carry secrets in too many
+# shapes (--password x, -pSECRET, sshpass -p x, user:pass@host…). Only the
+# program's name is kept, plus, for ssh and its kin, the destination host and
+# port (what ~/.ssh/config is matched on), or a script path a program runs.
+_SSH_LIKE = {"ssh", "scp", "sftp", "mosh", "autossh"}
+# Options that take a value, per program (man ssh, scp, sftp, autossh); mosh's
+# short options are ssh's. The port option is -p for ssh, -P for scp and sftp.
+_VALUE_OPTS = {
+    "ssh": set("BbcDEeFIiJLlmOoPpQRSWw"),
+    "mosh": set("BbcDEeFIiJLlmOoPpQRSWw"),
+    "autossh": set("BbcDEeFIiJLlMmOoPpQRSWw"),
+    "scp": set("cDFiJlLoPSX"),
+    "sftp": set("BbcDFiJlLoPRSs"),
+}
+_PORT_OPT = {"scp": "P", "sftp": "P"}
+_SCRIPT_EXTS = (".sh", ".bash", ".zsh", ".py", ".js", ".mjs", ".rb", ".pl", ".ps1")
+_HOST_RE = re.compile(r"^(?:[A-Za-z0-9][A-Za-z0-9._-]*|\[[0-9A-Fa-f:.]+\])$")
+_SSH_URL_RE = re.compile(r"^ssh://(?:[^@/]*@)?([^:/@]+|\[[0-9A-Fa-f:.]+\])(?::(\d{1,5}))?/?$")
+_NONE = (None, None)
+
+
+def _words(text: str) -> list[str]:
+    try:
+        return shlex.split(text)
+    except ValueError:
+        return text.split()
+
+
+def _host_of(word: str, exe: str) -> tuple[str | None, str | None]:
+    """(host, port in the word) for one destination word, or _NONE when it's unclear."""
+    if word.startswith("ssh://"):
+        m = _SSH_URL_RE.match(word)
+        return (m.group(1), m.group(2)) if m and _HOST_RE.match(m.group(1)) else _NONE
+    if "://" in word:
+        return _NONE
+    if exe in ("scp", "sftp"):
+        word = word.split(":", 1)[0] if not word.startswith("[") else word
+    host = word.rsplit("@", 1)[-1]  # never the user
+    return (host, None) if _HOST_RE.match(host) else _NONE
+
+
+def _ssh_destination(exe: str, args: list[str]) -> tuple[str | None, str | None]:
+    """(host, port) from an ssh-like command line, parsed the way getopt does.
+
+    Only the host and port are ever returned, never a user or an option's value.
+    Anything unclear (a long option, two candidates for scp, odd characters)
+    gives _NONE, and the summary is then the bare program name.
+    """
+    value_opts = _VALUE_OPTS.get(exe, _VALUE_OPTS["ssh"])
+    port_opt = _PORT_OPT.get(exe, "p")
+    port = None
+    operands: list[str] = []
+    i = 0
+    while i < len(args):
+        a = args[i]
+        i += 1
+        if a == "--":
+            operands.extend(args[i:])
+            break
+        if a.startswith("--"):
+            return _NONE  # long options (mosh's) aren't parsed: keep nothing
+        if a.startswith("-") and len(a) > 1:
+            for j in range(1, len(a)):
+                c = a[j]
+                if c in value_opts:
+                    value = a[j + 1:]
+                    if not value:
+                        if i >= len(args):
+                            return _NONE
+                        value = args[i]
+                        i += 1
+                    if c == port_opt:
+                        if not value.isdigit():
+                            return _NONE
+                        port = value
+                    break
+                if not c.isalnum():
+                    return _NONE
+            continue
+        operands.append(a)
+        if exe not in ("scp", "sftp"):
+            # ssh and its kin: the first operand is the destination; the rest is the remote command.
+            operands.extend(args[i:])
+            break
+    if not operands:
+        return _NONE
+    if exe == "scp":
+        remote = [w for w in operands if ":" in w and not w.startswith(("/", "./", "~"))]
+        if len(remote) != 1:
+            return _NONE
+        dest = remote[0]
+    else:
+        dest = operands[0]
+    host, url_port = _host_of(dest, exe)
+    if host is None:
+        return _NONE
+    return host, url_port or port
+
+
+def _command_summary(text: str) -> str | None:
+    words = _words(text.strip())
+    if not words:
+        return None
+    exe = words[0].rsplit("/", 1)[-1][:64]
+    if not exe or not re.match(r"^[\w.+-]+$", exe):
+        return None
+    if exe in _SSH_LIKE:
+        host, port = _ssh_destination(exe, words[1:])
+        if host:
+            return f"{exe} {host}" + (f" -p {port}" if port else "")
+        return exe
+    for w in words[1:]:
+        if w.startswith("-"):
+            continue
+        if w.endswith(_SCRIPT_EXTS) and re.match(r"^[\w./~-]+$", w):
+            return f"{exe} {w}"[:_COMMAND_MAX]
+        break
+    return exe
+
+
+def _ssh_hosts() -> list[tuple[str, str, int]]:
+    """(alias, HostName, Port) for each plain Host entry in ~/.ssh/config."""
+    try:
+        path = Path.home() / ".ssh" / "config"
+        if not path.is_file() or path.stat().st_size > _SSH_CONFIG_MAX:
+            return []
+        text = path.read_text(errors="replace")
+    except OSError:
+        return []
+    hosts: list[tuple[str, str, int]] = []
+    aliases: list[str] = []
+    fields: dict = {}
+
+    def flush():
+        for alias in aliases:
+            if not any(ch in alias for ch in "*?!"):
+                port = fields.get("port", "22")
+                if port.isdigit():
+                    hosts.append((alias, fields.get("hostname", alias), int(port)))
+
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        key, _, value = line.replace("=", " ", 1).partition(" ")
+        key, value = key.lower(), value.strip().strip('"')
+        if key in ("host", "match"):
+            flush()
+            aliases = value.split() if key == "host" else []
+            fields = {}
+        elif key in ("hostname", "port") and key not in fields:
+            fields[key] = value
+    flush()
+    return hosts
+
+
+def _ssh_host_for(item: dict, hosts) -> str | None:
+    for alias, hostname, port in hosts:
+        if port != item["remote_port"]:
+            continue
+        if hostname == item["remote_addr"]:
+            return alias
+        # A HostName that is a name, not an address: an `ssh <alias>` command line says which.
+        words = item.get("command", "").split()
+        if words and words[0].rsplit("/", 1)[-1] == "ssh" and alias in words[1:]:
+            return alias
+    return None
+
+
+def connection_items(conns: list[dict], records: list[dict], platform: str) -> list[dict]:
+    """One plain record per connection: direction, program, its parent and command, both ends."""
+    conns = conns[:ITEMS_MAX]
+    if not conns:
+        return []
+    listening = _listening(records)
+    details = _process_details([c["pid"] for c in conns], platform)
+    hosts = _ssh_hosts()
+    items = []
+    for c in conns:
+        r = c["record"]
+        item = {
+            # A connection to a port this computer listens on came in; any other went out.
+            "direction": "in" if (r.get("proto"), r.get("local_port")) in listening else "out",
+            "process": c["process"],
+            "pid": c["pid"],
+            "proto": r.get("proto"),
+            "local_addr": r.get("local_addr"),
+            "local_port": r.get("local_port"),
+            "remote_addr": c["remote_addr"],
+            "remote_port": c["port"],
+            "remote_scope": _scope(c["remote_addr"]),
+            "state": c["state"],
+        }
+        item.update(details.get(c["pid"], {}))
+        if item["direction"] == "out":
+            alias = _ssh_host_for(item, hosts)
+            if alias:
+                item["ssh_host"] = alias
+        items.append(item)
+    return items
+
+
 class Module(ModuleBase):
     name = "network_connections_monitor"
     category = "security"
@@ -292,8 +548,10 @@ class Module(ModuleBase):
 
         # Check for connections on backdoor ports
         backdoor_connections = []
+        backdoor_conns = []
         for conn in all_connections:
             if remote_backdoor(conn):
+                backdoor_conns.append(conn)
                 who = (
                     f"{conn['process']} (PID {conn['pid']})"
                     if conn["process"] is not None
@@ -325,6 +583,7 @@ class Module(ModuleBase):
                     data={
                         "check": "backdoor_ports",
                         "connections": backdoor_connections,
+                        "items": connection_items(backdoor_conns, snap["records"], platform),
                         "platform": platform,
                     },
                 )
@@ -398,6 +657,7 @@ class Module(ModuleBase):
 
         # Check for connections on unusual ports from unknown processes
         unusual_port_connections = []
+        unusual_conns = []
         push_port_connections = []
         claimed_connections = []
         for conn in connections:
@@ -423,6 +683,7 @@ class Module(ModuleBase):
                 continue
             if port not in LEGITIMATE_PORTS and port not in BACKDOOR_PORTS:
                 if port > 1024:  # Skip system ports
+                    unusual_conns.append(conn)
                     unusual_port_connections.append(
                         f"{conn['process']} -> {conn['remote_addr']}:{port}"
                     )
@@ -493,6 +754,7 @@ class Module(ModuleBase):
                     data={
                         "check": "unusual_ports",
                         "connections": unusual_port_connections,
+                        "items": connection_items(unusual_conns, snap["records"], platform),
                         "platform": platform,
                     },
                 )

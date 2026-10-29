@@ -61,7 +61,7 @@ const MarkFlow = (function () {
   ];
   const ITEM_KINDS = new Set([
     'sharing_service', 'network_proxy', 'system_extension', 'browser_extension',
-    'app_permissions', 'ssh_authorized_keys', 'ai_tooling',
+    'app_permissions', 'ssh_authorized_keys', 'ai_tooling', 'backup_elsewhere',
   ]);
   // Checks for monitoring software: "It's mine" is never offered on them.
   const NEVER_MARKABLE_MODULES = new Set(['stalkerware_scan', 'mvt_spyware_scan', 'keylogger_indicators']);
@@ -75,6 +75,12 @@ const MarkFlow = (function () {
     app_permissions: 'I know these apps — they’re mine',
     ssh_authorized_keys: 'I added these keys — they’re mine',
     ai_tooling: 'I set this up — it’s mine',
+    backup_elsewhere: 'I back up another way',
+  };
+  // The confirm button, where "Yes, it’s mine" doesn’t fit what is being said.
+  const CONFIRM = {
+    app_permissions: 'Yes, these are mine',
+    backup_elsewhere: 'Yes, I back up another way',
   };
 
   function esc(value) {
@@ -232,7 +238,8 @@ const MarkFlow = (function () {
       rows.unshift(['Task', m.label], ['Program', m.program]);
     }
     if (!rows.length) return '';
-    return `<p class="fix-panel__line"><strong>What you are saying is yours:</strong></p>
+    const head = m.kind === 'backup_elsewhere' ? 'What the checkup found' : 'What you are saying is yours';
+    return `<p class="fix-panel__line"><strong>${head}:</strong></p>
           <dl class="mark-shows">${rows.map(([k, v]) => `<dt>${esc(visible(k))}</dt><dd>${esc(visible(v))}</dd>`).join('')}</dl>`;
   }
 
@@ -266,7 +273,7 @@ const MarkFlow = (function () {
           ${reasonHtml(m, strong)}
           <p class="muted fix-panel__note">Nothing on your computer is changed or turned off.</p>
           <div class="fix-panel__actions">
-            <button type="button" class="btn btn--primary btn--small" data-mark-confirm>${LIST_KINDS.has(m.kind) ? 'Yes, these are mine' : 'Yes, it’s mine'}</button>
+            <button type="button" class="btn btn--primary btn--small" data-mark-confirm>${esc(CONFIRM[m.kind] || 'Yes, it’s mine')}</button>
             <button type="button" class="btn btn--secondary btn--small" data-mark-cancel>Cancel</button>
           </div>
         </div>

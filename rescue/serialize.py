@@ -115,7 +115,8 @@ def _finding(finding, walkthroughs, fixable=None, made_by=None, action_fixable=N
     return out
 
 
-def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, made_by=None, app_actions=None) -> str:
+def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, made_by=None, app_actions=None,
+                   target: dict | None = None) -> str:
     """Convert check results to a JSON string suitable for external consumption.
 
     Args:
@@ -131,6 +132,10 @@ def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, ma
             valid user LaunchAgent gets a per-finding action "fixable".
         made_by: Optional {id(finding): [maker entry]} from rescue.attribution;
             attached to each finding as "made_by".
+        target: Optional {"root", "os", "read_only"} when a disk mounted
+            elsewhere was checked. Its findings get no "fixable" or
+            "markable": a fix or a mark would act on the computer doing the
+            checking, not on that disk.
 
     A warning about a background task the person could mark as theirs gets a
     "markable" object (see rescue.known_items.markable), whose "ids" name every
@@ -143,9 +148,13 @@ def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, ma
         unsupported_reason, findings.
     """
     modules = []
+    offline = target is not None
     for mod, check in results:
         entry = (app_fixes or {}).get(mod.name)
         offer = entry if entry is not None and not check.error and getattr(check, "supported", True) else None
+        if offline:
+            offer = None
+        no_offers = bool(check.error) or offline
         modules.append({
             "name": mod.name,
             "category": getattr(mod, "category", None),
@@ -154,17 +163,21 @@ def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, ma
             # False means the check could not run here: not a clean result.
             "supported": getattr(check, "supported", True),
             "unsupported_reason": getattr(check, "unsupported_reason", None),
+            # What this check could not look at; empty unless it said so.
+            "not_checked": list(getattr(check, "not_checked", None) or []),
             "findings": [
                 _finding(
                     f, walkthroughs, offer, made_by,
-                    None if check.error else _action_fixable(f, mod.name, app_actions),
-                    None if check.error else _markable(f, mod.name),
+                    None if no_offers else _action_fixable(f, mod.name, app_actions),
+                    None if no_offers else _markable(f, mod.name),
                 )
                 for f in check.findings
             ],
         })
     _link_task_marks(modules)
-    return json.dumps(
-        {"schema_version": 1, "platform": platform, "modules": modules},
-        indent=2,
-    )
+    doc = {"schema_version": 1, "platform": platform}
+    if target is not None:
+        # A disk mounted elsewhere was checked: {"root", "os", "read_only"}.
+        doc["target"] = target
+    doc["modules"] = modules
+    return json.dumps(doc, indent=2)
