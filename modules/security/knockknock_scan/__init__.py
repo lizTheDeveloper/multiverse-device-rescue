@@ -24,7 +24,9 @@ checks out. Otherwise the pinned release is downloaded once from GitHub into
 the user cache folder, checked against its published sha256, unpacked with
 ditto, and kept only if its signature satisfies Objective-See's Developer ID
 (team VBG97UB4TA), notarized. That signature is checked again right before and
-right after every run. Downloads follow the same switches as ai_agent_audit:
+right after every run, on a private copy made for that run in a new 0700
+temp folder (the installed or saved bundle is never run in place), which is
+deleted afterwards. Downloads follow the same switches as ai_agent_audit:
 ``--no-downloads`` / ``RESCUE_NO_DOWNLOADS=1`` / ``{downloads: false}``. It never
 runs with administrator rights. KnockKnock needs Full Disk Access for the app
 running it; without it, it stops and this check says it couldn't run.
@@ -104,12 +106,16 @@ CURL_ARGS = [
     "--output", _ZIP, KK_URL,
 ]
 DITTO_ARGS = ["/usr/bin/ditto", "-x", "-k", _ZIP, _DEST]
+# The private copy each run uses (ditto keeps the bundle's signature intact).
+COPY_ARGS = ["/usr/bin/ditto", _APP, _DEST]
 VERIFY_ARGS = ["/usr/bin/codesign", "--verify", "--strict", "--deep",
                f"-R={REQUIREMENT}", "--", _APP]
 SCAN_ARGS = [_KK, "-whosthere", "-skipVT"]
 
-# Where a person may have installed KnockKnock themselves (~ is the home folder).
-INSTALLED_APPS = ("/Applications/KnockKnock.app", "~/Applications/KnockKnock.app")
+# Where a person may have installed KnockKnock themselves. ~/Applications is
+# left out on purpose: any program running as the person can put a bundle
+# there, and the saved download in the cache folder covers that case.
+INSTALLED_APPS = ("/Applications/KnockKnock.app",)
 
 # KnockKnock's signer numbers (consts.h: enum Signer{None, Apple, AppStore, DevID, AdHoc}).
 SIGNER_APPLE, SIGNER_APP_STORE, SIGNER_DEV_ID, SIGNER_AD_HOC = 1, 2, 3, 4
@@ -491,16 +497,39 @@ class Module(ModuleBase):
 
     # --- running it -----------------------------------------------------------------
 
+    def _private_copy(self, app: Path) -> Path:
+        """Copy a verified bundle into a new 0700 folder and verify the copy.
+
+        The installed or saved bundle sits in a folder other programs can
+        write to, and KnockKnock runs with the checkup's Full Disk Access, so
+        it is never run in place: the copy is what is checked and what runs.
+        """
+        holder = Path(tempfile.mkdtemp(prefix="reclaimcity-knockknock-"))
+        os.chmod(holder, 0o700)
+        copy = holder / APP_NAME
+        res = run(_fill(COPY_ARGS, app=app, dest=copy), timeout=UNPACK_TIMEOUT)
+        if not res.ok or not self._verified(copy):
+            shutil.rmtree(holder, ignore_errors=True)
+            if not res.ok:
+                raise _CouldNotCheck("unpack_failed", detail=(res.stderr or res.error or "")[:200])
+            raise _CouldNotCheck("signature_mismatch")
+        return copy
+
     def _scan(self) -> tuple[dict, Path, str]:
         if self._is_elevated():
             raise _CouldNotCheck("elevated")
         app, source = self._find_app()
-        env = {k: v for k, v in os.environ.items() if k in ("HOME", "PATH", "LANG", "TMPDIR", "USER")}
-        res = run(_fill(SCAN_ARGS, kk=app / EXECUTABLE), timeout=self.scan_timeout,
-                  max_output=32 * 1024 * 1024, env=env)
-        # A genuine KnockKnock's signature can't stop checking out mid-run;
-        # if it did, something swapped files and its answer can't be trusted.
-        if not self._verified(app):
+        copy = self._private_copy(app)
+        try:
+            env = {k: v for k, v in os.environ.items() if k in ("HOME", "PATH", "LANG", "TMPDIR", "USER")}
+            res = run(_fill(SCAN_ARGS, kk=copy / EXECUTABLE), timeout=self.scan_timeout,
+                      max_output=32 * 1024 * 1024, env=env, cwd=str(copy.parent))
+            # A genuine KnockKnock's signature can't stop checking out mid-run;
+            # if it did, something swapped files and its answer can't be trusted.
+            changed = not self._verified(copy)
+        finally:
+            shutil.rmtree(copy.parent, ignore_errors=True)
+        if changed:
             if source == "downloaded":
                 shutil.rmtree(self._install_dir(), ignore_errors=True)
             raise _ChangedDuringRun()

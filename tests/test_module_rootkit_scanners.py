@@ -88,7 +88,7 @@ class FakeRunner:
 
     def __call__(self, args, *, timeout=20.0, env=None, **kw):
         args = [str(a) for a in args]
-        self.calls.append({"args": args, "timeout": timeout, "env": env})
+        self.calls.append({"args": args, "timeout": timeout, "env": env, "cwd": kw.get("cwd")})
         out = self.outputs[Path(args[0]).name]
         return out(args) if callable(out) else _result(args, 1 if out else 0, out)
 
@@ -251,3 +251,61 @@ def test_owned_by_root_refuses_a_file_others_can_change(tmp_path):
     exe.write_text("x")
     assert code.owned_by_root(str(exe)) is False  # owned by the test user
     assert code.owned_by_root("/bin/sh") is True
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="uses macOS's root-owned /etc -> private/etc link")
+def test_owned_by_root_refuses_a_path_through_a_link_even_to_root_files():
+    code = _code_module()
+    # /private/etc/hosts is root's; /etc is a link to it, so the path is refused.
+    assert code.owned_by_root("/private/etc/hosts") is True
+    assert code.owned_by_root("/etc/hosts") is False
+    # Relative or unnormalised paths are never trusted.
+    assert code.owned_by_root("bin/sh") is False
+    assert code.owned_by_root("/bin/../bin/sh") is False
+
+
+def test_a_link_to_the_tool_is_refused(tmp_path):
+    code = _code_module()
+    link = tmp_path / "rkhunter"
+    link.symlink_to("/bin/sh")
+    assert code.owned_by_root(str(link)) is False
+
+
+def test_the_tools_never_run_in_the_scans_own_folder(setup, tmp_path, monkeypatch):
+    helpers = tmp_path / "lib" / "chkrootkit"
+    helpers.mkdir(parents=True)
+    (helpers / "chkproc").write_text("x")
+    monkeypatch.setattr(_code_module(), "CHKROOTKIT_HELPER_DIRS", (str(helpers),))
+    mod, runner = setup({"rkhunter": "", "chkrootkit": ""})
+    mod.check(_profile())
+    rk, chk = runner.calls
+    assert rk["cwd"] == "/"
+    assert chk["cwd"] == str(helpers)
+
+
+def test_chkrootkit_without_trusted_helpers_runs_in_root(setup):
+    mod, runner = setup({"rkhunter": "", "chkrootkit": ""})
+    mod.check(_profile())
+    assert [c["cwd"] for c in runner.calls] == ["/", "/"]
+
+
+def test_ownership_is_checked_again_right_before_running(setup):
+    mod, runner = setup({"rkhunter": "", "chkrootkit": ""})
+    seen = []
+    # Trusted when picked, not any more when about to run (swapped in between).
+    mod.root_owned = lambda path: (seen.append(path) or seen.count(path) < 2)
+    result = mod.check(_profile())
+    assert runner.calls == []
+    assert {f.data["reason"] for f in result.findings} == {"unsafe_owner"}
+
+
+def test_the_first_trusted_copy_is_the_one_that_runs(setup, tmp_path):
+    mod, runner = setup({"rkhunter": "", "chkrootkit": ""}, tools=("rkhunter",))
+    good = tmp_path / "good" / "rkhunter"
+    good.parent.mkdir()
+    good.write_text("#!/bin/sh\n")
+    bad = mod.candidates["rkhunter"][0]
+    mod.candidates = {"rkhunter": (bad, str(good)), "chkrootkit": ()}
+    mod.root_owned = lambda path: not path.startswith(str(Path(bad).parent))
+    mod.check(_profile())
+    assert [c["args"][0] for c in runner.calls] == [str(good)]

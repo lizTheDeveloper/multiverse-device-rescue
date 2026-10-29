@@ -51,8 +51,9 @@ allow-listed environment (no `NODE_OPTIONS` or `npm_config_*`).
 downloads the pinned KnockKnock release from GitHub once with `curl`, checks
 its sha256, unpacks it with `ditto` into the user cache folder
 (`ReclaimCity/knockknock-<version>`), and keeps it only if `codesign` says it
-is signed by Objective-See (team `VBG97UB4TA`) and notarized; that check is
-repeated right before and right after every run. `--no-downloads` turns the
+is signed by Objective-See (team `VBG97UB4TA`) and notarized. Each run copies
+the bundle with `ditto` into a new 0700 temp folder, checks the copy, runs it,
+checks it again afterwards and deletes it. `--no-downloads` turns the
 download off. KnockKnock is a program of its own: it reads the places macOS
 starts things from and runs `lsof` and code-signature checks itself. With
 `-skipVT` and no `-key` it sends nothing to VirusTotal.
@@ -1685,9 +1686,10 @@ sqlite3 … "SELECT client FROM access WHERE service='kTCCServiceListenEvent' AN
 /usr/bin/codesign --verify --strict --deep … -- …
 /usr/bin/curl --fail --silent --show-error --location --proto =https --proto-redir =https --max-filesize … --max-time … --output …
 /usr/bin/ditto -x -k …
+/usr/bin/ditto …
 ```
 
-Plus 4 command(s) built at runtime.
+Plus 5 command(s) built at runtime.
 
 ### `launch_agent_audit`
 

@@ -434,16 +434,21 @@ It is off in a plain `rescue scan`; the `deep_startup_check` and
 `infected_device` profiles turn it on, because KnockKnock hashes every item it
 finds and reads a lot of files.
 
-- **What is used.** A KnockKnock in `/Applications` or `~/Applications`, if
+- **What is used.** A KnockKnock in `/Applications` (not `~/Applications`,
+  which any program running as you can fill), if
   `codesign` says it is signed by Objective-See's Developer ID (team
   `VBG97UB4TA`, identifier `com.objective-see.KnockKnock`) and notarized.
   Otherwise the pinned release (4.1.0) is downloaded once from GitHub with
   `curl` (HTTPS only, redirects too), checked against its published sha256,
   unpacked with `ditto` (a zip with any entry outside `KnockKnock.app` is
   refused), and kept in the user cache folder only if it passes the same
-  signature check. The check is repeated right before and right after every
-  run; if it fails afterwards the results are thrown away and the copy is
-  deleted.
+  signature check. Neither is ever run in place: each run copies the bundle
+  with `ditto` into a new temp folder only you can open (0700), checks the
+  copy's signature, runs the copy, checks it again afterwards, and deletes
+  it. If the after-run check fails, the results are thrown away and the
+  saved download is deleted. A program already running as you can still
+  write to that temp folder; the checks narrow that window, they can't close
+  it.
 - **What runs.** `KnockKnock -whosthere -skipVT`. With no `-key` it never
   contacts VirusTotal, and its command-line mode doesn't check for updates.
   It needs Full Disk Access for the app running the checkup; without it,
@@ -476,8 +481,13 @@ place. Signed third-party items are one inventory note.
 `rootkit_scanners` runs rkhunter (`--check --sk --rwo --nocolors --nolog
 --nomow`) and chkrootkit (`-q`) when they are installed. Neither is
 downloaded. They run only from fixed system folders, only when the file and
-every folder above it belong to root and only root can change them, and only
-when the checkup itself runs as root. `--nolog` keeps rkhunter from writing
+every folder above it are real folders (a link anywhere on the path is
+refused) that belong to root and only root can change, checked again right
+before each run, and only when the checkup itself runs as root. The path that
+was checked is the path that runs. Each runs in a folder only root can
+change: chkrootkit in its helper folder (it starts `./chkproc` and its other
+helpers from the folder it runs in), rkhunter in `/`; never in the folder the
+scan was started from. `--nolog` keeps rkhunter from writing
 its log; Reclaim City never runs `--update` or `--propupd`. Warnings that
 match well-known harmless causes are explained in one note; the rest are
 leads.

@@ -6,8 +6,12 @@ Runs the two long-standing open-source rootkit scanners, read-only:
     chkrootkit -q
 
 Each is used only from a fixed system location (never from PATH), only when
-the file and its folder belong to root and no one else can change them, and
-only when the checkup itself runs as root, which both tools need. Without
+the file and every folder above it are real folders (no links) that belong to
+root and no one else can change, checked again right before it runs, and only
+when the checkup itself runs as root. Each runs in a folder only root can
+change (chkrootkit in its helper folder, which it runs ./chkproc and the
+other helpers from; rkhunter in /), never in the scan's own working folder,
+and only as root, which both tools need. Without
 root they don't run, and the finding says so: couldn't run is not clean.
 ``--nolog`` keeps rkhunter from writing its log; neither tool is asked to
 update anything (no ``--update``, no ``--propupd``).
@@ -62,6 +66,8 @@ CANDIDATES = {
                    "/usr/local/bin/chkrootkit", "/opt/homebrew/bin/chkrootkit",
                    "/opt/homebrew/sbin/chkrootkit"),
 }
+# Where distribution packages put chkrootkit's helper programs.
+CHKROOTKIT_HELPER_DIRS = ("/usr/lib/chkrootkit", "/usr/libexec/chkrootkit", "/usr/lib64/chkrootkit")
 _TOOL = object()  # filled in at run time (shown as "…" in docs/commands.md)
 RKHUNTER_ARGS = [_TOOL, "--check", "--sk", "--rwo", "--nocolors", "--nolog", "--nomow"]
 CHKROOTKIT_ARGS = [_TOOL, "-q"]
@@ -160,7 +166,7 @@ _COULD_NOT_CHECK = {
     "tool_failed": "{tool} stopped with an error before it finished, so we couldn't use "
                    "what it found.",
     "unsafe_owner": "{tool} is installed in a place that programs running as an "
-                    "ordinary user can change ({path}). Running it with administrator "
+                    "ordinary user can change, or that is reached through a link ({path}). Running it with administrator "
                     "rights could let such a program run in its place, so we didn't. "
                     "This is common for tools installed with Homebrew. Installing it "
                     "from your system's own package manager avoids this.",
@@ -178,17 +184,41 @@ def find_tools(candidates: dict[str, tuple[str, ...]] = CANDIDATES) -> dict[str,
 
 
 def owned_by_root(path: str) -> bool:
-    """The file (after links) and every folder above it belong to root, writable only by root."""
+    """``path`` and every folder above it are real (no links), belong to root, and only root can change them.
+
+    Each part is looked at with lstat, so a link anywhere along the way is
+    refused rather than followed: the path checked is the path that runs.
+    """
+    if not os.path.isabs(path) or os.path.normpath(path) != path:
+        return False
     try:
-        real = Path(os.path.realpath(path))
-        for part in (real, *real.parents):
-            st = os.stat(part)
+        here = Path(path)
+        for part in (here, *here.parents):
+            st = os.lstat(part)
+            if stat.S_ISLNK(st.st_mode):
+                return False
             # A sticky, world-writable folder (/tmp) still lets anyone add files.
             if st.st_uid != 0 or st.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
                 return False
     except OSError:
         return False
     return True
+
+
+def work_dir(tool: str, path: str, trusted=owned_by_root) -> str:
+    """The folder a tool runs in: one only root can change.
+
+    chkrootkit runs its helpers (./chkproc, ./ifpromisc, ./chkutmp...) from the
+    folder it is started in, and adds "." to the places it looks for commands.
+    Distribution packages keep the helpers in a library folder; a source
+    install keeps them next to the script. rkhunter needs no particular folder,
+    so it runs in /.
+    """
+    if tool == "chkrootkit":
+        for folder in (*CHKROOTKIT_HELPER_DIRS, os.path.dirname(path)):
+            if os.path.isfile(os.path.join(folder, "chkproc")) and trusted(folder):
+                return folder
+    return "/"
 
 
 def parse_rkhunter(output: str) -> list[dict]:
@@ -304,6 +334,7 @@ class Module(ModuleBase):
     # Seams for tests: None = the real defaults.
     candidates: dict[str, tuple[str, ...]] | None = None
     elevated: bool | None = None
+    # (path) -> bool: owned_by_root, unless a test stands in.
     root_owned: Any = None
 
     def configure(self, config: dict[str, Any]) -> None:
@@ -327,14 +358,22 @@ class Module(ModuleBase):
         findings: list[Finding] = []
         blocks: list[dict] = []
         ran: list[str] = []
-        for tool, path in tools.items():
-            safe = self.root_owned if self.root_owned is not None else owned_by_root
-            if not safe(path):
-                findings.append(self._could_not_check(tool, "unsafe_owner", path))
+        candidates = self.candidates if self.candidates is not None else CANDIDATES
+        safe = self.root_owned if self.root_owned is not None else owned_by_root
+        for tool, first in tools.items():
+            # The first installed copy that only root can change, reached without links.
+            path = next((p for p in candidates[tool] if os.path.isfile(p) and safe(p)), None)
+            if path is None:
+                findings.append(self._could_not_check(tool, "unsafe_owner", first))
                 continue
+            cwd = work_dir(tool, path, safe)
             template = RKHUNTER_ARGS if tool == "rkhunter" else CHKROOTKIT_ARGS
             argv = [path if a is _TOOL else a for a in template]
-            res = run(argv, timeout=self.tool_timeout, env=_tool_env())
+            # Checked again right before it runs, with its folder.
+            if not (safe(path) and safe(cwd)):
+                findings.append(self._could_not_check(tool, "unsafe_owner", path))
+                continue
+            res = run(argv, timeout=self.tool_timeout, env=_tool_env(), cwd=cwd)
             if res.timed_out:
                 findings.append(self._could_not_check(tool, "timed_out", path))
                 continue

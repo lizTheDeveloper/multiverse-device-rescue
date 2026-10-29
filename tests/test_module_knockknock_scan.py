@@ -11,6 +11,8 @@ import hashlib
 import io
 import json
 import os
+import shutil
+import stat
 import sys
 import zipfile
 from pathlib import Path
@@ -87,11 +89,16 @@ class FakeRunner:
                 return _result(args, 6, err="curl: (6) Could not resolve host")
             Path(args[args.index("--output") + 1]).write_bytes(self.zip_bytes)
             return _result(args)
-        if prog == "ditto":
+        if prog == "ditto" and "-x" in args:
             with zipfile.ZipFile(args[-2]) as z:
                 z.extractall(args[-1])
             return _result(args)
+        if prog == "ditto":
+            shutil.copytree(args[-2], args[-1], symlinks=True)
+            return _result(args)
         if prog == "KnockKnock":
+            self.ran_from = Path(args[0]).parents[2]
+            self.holder_mode = stat.S_IMODE(os.stat(self.ran_from.parent).st_mode)
             return self.scan(args)
         raise AssertionError(f"unexpected command {args}")
 
@@ -155,9 +162,10 @@ def test_the_scan_is_read_only_and_never_asks_virustotal(setup):
     [scan] = runner.ran("KnockKnock")
     assert scan["args"][1:] == ["-whosthere", "-skipVT"]
     assert "-key" not in scan["args"] and "-apple" not in scan["args"]
-    # Its signature is checked right before and right after the run.
+    # Its signature is checked on the installed copy, on the private copy it
+    # runs from, and on that copy again right after the run.
     verifies = runner.ran("codesign")
-    assert len(verifies) == 2
+    assert len(verifies) == 3
     req = next(a for a in verifies[0]["args"] if a.startswith("-R="))
     assert 'certificate leaf[subject.OU] = "VBG97UB4TA"' in req
     assert 'identifier "com.objective-see.KnockKnock"' in req and "notarized" in req
@@ -384,8 +392,8 @@ def test_a_signature_that_stops_checking_out_during_the_run_discards_everything(
     code = _code_module()
     blob = _app_zip()
     monkeypatch.setattr(code, "KK_ZIP_SHA256", hashlib.sha256(blob).hexdigest())
-    # Check 1 (where it will run from, before the run) passes; 2 (after the run) fails.
-    mod, _ = setup(FakeRunner(zip_bytes=blob, verify=lambda app, n: n < 2), installed=False)
+    # Checks 1 (the saved copy) and 2 (the private run copy) pass; 3 (after the run) fails.
+    mod, _ = setup(FakeRunner(zip_bytes=blob, verify=lambda app, n: n < 3), installed=False)
     [f] = mod.check(_profile()).findings
     assert f.code == CODE + "changed_during_run" and f.severity == Severity.WARNING
     assert not (tmp_path / "cache" / "ReclaimCity" / f"knockknock-{code.KK_VERSION}").exists()
@@ -404,3 +412,36 @@ def test_live_download_and_scan(tmp_path, monkeypatch):
     result = mod.check(_profile())
     codes = {f.code for f in result.findings}
     assert CODE + "signed_inventory" in codes or CODE + "could_not_check" in codes
+
+
+def test_it_never_runs_the_installed_bundle_in_place(setup, tmp_path):
+    mod, runner = setup()
+    mod.check(_profile())
+    installed = Path(mod.installed_apps[0])
+    assert runner.ran_from != installed
+    assert runner.ran_from.name == "KnockKnock.app"
+    assert runner.holder_mode == 0o700
+    [scan] = runner.ran("KnockKnock")
+    # The private copy is the one verified before the run, and after it.
+    verified = [c["args"][-1] for c in runner.ran("codesign")]
+    assert verified == [str(installed), str(runner.ran_from), str(runner.ran_from)]
+    # And it is gone afterwards.
+    assert not runner.ran_from.parent.exists()
+
+
+def test_a_private_copy_that_doesnt_verify_is_never_run(setup):
+    # The installed bundle passes; the copy made from it doesn't (swapped mid-copy).
+    mod, runner = setup(FakeRunner(verify=lambda app, n: n == 1))
+    f = _couldnt(mod.check(_profile()))
+    assert f.data["reason"] == "signature_mismatch"
+    assert runner.ran("KnockKnock") == []
+
+
+def test_the_private_copy_is_deleted_even_when_the_scan_fails(setup):
+    mod, runner = setup(FakeRunner(scan=lambda a: _result(a, timed_out=True)))
+    _couldnt(mod.check(_profile()))
+    assert not runner.ran_from.parent.exists()
+
+
+def test_a_bundle_in_the_home_applications_folder_is_not_looked_for():
+    assert _code_module().INSTALLED_APPS == ("/Applications/KnockKnock.app",)
