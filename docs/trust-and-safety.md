@@ -13,7 +13,7 @@ overstates its own guarantees is teaching you the wrong habit.
 | --- | --- |
 | Does `rescue --auto` change my system? | No. Zero shipped modules opt in to unattended change. |
 | Does it ever ask for a password, 2FA code, or recovery key? | No. There is no such prompt anywhere in the tool. |
-| Does it send anything anywhere? | Only when you ask: the AI layer when you turn it on, `rescue update` when you run it, and the "who runs this address" lookups after a connection watch you start or for addresses you give `rescue lookup`. Those send only the public addresses: to RIPE NCC, to rdap.org, which redirects your computer to the regional registry that holds each address (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC) to ask it directly, and to reverse DNS through your computer's own resolver. Each service also sees your computer's public IP address, as any website does, and the app's name and version. `rescue watch --no-lookups` turns them off. One download happens during a normal scan: the AI tools check fetches HackMyAgent from the npm registry once, pinned by integrity hash. The registry sees your IP address and npm's own User-Agent (npm and Node.js versions, operating system, processor type); nothing else about your computer is sent. `--no-downloads` on `scan`, `export` or `run` turns it off. |
+| Does it send anything anywhere? | Only when you ask: the AI layer when you turn it on, `rescue update` when you run it, and the "who runs this address" lookups after a connection watch you start or for addresses you give `rescue lookup`. Those send only the public addresses: to RIPE NCC, to rdap.org, which redirects your computer to the regional registry that holds each address (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC) to ask it directly, and to reverse DNS through your computer's own resolver. Each service also sees your computer's public IP address, as any website does, and the app's name and version. `rescue watch --no-lookups` turns them off. One download happens during a normal scan: the AI tools check fetches HackMyAgent from the npm registry once, pinned by integrity hash. The registry sees your IP address and npm's own User-Agent (npm and Node.js versions, operating system, processor type); nothing else about your computer is sent. `--no-downloads` on `scan`, `export` or `run` turns it off. The code-project package check sends package and git details to Endor Labs, and only runs when you ask for it (`rescue scan --profile dependency_scan`); see [Privacy](privacy.md#what-leaves-the-machine). |
 | Can an update push new Python code to my machine? | Not through the sanctioned path. Updates carry data files only, and content commits containing anything else are rejected. |
 | Can I read what a check does before running it? | Yes. Every module is one plain Python file in the source tree. |
 | Does it verify it has not been tampered with? | Yes, at every launch, with a SHA-256 manifest — but the check warns and continues rather than blocking. |
@@ -424,6 +424,30 @@ this with HackMyAgent (OpenA2A, Apache-2.0,
 
 Updating the pinned version is a reviewed change to the lockfile, never
 automatic.
+
+### Two developer checks that run programs already on the computer
+
+- **`vulnerable_runtimes`** (in every scan) finds each copy of Node.js and
+  PHP in the usual places and compares its version with the advisories in
+  the module (today: Node2Shell, CVE-2026-111497, and PHP2Shell,
+  CVE-2026-109618 and CVE-2026-109619, all on CISA's KEV list). It reads the
+  version from the install's own version header where there is one. Where
+  there isn't, it runs the copy it found with `--version` (Node.js) or
+  `-n -v` (PHP, with no settings file or add-ons loaded). That runs a
+  program from the computer, so it never happens while Reclaim City has
+  administrator rights. Node.js inside Electron apps isn't checked.
+- **`endor_dependency_scan`** runs only in the `dependency_scan` profile,
+  and only when Endor Labs' `endorctl` is installed and already signed in.
+  It runs `endorctl api list -r Project --page-size=1` to tell whether
+  you're signed in, then `endorctl scan --path <project> --dependencies
+  --quick-scan --output-type json` per project, each with a time limit. What
+  that sends to Endor Labs is in [Privacy](privacy.md#what-leaves-the-machine).
+  endorctl builds a project it can't read a lock file for, which runs the
+  project's own install and build code, so only JavaScript projects with a
+  lock file are scanned; the others are listed as not checked. It never
+  runs with administrator rights, never reads endorctl's credentials file,
+  and notes if a project's top folder changed during its scan.
+  Disclosure: Endor Labs is one of Reclaim City's sponsors.
 
 ## Read the source of any check
 

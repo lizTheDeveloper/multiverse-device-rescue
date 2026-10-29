@@ -18,6 +18,7 @@ $ rescue guide <name>                    # the human walkthrough, where one exis
 | There are strangers on my Wi-Fi, or my machine is mining crypto for someone. | [Home network intrusion](home-network-intrusion.md) |
 | Someone is using my identity — credit, taxes, benefits, accounts opened in my name. | [Identity theft recovery](identity-theft-recovery.md) |
 | I installed a compromised package, or I'm worried about an AI-driven worm. | [AI worm response](ai-worm-response.md) |
+| I want my code projects' packages checked for malicious or vulnerable ones. | [Checking your projects' packages](ai-worm-response.md#checking-your-projects-packages) |
 | I think there's spyware on my iPhone or iPad. | [iPhone / iPad spyware check](iphone-spyware-check.md) |
 | I want a security review of a Linux machine. | [Linux security checkup](linux-security-checkup.md) |
 | I'm visiting family and want to leave their laptop in better shape. | [Home for the holidays](home-for-the-holidays.md) |
@@ -34,7 +35,8 @@ come back once you know more. If you have an AI provider configured,
 | [`digital_security_reset`](digital-security-reset.md) | 12 | 6 phases | macOS (10 of 12 are macOS-only) |
 | [`home_network_intrusion`](home-network-intrusion.md) | 14 | 6 phases | macOS, Windows |
 | [`identity_theft_recovery`](identity-theft-recovery.md) | 12 | 7 phases | macOS, Windows |
-| [`ai_worm_response`](ai-worm-response.md) | 6 | none | all three |
+| [`ai_worm_response`](ai-worm-response.md) | 12 | none | all three |
+| [`dependency_scan`](ai-worm-response.md#checking-your-projects-packages) | 2 | none | all three (sends package details to Endor Labs; you ask for it) |
 | [`iphone_spyware_check`](iphone-spyware-check.md) | 1 | none — see the [walkthrough](../CHECK_IPHONE_FOR_SPYWARE.md) | all three (scans a backup on your computer) |
 | [`linux_security_checkup`](linux-security-checkup.md) | 10 | none | Linux |
 | [`home_for_the_holidays`](home-for-the-holidays.md) | 4 | 1 phase, 13 steps | macOS |

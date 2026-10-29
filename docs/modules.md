@@ -32,13 +32,13 @@ $ rescue run <module_name>
 
 ## Coverage at a glance
 
-**285 modules** ship in the tree.
+**287 modules** ship in the tree.
 
 | Platform | Modules that run there |
 | --- | ---: |
-| macOS | 197 |
-| Windows | 102 |
-| Linux | 30 |
+| macOS | 199 |
+| Windows | 104 |
+| Linux | 32 |
 
 A module can support more than one platform, so these numbers add up to more than the total.
 
@@ -48,7 +48,7 @@ A module can support more than one platform, so these numbers add up to more tha
 | [integrity](#integrity) | 106 |
 | [network](#network) | 8 |
 | [performance](#performance) | 51 |
-| [security](#security) | 116 |
+| [security](#security) | 118 |
 
 ## bloatware
 
@@ -259,7 +259,7 @@ Why the machine is slow: CPU and memory pressure, thermals, disk space, startup 
 
 Malware and spyware indicators, persistence, remote access, credential exposure, and system hardening posture.
 
-116 modules — macOS 81, Windows 47, Linux 20.
+118 modules — macOS 83, Windows 49, Linux 22.
 
 | Module | Platforms | Risk | Duration | What it checks |
 | --- | --- | --- | --- | --- |
@@ -293,6 +293,7 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `disk_encryption_recovery` | macOS | safe | 5s | — |
 | `dns_poisoning_check` | macOS | safe | 3s | — |
 | `encryption_check` | macOS | safe | 3s | — |
+| `endor_dependency_scan` | macOS, Windows, Linux | safe | about a second; when turned on, up to 5 minutes per project | endor_dependency_scan: known-bad packages in the person's code projects, using Endor Labs. |
 | `evidence_bundle` | macOS, Windows, Linux | safe | 10s | Warn when cleanup is about to destroy the evidence of what happened. |
 | `filevault_recovery` | macOS | safe | 5s | — |
 | `find_my_mac_check` | macOS | safe | 3s | — |
@@ -348,6 +349,7 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `usb_device_audit` | macOS | safe | 5s | — |
 | `user_account_audit` | macOS | safe | 5s | — |
 | `vpn_config` | macOS | safe | 3s | — |
+| `vulnerable_runtimes` | macOS, Windows, Linux | safe | about a second | vulnerable_runtimes: copies of Node.js and PHP with a bug attackers are using now. |
 | `win_antivirus_status` | Windows | moderate | 10s | — |
 | `win_autorun` | Windows | safe | 5s | — |
 | `win_autoruns_audit` | Windows | safe | 10s | — |

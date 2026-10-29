@@ -38,6 +38,19 @@ If the person just wants the app, send them to the download buttons in the
 5. **Don't start heavy scans on your own.** `iphone_spyware_check` runs MVT
    over an iPhone backup and can take a long time and a lot of memory. Ask
    first.
+6. **The code-project package check sends data to Endor Labs.** The
+   `dependency_scan` profile runs Endor Labs' `endorctl` over the person's
+   code projects. It sends each project's package names and versions and
+   where they're listed, git details (branch, latest commit, repository name
+   and clone URLs, commit authors' email addresses) and the computer's
+   operating system, hardware and build tools to Endor Labs; source code and
+   manifest/lock files stay local
+   ([Endor's page](https://docs.endorlabs.com/trust-compliance/sca-scan-data)).
+   Tell the person that and ask before running it. It needs `endorctl`
+   already signed in: the person runs `endorctl init` and signs in at Endor
+   themselves; never ask for, paste or pass an Endor key or token. Every
+   other scan, `ai_worm_response` included, only says whether it's
+   available. Disclosure: Endor Labs is one of Reclaim City's sponsors.
 
 ## Install (from source only)
 
@@ -60,6 +73,7 @@ uv venv && uv pip install .          # or: python3 -m venv .venv && .venv/bin/pi
 | "Someone's on my Wi-Fi" / "computer is hot and slow" | `rescue export --profile home_network_intrusion --stdout` |
 | "My identity was stolen" | `rescue export --profile identity_theft_recovery --stdout` |
 | "I installed a bad npm/pip package" / developer machine | `rescue export --profile ai_worm_response --stdout` |
+| "Check my projects' packages" (sends data to Endor Labs; see rule 6) | ask first, then `rescue scan --profile dependency_scan --json` |
 | "Fix up my parent's laptop" | `rescue export --profile home_for_the_holidays --stdout` |
 | "Is there spyware on my iPhone?" (needs a local backup) | ask first, then `rescue run iphone_spyware_check < /dev/null` |
 | Linux machine | `rescue export --profile linux_security_checkup --stdout` |

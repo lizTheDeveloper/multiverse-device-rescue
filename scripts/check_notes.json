@@ -299,6 +299,11 @@
     "why": "Encryption keeps your files private if the computer is lost or stolen.",
     "where": "`fdesetup status`"
   },
+  "endor_dependency_scan": {
+    "what": "Malicious or unsafe packages in your code projects",
+    "why": "Bad packages are how many attacks on developers' computers start.",
+    "where": "Endor Labs' `endorctl scan`, only when asked, on projects in ~/src, ~/code..."
+  },
   "energy_saver_check": {
     "what": "Sleep, wake and battery power settings",
     "why": "Settings that keep a Mac awake or waking up use more power and battery.",
@@ -1003,6 +1008,11 @@
     "what": "Whether your VPN covers all your traffic",
     "why": "A VPN that lets some traffic or lookups go around it gives less privacy than expected.",
     "where": "`scutil --nc list`, `scutil --nc status`, `scutil --dns`, `netstat -rn`"
+  },
+  "vulnerable_runtimes": {
+    "what": "Copies of Node.js and PHP with a bug attackers are using now",
+    "why": "A website or tool run with an affected Node.js or PHP can be taken over from outside.",
+    "where": "PATH, Homebrew, nvm, fnm, Volta, asdf, mise, MAMP, XAMPP, Herd; `node --version`"
   },
   "wifi_diagnostics": {
     "what": "Wi-Fi connection and signal strength",

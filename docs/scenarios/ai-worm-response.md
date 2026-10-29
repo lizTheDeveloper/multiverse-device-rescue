@@ -1,6 +1,6 @@
 # AI worm response
 
-**`ai_worm_response`** — 6 modules, no guide.
+**`ai_worm_response`** — 12 modules, no guide.
 
 ## Who this is for
 
@@ -34,7 +34,7 @@ threat model.
 
 ## What the tool does
 
-Six checks, all three platforms, all configured at `sensitivity: elevated` for
+The worm checks run on all three platforms, configured at `sensitivity: elevated` for
 this profile — the same modules run more conservatively elsewhere.
 
 | Module | What it answers | Risk level |
@@ -45,6 +45,32 @@ this profile — the same modules run more conservatively elsewhere.
 | `ai_worm_network` | Command-and-control indicators in network state | moderate |
 | `ai_worm_lateral` | Signs of movement toward other machines and accounts | moderate |
 | `mvt_spyware_scan` | Mobile spyware indicators, if a device backup is present | safe |
+| `ai_agent_audit` | What AI tools on the computer can reach | safe |
+| `vulnerable_runtimes` | Copies of Node.js and PHP with a bug on CISA's Known Exploited Vulnerabilities list (Node2Shell, PHP2Shell), with the update step for each installer | safe |
+| `endor_dependency_scan` | Whether your code projects can be checked for known-malicious and known-vulnerable packages with Endor Labs; the scan itself is off here (see below) | safe |
+
+### Checking your projects' packages
+
+A dependency that turned out to be malicious is how most of these worms
+arrive. For that check we recommend Endor Labs' `endorctl`, which looks up
+each package a project uses against Endor's lists of malicious packages and
+known vulnerabilities. Disclosure: Endor Labs is one of Reclaim City's
+sponsors.
+
+This profile doesn't run it, because the scan sends each project's package
+names and versions, git details (including commit authors' email addresses)
+and basic facts about the computer to Endor Labs; source code and package
+files stay local ([Privacy](../privacy.md#what-leaves-the-machine)). To run
+it, install `endorctl`, sign in with `endorctl init` (at Endor's own sign-in
+page), then:
+
+```console
+$ rescue scan --profile dependency_scan
+```
+
+Only JavaScript projects with a lock file are scanned: for anything else
+endorctl runs the project's own install or build code, which is the code a
+malicious package hides in.
 
 !!! warning "This profile contains the tree's only DESTRUCTIVE module"
     `ai_worm_persistence` is `RiskLevel.DESTRUCTIVE` — the only module at that

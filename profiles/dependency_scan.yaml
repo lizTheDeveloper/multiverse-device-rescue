@@ -1,0 +1,26 @@
+name: dependency_scan
+display_name: "Code Project Package Check (Endor Labs)"
+description: >
+  Checks the packages your code projects use for known malicious packages and
+  known security holes, with Endor Labs' endorctl. Needs endorctl installed and
+  signed in (`endorctl init`, done by you at Endor's sign-in page). This is the
+  one profile that runs the scan, because it sends each project's package names
+  and versions, git details (including commit authors' email addresses) and
+  basic facts about this computer to Endor Labs; source code and package files
+  stay on the computer. Only JavaScript projects with a lock file are scanned:
+  for anything else endorctl would run the project's own install or build code.
+  Disclosure: Endor Labs is one of Reclaim City's sponsors.
+modules:
+  include:
+    - endor_dependency_scan
+    - vulnerable_runtimes
+  exclude: []
+module_config:
+  endor_dependency_scan:
+    # Turn the scan ON for this profile (off everywhere else).
+    scan_projects: true
+    # At most this many projects per checkup, each stopped after
+    # project_timeout seconds, all within total_budget seconds.
+    max_scans: 20
+    project_timeout: 300
+    total_budget: 1800

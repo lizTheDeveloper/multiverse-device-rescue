@@ -73,7 +73,7 @@ Otherwise it leaves the file as it is and the finding says so
 
 ## What leaves the machine
 
-Five things, exhaustively:
+Six things, exhaustively:
 
 1. **`rescue update`** contacts the configured content git remote when you run
    it. It sends nothing about your machine — it is a `git fetch`. (On the
@@ -124,6 +124,28 @@ Five things, exhaustively:
    and is deleted, and with telemetry off the ID is never sent. On start it
    also clears old `hma-check-*` and `arp-lab-*` folders from its temp
    folder, which is the throwaway folder too.
+
+6. **The code-project package check (Endor Labs), only when you ask.**
+   `rescue scan --profile dependency_scan` runs Endor Labs' own `endorctl`
+   (which you install and sign in to yourself, with `endorctl init`) over
+   your code projects. No other profile or plain scan runs it. For each
+   project it scans, Endor Labs receives, according to
+   [Endor's documentation](https://docs.endorlabs.com/trust-compliance/sca-scan-data):
+   the name, version, ecosystem and path in the project of each package; the
+   dependencies each declares and resolves; the git ref, commit SHA and
+   date of the last commit; the first time a repository is seen, its name,
+   clone URLs and source-control platform; the email addresses of commit
+   authors on the scanned branch; the operating system, hardware and build
+   tools of this computer and endorctl's settings; and the scan's status,
+   timing and logs. Source files, manifest and lock files stay on the
+   computer. Results are kept in your Endor Labs account. The scan uses
+   `--quick-scan`, which skips call-graph analysis; Endor's docs don't say
+   whether that changes what is sent beyond the call graph. Reclaim City
+   never reads `~/.endorctl/config.yaml` (it holds your Endor credentials),
+   and never puts a key or token on a command line. Only JavaScript projects
+   with a lock file are scanned, because for other projects endorctl runs
+   the project's own install or build code. Disclosure: Endor Labs is one of
+   Reclaim City's sponsors.
 
 There is no "phone home" on launch, no version check, no usage counter, and no
 error reporting.

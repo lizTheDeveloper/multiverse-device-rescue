@@ -43,11 +43,18 @@ const LEAD_MODULES = new Set([
   'win_suspicious_processes', 'win_autoruns_audit', 'win_startup', 'win_services_audit', 'network_proxy_check',
   'win_proxy_detect', 'win_remote_access_audit', 'ssh_config_audit', 'sharing_services_audit',
 ]);
-// Outside the Gatehouse and the Wires, these still leave a door open.
+// Leads from a check whose other findings are doors: a package a scan
+// lists as malicious is a thing someone put there, not a setting.
+const LEAD_CODES = new Set([
+  'security.endor_dependency_scan.malicious_dependency',
+]);
+// Outside the Gatehouse and the Wires, these still leave a door open. An
+// out-of-date Node.js or PHP, or a project package with a known hole, is
+// something to update, not a mystery program.
 const DOOR_MODULES = new Set([
   'backup_status', 'time_machine_check', 'time_machine_health', 'update_checker', 'automatic_updates',
   'filevault_check', 'appleid_security_check', 'find_my_mac_check', 'lock_screen_check', 'screen_lock_check',
-  'login_password_policy',
+  'login_password_policy', 'vulnerable_runtimes', 'endor_dependency_scan',
 ]);
 const DOOR_DISTRICTS = new Set(['gatehouse', 'wires']);
 // Marks that are the person's answer about a setting, not a claim on a thing
@@ -60,7 +67,7 @@ function typeOf(sig, kinds, held) {
   if (sig.severity === 'info') return 'note';
   const f = sig.finding || {};
   const leadMark = f.markable && !ANSWER_MARKS.has(f.markable.kind);
-  if ((kinds && kinds.length) || leadMark || LEAD_MODULES.has(sig.module)) return 'lead';
+  if ((kinds && kinds.length) || leadMark || LEAD_MODULES.has(sig.module) || LEAD_CODES.has(f.code)) return 'lead';
   if (DOOR_MODULES.has(sig.module) || DOOR_DISTRICTS.has(sig.districtId)) return 'door';
   return 'upkeep';
 }

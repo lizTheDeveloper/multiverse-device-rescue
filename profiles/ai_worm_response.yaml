@@ -17,6 +17,8 @@ modules:
     - scheduled_tasks_audit
     - mvt_spyware_scan
     - ai_agent_audit
+    - vulnerable_runtimes
+    - endor_dependency_scan
   exclude: []
 module_config:
   ai_worm_filesystem:
@@ -29,3 +31,8 @@ module_config:
     sensitivity: elevated
   ai_worm_lateral:
     sensitivity: elevated
+  endor_dependency_scan:
+    # Off here: a scan sends package details to Endor Labs, so the person
+    # asks for it with the dependency_scan profile. Here it only says
+    # whether it's available and what it would send.
+    scan_projects: false
