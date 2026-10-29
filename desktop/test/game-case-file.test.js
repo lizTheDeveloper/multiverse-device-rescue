@@ -131,3 +131,20 @@ test('district cards count cases, not severities', async () => {
   assert.match(districtBadges({ ...d, id: 'engine-room', missions: [m('disk_space', 'warning')] }), /1 UPKEEP/);
   assert.doesNotMatch(html, /CRITICAL|WARNING/);
 });
+
+test('an old Node.js or PHP and a package with a known hole are OPEN DOORs; a malicious package is a LEAD', async () => {
+  const { caseOf, caseLine } = await load();
+  const runtime = caseOf(sig({ severity: 'critical', module: 'vulnerable_runtimes', districtId: 'gatehouse',
+    finding: { code: 'security.vulnerable_runtimes.exploited_rce', made_by: [{ verified: true }] } }));
+  assert.deepStrictEqual([runtime.type, runtime.status, runtime.priority], ['door', 'open', 'high']);
+  assert.strictEqual(caseLine(runtime), 'OPEN DOOR · HIGH');
+  // A door anywhere: even if the module's district changed.
+  assert.strictEqual(caseOf(sig({ module: 'vulnerable_runtimes', districtId: 'outskirts' })).type, 'door');
+  const vuln = caseOf(sig({ module: 'endor_dependency_scan', districtId: 'gatehouse',
+    finding: { code: 'security.endor_dependency_scan.vulnerable_dependencies' } }));
+  assert.strictEqual(vuln.type, 'door');
+  const bad = caseOf(sig({ severity: 'critical', module: 'endor_dependency_scan', districtId: 'gatehouse',
+    finding: { code: 'security.endor_dependency_scan.malicious_dependency' } }));
+  assert.deepStrictEqual([bad.type, bad.status, bad.priority], ['lead', 'unidentified', 'high']);
+  assert.strictEqual(caseLine(bad), 'UNIDENTIFIED · HIGH RISK IF NOT YOURS');
+});

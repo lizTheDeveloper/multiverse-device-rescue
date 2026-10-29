@@ -564,6 +564,17 @@ export const CHECK_NOTES = {
   "where": "`fdesetup status`",
   "why": "Encryption keeps your files private if the computer is lost or stolen."
  },
+ "endor_dependency_scan": {
+  "category": "security",
+  "platforms": [
+   "macOS",
+   "Windows",
+   "Linux"
+  ],
+  "what": "Malicious or unsafe packages in your code projects",
+  "where": "Endor Labs' `endorctl scan`, only when asked, on projects in ~/src, ~/code...",
+  "why": "Bad packages are how many attacks on developers' computers start."
+ },
  "energy_saver_check": {
   "category": "performance",
   "platforms": [
@@ -1855,6 +1866,17 @@ export const CHECK_NOTES = {
   "what": "Whether your VPN covers all your traffic",
   "where": "`scutil --nc list`, `scutil --nc status`, `scutil --dns`, `netstat -rn`",
   "why": "A VPN that lets some traffic or lookups go around it gives less privacy than expected."
+ },
+ "vulnerable_runtimes": {
+  "category": "security",
+  "platforms": [
+   "macOS",
+   "Windows",
+   "Linux"
+  ],
+  "what": "Copies of Node.js and PHP with a bug attackers are using now",
+  "where": "PATH, Homebrew, nvm, fnm, Volta, asdf, mise, MAMP, XAMPP, Herd; `node --version`",
+  "why": "A website or tool run with an affected Node.js or PHP can be taken over from outside."
  },
  "wifi_diagnostics": {
   "category": "integrity",

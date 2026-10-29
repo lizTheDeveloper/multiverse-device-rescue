@@ -32,6 +32,8 @@ def test_profile_includes_all_modules():
         "scheduled_tasks_audit",
         "mvt_spyware_scan",
         "ai_agent_audit",
+        "vulnerable_runtimes",
+        "endor_dependency_scan",
     }
     assert set(profile.include_modules) == expected
 
@@ -57,6 +59,8 @@ def test_profile_filters_modules():
         "scheduled_tasks_audit",
         "mvt_spyware_scan",
         "ai_agent_audit",
+        "vulnerable_runtimes",
+        "endor_dependency_scan",
     }
     assert filtered_names == expected
 
@@ -78,6 +82,8 @@ def test_all_modules_discoverable():
         "scheduled_tasks_audit",
         "mvt_spyware_scan",
         "ai_agent_audit",
+        "vulnerable_runtimes",
+        "endor_dependency_scan",
     }
     assert expected.issubset(module_names)
 

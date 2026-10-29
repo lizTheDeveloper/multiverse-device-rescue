@@ -64,6 +64,15 @@ lockfile in `vendor/hackmyagent/`, into the user cache folder
 `vendor/hackmyagent/tree.sha256` before each run, and reuses it.
 `--no-downloads` (on `scan`, `export` and `run`) turns the download off.
 
+Two checks run programs that were already on the computer rather than system
+commands. `vulnerable_runtimes` runs each copy of Node.js or PHP it finds
+with `--version` (Node.js) or `-n -v` (PHP, which loads no settings file or
+add-ons), and only for a copy whose install has no version header to read;
+it never does this while Reclaim City has administrator rights.
+`endor_dependency_scan` runs Endor Labs' `endorctl`, only in the
+`dependency_scan` profile and only when it is already signed in; that sends
+package and git details to Endor Labs (see [Privacy](privacy.md#what-leaves-the-machine)).
+
 HackMyAgent is a program of its own, so the commands *it* runs aren't in the
 list below. While `detect` runs it executes `ps aux` (running programs and
 their command lines, to spot AI tools) and, for the install ID in its
