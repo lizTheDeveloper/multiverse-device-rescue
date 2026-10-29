@@ -283,6 +283,19 @@ def test_the_tools_never_run_in_the_scans_own_folder(setup, tmp_path, monkeypatc
     assert chk["cwd"] == str(helpers)
 
 
+def test_a_helper_folder_with_one_untrusted_helper_is_refused(setup, tmp_path, monkeypatch):
+    helpers = tmp_path / "lib" / "chkrootkit"
+    helpers.mkdir(parents=True)
+    (helpers / "chkproc").write_text("x")
+    (helpers / "ifpromisc").write_text("x")
+    monkeypatch.setattr(_code_module(), "CHKROOTKIT_HELPER_DIRS", (str(helpers),))
+    mod, runner = setup({"rkhunter": "", "chkrootkit": ""})
+    # The folder and chkproc check out; ifpromisc (a link, someone else's file...) doesn't.
+    mod.root_owned = lambda path: not path.endswith("ifpromisc")
+    mod.check(_profile())
+    assert [c["cwd"] for c in runner.calls] == ["/", "/"]
+
+
 def test_chkrootkit_without_trusted_helpers_runs_in_root(setup):
     mod, runner = setup({"rkhunter": "", "chkrootkit": ""})
     mod.check(_profile())

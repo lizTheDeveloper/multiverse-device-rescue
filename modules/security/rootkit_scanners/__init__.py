@@ -205,6 +205,15 @@ def owned_by_root(path: str) -> bool:
     return True
 
 
+def helpers_owned_by_root(folder: str, trusted=owned_by_root) -> bool:
+    """``folder`` and everything in it pass ``trusted``: chkrootkit runs its helpers from there as root."""
+    try:
+        names = os.listdir(folder)
+    except OSError:
+        return False
+    return trusted(folder) and all(trusted(os.path.join(folder, n)) for n in names)
+
+
 def work_dir(tool: str, path: str, trusted=owned_by_root) -> str:
     """The folder a tool runs in: one only root can change.
 
@@ -216,7 +225,7 @@ def work_dir(tool: str, path: str, trusted=owned_by_root) -> str:
     """
     if tool == "chkrootkit":
         for folder in (*CHKROOTKIT_HELPER_DIRS, os.path.dirname(path)):
-            if os.path.isfile(os.path.join(folder, "chkproc")) and trusted(folder):
+            if os.path.isfile(os.path.join(folder, "chkproc")) and helpers_owned_by_root(folder, trusted):
                 return folder
     return "/"
 
@@ -370,7 +379,8 @@ class Module(ModuleBase):
             template = RKHUNTER_ARGS if tool == "rkhunter" else CHKROOTKIT_ARGS
             argv = [path if a is _TOOL else a for a in template]
             # Checked again right before it runs, with its folder.
-            if not (safe(path) and safe(cwd)):
+            cwd_safe = safe(cwd) if cwd == "/" else helpers_owned_by_root(cwd, safe)
+            if not (safe(path) and cwd_safe):
                 findings.append(self._could_not_check(tool, "unsafe_owner", path))
                 continue
             res = run(argv, timeout=self.tool_timeout, env=_tool_env(), cwd=cwd)
