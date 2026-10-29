@@ -3,11 +3,18 @@
 import json
 import os
 
+import pytest
+
 from click.testing import CliRunner
 
 from rescue.cli import main
 from rescue.known_items import KnownItemsStore, item_identity
 from rescue.models import Finding, Severity
+
+# Disk checks read Linux and macOS layouts (symlinks, FIFOs, POSIX modes) and
+# only run from those hosts, so these tests do too.
+pytestmark = pytest.mark.skipif(os.name != "posix", reason="offline disk checks run on POSIX hosts")
+
 
 OFFLINE_CAPABLE_EXPECTED = {
     "linux_account_audit",

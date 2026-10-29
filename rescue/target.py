@@ -86,7 +86,7 @@ class Target:
         try:
             if not stat.S_ISREG(os.stat(host).st_mode):
                 raise TargetError(f"{path} is not a regular file")
-            fd = os.open(host, os.O_RDONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0))
+            fd = os.open(host, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0))
         except TargetError:
             raise
         except OSError as exc:

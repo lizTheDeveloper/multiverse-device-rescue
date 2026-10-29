@@ -1,5 +1,7 @@
 """Suite-wide fixtures."""
 
+import os
+
 import pytest
 
 
@@ -55,6 +57,8 @@ def _no_real_backup_tools(tmp_path_factory, monkeypatch):
 @pytest.fixture
 def linux_disk(tmp_path):
     """A minimal Ubuntu system disk, mounted somewhere else."""
+    if os.name != "posix":
+        pytest.skip("offline disk checks run on POSIX hosts")
     root = tmp_path / "disk"
     (root / "etc").mkdir(parents=True)
     (root / "etc/os-release").write_text(

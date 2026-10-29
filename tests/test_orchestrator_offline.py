@@ -1,7 +1,14 @@
+import os
+
+import pytest
 from rescue import orchestrator
 from rescue.models import Platform
 from rescue.orchestrator import OFFLINE_UNSUPPORTED_REASON, Orchestrator
 from rescue.profiler.base import gather_target_profile
+
+# Disk checks read Linux and macOS layouts (symlinks, FIFOs, POSIX modes) and
+# only run from those hosts, so these tests do too.
+pytestmark = pytest.mark.skipif(os.name != "posix", reason="offline disk checks run on POSIX hosts")
 
 _TEMPLATE = '''
 from rescue.models import CheckResult, Platform, RiskLevel

@@ -1,9 +1,17 @@
+import os
+
+import pytest
 import json
 
 from click.testing import CliRunner
 
 from rescue.cli import main
 from rescue.orchestrator import OFFLINE_UNSUPPORTED_REASON
+
+# Disk checks read Linux and macOS layouts (symlinks, FIFOs, POSIX modes) and
+# only run from those hosts, so these tests do too.
+pytestmark = pytest.mark.skipif(os.name != "posix", reason="offline disk checks run on POSIX hosts")
+
 
 
 def run_scan(*args):

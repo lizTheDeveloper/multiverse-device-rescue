@@ -1,8 +1,15 @@
+import os
+
 import pytest
 
 from rescue.models import Platform
 from rescue.profiler.base import gather_target_profile
 from rescue.target import TargetError
+
+# Disk checks read Linux and macOS layouts (symlinks, FIFOs, POSIX modes) and
+# only run from those hosts, so these tests do too.
+pytestmark = pytest.mark.skipif(os.name != "posix", reason="offline disk checks run on POSIX hosts")
+
 
 
 def test_profile_reads_target_os_release_and_hostname(linux_disk):

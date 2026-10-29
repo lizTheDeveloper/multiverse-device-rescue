@@ -5,6 +5,11 @@ import pytest
 from rescue.models import CheckResult, Platform, SystemProfile
 from rescue.target import Target, TargetError
 
+# Disk checks read Linux and macOS layouts (symlinks, FIFOs, POSIX modes) and
+# only run from those hosts, so these tests do too.
+pytestmark = pytest.mark.skipif(os.name != "posix", reason="offline disk checks run on POSIX hosts")
+
+
 
 @pytest.fixture
 def disk(tmp_path):
