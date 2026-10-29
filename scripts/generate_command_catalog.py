@@ -57,7 +57,7 @@ In the desktop app, open **Show technical details** while a checkup runs.
 
 Besides commands, checks read files (launch agents, browser profiles, logs)
 directly; read a module's `__init__.py` for the full picture. No check writes
-anything — `fix()` is separate and always asks first — with one exception:
+anything — `fix()` is separate and always asks first — with two exceptions.
 `ai_agent_audit` downloads HackMyAgent once, with `npm ci` from the pinned
 lockfile in `vendor/hackmyagent/`, into the user cache folder
 (`ReclaimCity/hackmyagent-<version>`), checks every file of it against
@@ -85,6 +85,18 @@ start-up self-check also appends to `~/.nanomind/integrity-events.jsonl`;
 Reclaim City removes those lines after the run when they are surely its own.
 HackMyAgent runs from a private, checked copy of the saved download, with an
 allow-listed environment (no `NODE_OPTIONS` or `npm_config_*`).
+
+`knockknock_scan` runs only when a profile turns it on (`deep_startup_check`,
+`infected_device`). Unless KnockKnock is installed in Applications, it
+downloads the pinned KnockKnock release from GitHub once with `curl`, checks
+its sha256, unpacks it with `ditto` into the user cache folder
+(`ReclaimCity/knockknock-<version>`), and keeps it only if `codesign` says it
+is signed by Objective-See (team `VBG97UB4TA`) and notarized. Each run copies
+the bundle with `ditto` into a new 0700 temp folder, checks the copy, runs it,
+checks it again afterwards and deletes it. `--no-downloads` turns the
+download off. KnockKnock is a program of its own: it reads the places macOS
+starts things from and runs `lsof` and code-signature checks itself. With
+`-skipVT` and no `-key` it sends nothing to VirusTotal.
 
 """
 

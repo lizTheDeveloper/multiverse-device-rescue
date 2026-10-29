@@ -1,0 +1,36 @@
+name: deep_startup_check
+display_name: "Deep Startup & Rootkit Check"
+description: >
+  A slower, deeper look at what is set to start on its own, and at signs of
+  hidden malware (rootkits). On a Mac it runs KnockKnock, a free tool from
+  Objective-See, which lists everything set to start automatically in more
+  places than the normal checkup looks and checks who signed each program;
+  the first run downloads it (2.5 MB) from GitHub and checks its signature,
+  and --no-downloads turns that off. KnockKnock needs Full Disk Access for the
+  app running the checkup. On Linux (and on a Mac where they're installed) it
+  runs rkhunter and chkrootkit, which need the checkup to run with sudo;
+  without it they say they couldn't run. Their well-known false alarms are
+  explained in plain words. Nothing is changed. It is slower than the normal
+  checkup, because these tools read a lot of files.
+modules:
+  include:
+    # The deep scanners this profile turns on.
+    - knockknock_scan
+    - rootkit_scanners
+    # The light startup checks, so their findings sit next to the deep ones.
+    - launch_agent_audit
+    - launchd_persistence_audit
+    - cron_jobs_audit
+    - login_items
+    - system_extensions
+    - kext_audit
+    - linux_persistence_audit
+    - rootkit_check
+    - sip_gatekeeper
+  exclude: []
+module_config:
+  knockknock_scan:
+    run_scan: true
+  rootkit_scanners:
+    run_scanners: true
+guides: []

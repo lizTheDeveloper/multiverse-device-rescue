@@ -148,3 +148,13 @@ test('an old Node.js or PHP and a package with a known hole are OPEN DOORs; a ma
   assert.deepStrictEqual([bad.type, bad.status, bad.priority], ['lead', 'unidentified', 'high']);
   assert.strictEqual(caseLine(bad), 'UNIDENTIFIED · HIGH RISK IF NOT YOURS');
 });
+
+test('KnockKnock and rootkit-scanner warnings are leads; a rootkit sign is high risk if not yours', async () => {
+  const { caseOf } = await load();
+  assert.strictEqual(caseOf(sig({ module: 'knockknock_scan' })).type, 'lead');
+  assert.strictEqual(caseOf(sig({ module: 'knockknock_scan' })).priority, 'medium');
+  const rk = caseOf(sig({ severity: 'critical', module: 'rootkit_scanners' }));
+  assert.deepStrictEqual([rk.type, rk.priority], ['lead', 'high']);
+  // "Couldn't run" and the explained false alarms are notes, never leads.
+  assert.strictEqual(caseOf(sig({ severity: 'info', module: 'rootkit_scanners' })).type, 'note');
+});

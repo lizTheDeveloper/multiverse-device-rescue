@@ -80,3 +80,14 @@ test('the chips read as one short line, and the difference is taught in its own 
     assert.ok(text.toLowerCase().includes(PROGRAM_KINDS[id].label.toLowerCase()), `the lesson names "${PROGRAM_KINDS[id].label}"`);
   }
 });
+
+test('a KnockKnock item reads like the launchd checks when it has a settings file', async () => {
+  const plist = '/Users/me/Library/LaunchAgents/com.example.helper.plist';
+  const item = f('knockknock_scan', 'unsigned_autostart', { path: '/Users/me/bin/helper', plist });
+  assert.deepStrictEqual(await kinds(item, startup([{ label: 'com.example.helper', plist, when: ['at login'] }])), ['starts']);
+  assert.deepStrictEqual(await kinds(item), ['background']);
+  // A login item, kernel extension or plugin has no settings file: it starts on its own.
+  assert.deepStrictEqual(await kinds(f('knockknock_scan', 'unsigned_autostart', { path: '/Applications/X.app/Contents/MacOS/X' })), ['starts']);
+  // The inventory note names no one program.
+  assert.deepStrictEqual(await kinds(f('knockknock_scan', 'signed_inventory', { items: [] })), []);
+});
