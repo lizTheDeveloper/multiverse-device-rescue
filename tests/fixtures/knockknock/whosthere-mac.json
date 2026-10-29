@@ -1,0 +1,558 @@
+{
+ "Authorization Plugins": [],
+ "Browser Extensions": [
+  {
+   "path": "/Applications/Zotero.app/Contents/PlugIns/ZoteroSafariExtension.appex",
+   "browser": "/System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app",
+   "details": "Saves references to Zotero from Safari.",
+   "name": "Zotero Connector",
+   "identifier": "B8EEF409-AEBB-4A8C-B74E-B6772E324D8D"
+  }
+ ],
+ "Background Managed Tasks": [
+  {
+   "path": "/Library/Application Support/Wireshark/ChmodBPF/ChmodBPF",
+   "hashes": {
+    "md5": "C7F23D1768F12F89FD3BB5F7D491B5B7",
+    "sha256": "CC8A9D15C6A7FA8B119B857C1189F1B7795C536BE0C37289841BE967D8F29136",
+    "sha1": "BDD5B8EE9C78234556B91EB574AA54508B776A4D"
+   },
+   "name": "ChmodBPF",
+   "plist": "/Library/LaunchDaemons/org.wireshark.ChmodBPF.plist",
+   "signature(s)": {
+    "signatureIdentifier": "org.wireshark.ChmodBPF",
+    "signatureStatus": 0,
+    "signatureSigner": 3,
+    "signingFlags": 0,
+    "signatureAuthorities": [
+     "Developer ID Application: Wireshark Foundation (7Z6EMTD2C6)",
+     "Developer ID Certification Authority",
+     "Apple Root CA"
+    ]
+   }
+  },
+  {
+   "path": "/Applications/Dropbox.app/Contents/MacOS/Dropbox",
+   "hashes": {
+    "md5": "415A1D329E3CB82621623E3E47C3A4B2",
+    "sha256": "2654932970520B5CBAD570BB1DE40AEBD3A20FB946FCCA06222DDEB5F0A82036",
+    "sha1": "F6CAD27FDC431AF7B7C335BE5F8B9D9104C9108A"
+   },
+   "name": "Dropbox",
+   "plist": "n/a",
+   "signature(s)": {
+    "signatureStatus": 0,
+    "signatureIdentifier": "com.getdropbox.dropbox",
+    "signatureSigner": 3,
+    "signingFlags": 65536,
+    "signatureAuthorities": [
+     "Developer ID Application: Dropbox, Inc. (G7HH3F8CAK)",
+     "Developer ID Certification Authority",
+     "Apple Root CA"
+    ],
+    "signatureEntitlements": {
+     "com.apple.security.automation.apple-events": true,
+     "com.apple.security.cs.allow-jit": true,
+     "com.apple.security.personal-information.photos-library": true,
+     "com.apple.security.device.audio-input": true,
+     "com.apple.security.application-groups": [
+      "G7HH3F8CAK.com.getdropbox.dropbox.sync"
+     ],
+     "com.apple.application-identifier": "G7HH3F8CAK.com.getdropbox.dropbox",
+     "com.apple.security.cs.allow-unsigned-executable-memory": true
+    },
+    "notarized": true
+   }
+  },
+  {
+   "path": "/Applications/Loom.app/Contents/MacOS/Loom",
+   "hashes": {
+    "md5": "BB62370967483C40DA242ACA81A5BEB9",
+    "sha256": "B5DFB0EA0F099C13F6931A961D462328FA403DA7FCAE3782AE030805B134483A",
+    "sha1": "E9D55038D80F77D8045BD365B113ECCA8D59FDF3"
+   },
+   "name": "Loom",
+   "plist": "n/a",
+   "signature(s)": {
+    "signatureStatus": 0,
+    "signatureIdentifier": "com.loom.desktop.native",
+    "signatureSigner": 3,
+    "signingFlags": 65536,
+    "signatureAuthorities": [
+     "Developer ID Application: Loom, Inc (QGD2ZPXZZG)",
+     "Developer ID Certification Authority",
+     "Apple Root CA"
+    ],
+    "signatureEntitlements": {
+     "com.apple.security.files.user-selected.read-only": true,
+     "com.apple.security.device.camera": true,
+     "com.apple.security.device.audio-input": true,
+     "com.apple.security.network.client": true
+    },
+    "notarized": true
+   }
+  },
+  {
+   "path": "/opt/homebrew/Cellar/mailhog/1.0.1/bin/MailHog",
+   "hashes": {
+    "md5": "7DBA4BB2DCE8953310F4B62483E8D02F",
+    "sha256": "40E42E8376659F5C6F971841FBFC1447A4FBB0B2B9DC6C57B57F1D94F94BFE75",
+    "sha1": "508A326D789997CDC9A886C68A8D2809B28879FF"
+   },
+   "name": "MailHog",
+   "plist": "/Users/alex/Library/LaunchAgents/homebrew.mxcl.mailhog.plist",
+   "signature(s)": {
+    "signatureIdentifier": "a.out",
+    "signatureStatus": 0,
+    "signatureSigner": 4,
+    "signingFlags": 131074
+   }
+  },
+  {
+   "path": "/Users/alex/projects/autonomous-agent.sh",
+   "hashes": {
+    "md5": "4979F04DD4658080678DBA2C7413B81B",
+    "sha256": "B1447562D3FDF1744D1297FDE36F20F132FB01A37262CC89B6274231C60A5FEA",
+    "sha1": "41B5463DFDE299D29A35C5B4B610356F5864C565"
+   },
+   "name": "autonomous-agent.sh",
+   "plist": "/Users/alex/Library/LaunchAgents/com.example.autonomous-agent.plist",
+   "signature(s)": {
+    "signatureStatus": -67062
+   }
+  },
+  {
+   "path": "/bin/bash",
+   "hashes": {
+    "md5": "DCB555BDFC575C62EF92A6895C8AA2DB",
+    "sha256": "35E00B592B1BFA799EC86E1A00BFA88F61668DDAC9EE8BF4DD597494AC3C7E39",
+    "sha1": "A7564201BF3E5393180E6B60013C59A0FB7061CC"
+   },
+   "name": "bash",
+   "plist": "/Users/alex/Library/LaunchAgents/com.example.backend.plist",
+   "signature(s)": {
+    "signatureIdentifier": "com.apple.bash",
+    "signatureStatus": 0,
+    "signatureSigner": 1,
+    "signingFlags": 0,
+    "signatureAuthorities": [
+     "Software Signing",
+     "Apple Code Signing Certification Authority",
+     "Apple Root CA"
+    ]
+   }
+  },
+  {
+   "path": "/Library/PrivilegedHelperTools/com.docker.socket",
+   "hashes": "unknown",
+   "name": "com.docker.socket",
+   "plist": "/Library/LaunchDaemons/com.docker.socket.plist",
+   "signature(s)": {
+    "signatureStatus": 100013
+   }
+  },
+  {
+   "path": "/Library/PostgreSQL/17/bin/postgres",
+   "hashes": {
+    "md5": "D9A9087A0EBA7BA76F016FFB6D0A7F7A",
+    "sha256": "274FDA7ADA0F2F0C31F796EF8B624573CDD1E77BABD3914EF285A9000E0CEFB7",
+    "sha1": "69CFC6973DAF994902B1F5E04027CD3088222438"
+   },
+   "name": "postgres",
+   "plist": "/Library/LaunchDaemons/postgresql-17.plist",
+   "signature(s)": {
+    "signatureAuthorities": [
+     "Developer ID Application: EnterpriseDB Corporation (26QKX55P9K)",
+     "Developer ID Certification Authority",
+     "Apple Root CA"
+    ],
+    "signatureIdentifier": "com.edb.postgresql",
+    "signatureStatus": 0,
+    "signatureSigner": 3,
+    "signingFlags": 65536,
+    "signatureEntitlements": {
+     "com.apple.security.cs.allow-unsigned-executable-memory": true,
+     "com.apple.security.cs.allow-jit": true,
+     "com.apple.security.cs.disable-library-validation": true
+    }
+   }
+  },
+  {
+   "path": "/opt/homebrew/Cellar/postgresql@17/17.7/bin/postgres",
+   "hashes": {
+    "md5": "54A453476B5A8D5D383E28114839A8E9",
+    "sha256": "B2A021A9474D4F4A5EB30CFCDD19CF5D163808C362E153C5AC77BA315A9E371A",
+    "sha1": "437A1CF58ABDBB4F0DD369DBA81461F41355E33D"
+   },
+   "name": "postgres",
+   "plist": "/Users/alex/Library/LaunchAgents/homebrew.mxcl.postgresql@17.plist",
+   "signature(s)": {
+    "signatureIdentifier": "postgres-55554944794ca7d704293c4ab22c7a1597531f54",
+    "signatureStatus": 0,
+    "signatureSigner": 4,
+    "signingFlags": 2
+   }
+  },
+  {
+   "path": "/Users/alex/Library/Application Support/Steam/steamapps/steamclean",
+   "hashes": {
+    "md5": "A7E0E72EE34248B9BA04433B8FE6C1B1",
+    "sha256": "CE5012DFEA90AB07D675A9F260161704C28E9D2C8ABC389DE80DAE993651B703",
+    "sha1": "D0E84F0E9783BE8CF2260A97F170ED5CDEF04909"
+   },
+   "name": "steamclean",
+   "plist": "/Users/alex/Library/LaunchAgents/com.valvesoftware.steamclean.plist",
+   "signature(s)": {
+    "signatureIdentifier": "com.valvesoftware.steam",
+    "signatureStatus": 0,
+    "signatureSigner": 3,
+    "signingFlags": 0,
+    "signatureAuthorities": [
+     "Developer ID Application: Valve Corporation (MXGJJ98X76)",
+     "Developer ID Certification Authority",
+     "Apple Root CA"
+    ]
+   }
+  }
+ ],
+ "Cron Jobs": [
+  {
+   "command": "*/5 * * * * bash /Users/alex/scripts/sync.sh",
+   "file": "/private/var/at/tabs/alex"
+  }
+ ],
+ "Dir. Services Plugins": [],
+ "Dock Tiles Plugins": [],
+ "Event Rules": [],
+ "Extensions and Widgets": [
+  {
+   "path": "/Applications/Dropbox.app/Contents/PlugIns/DropboxTransferExtension.appex/Contents/MacOS/DropboxTransferExtension",
+   "hashes": {
+    "md5": "AF8F5A9BA986D675AD50C0342016769F",
+    "sha256": "61DBD8728057CAC9550448A1A6A9F8F96B6C6E5B86C3001E50766377B899F08E",
+    "sha1": "0C5B4D4A21DD8D097D5FA52CC3D0766E31AA3B49"
+   },
+   "name": "DropboxTransferExtension",
+   "plist": "n/a",
+   "signature(s)": {
+    "signatureStatus": 0,
+    "signatureIdentifier": "com.getdropbox.dropbox.TransferExtension",
+    "signatureSigner": 3,
+    "signingFlags": 65536,
+    "signatureAuthorities": [
+     "Developer ID Application: Dropbox, Inc. (G7HH3F8CAK)",
+     "Developer ID Certification Authority",
+     "Apple Root CA"
+    ],
+    "signatureEntitlements": {
+     "com.apple.security.files.user-selected.read-only": true,
+     "com.apple.security.temporary-exception.apple-events": [
+      "com.getdropbox.dropbox"
+     ],
+     "com.apple.security.app-sandbox": true
+    },
+    "notarized": true
+   }
+  }
+ ],
+ "Kernel Extensions": [
+  {
+   "path": "/Library/Extensions/usbserial.kext/Contents/MacOS/usbserial",
+   "hashes": {
+    "md5": "D4306942BB9718E3E5F31C55DB765073",
+    "sha256": "0CC3AC7C1618D44D6B781D253AB48FBB52CC18702E840A866E5B13A4BA506EF5",
+    "sha1": "039007E731AD9EEB13758C3D46ADCD1632EA4D13"
+   },
+   "name": "usbserial",
+   "plist": "n/a",
+   "signature(s)": {
+    "signatureAuthorities": [
+     "Developer ID Application: Jiangsu Qinheng Co., Ltd. (X9BL5JJAZJ)",
+     "Developer ID Certification Authority",
+     "Apple Root CA"
+    ],
+    "notarized": true,
+    "signatureStatus": 0,
+    "signatureSigner": 3,
+    "signingFlags": 0,
+    "signatureIdentifier": "com.wch.usbserial"
+   }
+  }
+ ],
+ "Launch Items": [
+  {
+   "path": "/usr/sbin/cupsd",
+   "hashes": "unknown",
+   "name": "cupsd",
+   "plist": "/System/Library/LaunchDaemons/org.cups.cupsd.plist",
+   "signature(s)": {
+    "signatureStatus": 100013
+   }
+  },
+  {
+   "path": "/Library/Application Support/Wireshark/ChmodBPF/ChmodBPF",
+   "hashes": {
+    "md5": "C7F23D1768F12F89FD3BB5F7D491B5B7",
+    "sha256": "CC8A9D15C6A7FA8B119B857C1189F1B7795C536BE0C37289841BE967D8F29136",
+    "sha1": "BDD5B8EE9C78234556B91EB574AA54508B776A4D"
+   },
+   "name": "ChmodBPF",
+   "plist": "/Library/LaunchDaemons/org.wireshark.ChmodBPF.plist",
+   "signature(s)": {
+    "signatureIdentifier": "org.wireshark.ChmodBPF",
+    "signatureStatus": 0,
+    "signatureSigner": 3,
+    "signingFlags": 0,
+    "signatureAuthorities": [
+     "Developer ID Application: Wireshark Foundation (7Z6EMTD2C6)",
+     "Developer ID Certification Authority",
+     "Apple Root CA"
+    ]
+   }
+  },
+  {
+   "path": "/Library/PrivilegedHelperTools/com.docker.socket",
+   "hashes": "unknown",
+   "name": "com.docker.socket",
+   "plist": "/Library/LaunchDaemons/com.docker.socket.plist",
+   "signature(s)": {
+    "signatureStatus": 100013
+   }
+  },
+  {
+   "path": "/Library/PostgreSQL/17/bin/postgres",
+   "hashes": {
+    "md5": "D9A9087A0EBA7BA76F016FFB6D0A7F7A",
+    "sha256": "274FDA7ADA0F2F0C31F796EF8B624573CDD1E77BABD3914EF285A9000E0CEFB7",
+    "sha1": "69CFC6973DAF994902B1F5E04027CD3088222438"
+   },
+   "name": "postgres",
+   "plist": "/Library/LaunchDaemons/postgresql-17.plist",
+   "signature(s)": {
+    "signatureAuthorities": [
+     "Developer ID Application: EnterpriseDB Corporation (26QKX55P9K)",
+     "Developer ID Certification Authority",
+     "Apple Root CA"
+    ],
+    "signatureIdentifier": "com.edb.postgresql",
+    "signatureStatus": 0,
+    "signatureSigner": 3,
+    "signingFlags": 65536,
+    "signatureEntitlements": {
+     "com.apple.security.cs.allow-unsigned-executable-memory": true,
+     "com.apple.security.cs.allow-jit": true,
+     "com.apple.security.cs.disable-library-validation": true
+    }
+   }
+  },
+  {
+   "path": "/bin/bash",
+   "hashes": {
+    "md5": "DCB555BDFC575C62EF92A6895C8AA2DB",
+    "sha256": "35E00B592B1BFA799EC86E1A00BFA88F61668DDAC9EE8BF4DD597494AC3C7E39",
+    "sha1": "A7564201BF3E5393180E6B60013C59A0FB7061CC"
+   },
+   "name": "bash",
+   "plist": "/Users/alex/Library/LaunchAgents/com.example.transcripts.plist",
+   "signature(s)": {
+    "signatureIdentifier": "com.apple.bash",
+    "signatureStatus": 0,
+    "signatureSigner": 1,
+    "signingFlags": 0,
+    "signatureAuthorities": [
+     "Software Signing",
+     "Apple Code Signing Certification Authority",
+     "Apple Root CA"
+    ]
+   }
+  },
+  {
+   "path": "/opt/homebrew/Cellar/mailhog/1.0.1/bin/MailHog",
+   "hashes": {
+    "md5": "7DBA4BB2DCE8953310F4B62483E8D02F",
+    "sha256": "40E42E8376659F5C6F971841FBFC1447A4FBB0B2B9DC6C57B57F1D94F94BFE75",
+    "sha1": "508A326D789997CDC9A886C68A8D2809B28879FF"
+   },
+   "name": "MailHog",
+   "plist": "/Users/alex/Library/LaunchAgents/homebrew.mxcl.mailhog.plist",
+   "signature(s)": {
+    "signatureIdentifier": "a.out",
+    "signatureStatus": 0,
+    "signatureSigner": 4,
+    "signingFlags": 131074
+   }
+  },
+  {
+   "path": "/Users/alex/projects/autonomous-agent.sh",
+   "hashes": {
+    "md5": "4979F04DD4658080678DBA2C7413B81B",
+    "sha256": "B1447562D3FDF1744D1297FDE36F20F132FB01A37262CC89B6274231C60A5FEA",
+    "sha1": "41B5463DFDE299D29A35C5B4B610356F5864C565"
+   },
+   "name": "autonomous-agent.sh",
+   "plist": "/Users/alex/Library/LaunchAgents/com.example.autonomous-agent.plist",
+   "signature(s)": {
+    "signatureStatus": -67062
+   }
+  },
+  {
+   "path": "/opt/homebrew/Cellar/postgresql@17/17.7/bin/postgres",
+   "hashes": {
+    "md5": "54A453476B5A8D5D383E28114839A8E9",
+    "sha256": "B2A021A9474D4F4A5EB30CFCDD19CF5D163808C362E153C5AC77BA315A9E371A",
+    "sha1": "437A1CF58ABDBB4F0DD369DBA81461F41355E33D"
+   },
+   "name": "postgres",
+   "plist": "/Users/alex/Library/LaunchAgents/homebrew.mxcl.postgresql@17.plist",
+   "signature(s)": {
+    "signatureIdentifier": "postgres-55554944794ca7d704293c4ab22c7a1597531f54",
+    "signatureStatus": 0,
+    "signatureSigner": 4,
+    "signingFlags": 2
+   }
+  },
+  {
+   "path": "/Users/alex/Library/Application Support/Steam/steamapps/steamclean",
+   "hashes": {
+    "md5": "A7E0E72EE34248B9BA04433B8FE6C1B1",
+    "sha256": "CE5012DFEA90AB07D675A9F260161704C28E9D2C8ABC389DE80DAE993651B703",
+    "sha1": "D0E84F0E9783BE8CF2260A97F170ED5CDEF04909"
+   },
+   "name": "steamclean",
+   "plist": "/Users/alex/Library/LaunchAgents/com.valvesoftware.steamclean.plist",
+   "signature(s)": {
+    "signatureIdentifier": "com.valvesoftware.steam",
+    "signatureStatus": 0,
+    "signatureSigner": 3,
+    "signingFlags": 0,
+    "signatureAuthorities": [
+     "Developer ID Application: Valve Corporation (MXGJJ98X76)",
+     "Developer ID Certification Authority",
+     "Apple Root CA"
+    ]
+   }
+  }
+ ],
+ "Library Inserts": [],
+ "Library Proxies": [],
+ "Login Items": [
+  {
+   "path": "/Applications/Loom.app/Contents/MacOS/Loom",
+   "hashes": {
+    "md5": "BB62370967483C40DA242ACA81A5BEB9",
+    "sha256": "B5DFB0EA0F099C13F6931A961D462328FA403DA7FCAE3782AE030805B134483A",
+    "sha1": "E9D55038D80F77D8045BD365B113ECCA8D59FDF3"
+   },
+   "name": "Loom",
+   "plist": "n/a",
+   "signature(s)": {
+    "signatureStatus": 0,
+    "signatureIdentifier": "com.loom.desktop.native",
+    "signatureSigner": 3,
+    "signingFlags": 65536,
+    "signatureAuthorities": [
+     "Developer ID Application: Loom, Inc (QGD2ZPXZZG)",
+     "Developer ID Certification Authority",
+     "Apple Root CA"
+    ],
+    "signatureEntitlements": {
+     "com.apple.security.files.user-selected.read-only": true,
+     "com.apple.security.device.camera": true,
+     "com.apple.security.device.audio-input": true,
+     "com.apple.security.network.client": true
+    },
+    "notarized": true
+   }
+  },
+  {
+   "path": "/Applications/Dropbox.app/Contents/MacOS/Dropbox",
+   "hashes": {
+    "md5": "415A1D329E3CB82621623E3E47C3A4B2",
+    "sha256": "2654932970520B5CBAD570BB1DE40AEBD3A20FB946FCCA06222DDEB5F0A82036",
+    "sha1": "F6CAD27FDC431AF7B7C335BE5F8B9D9104C9108A"
+   },
+   "name": "Dropbox",
+   "plist": "n/a",
+   "signature(s)": {
+    "signatureStatus": 0,
+    "signatureIdentifier": "com.getdropbox.dropbox",
+    "signatureSigner": 3,
+    "signingFlags": 65536,
+    "signatureAuthorities": [
+     "Developer ID Application: Dropbox, Inc. (G7HH3F8CAK)",
+     "Developer ID Certification Authority",
+     "Apple Root CA"
+    ],
+    "signatureEntitlements": {
+     "com.apple.security.automation.apple-events": true,
+     "com.apple.security.cs.allow-jit": true,
+     "com.apple.security.personal-information.photos-library": true,
+     "com.apple.security.device.audio-input": true,
+     "com.apple.security.application-groups": [
+      "G7HH3F8CAK.com.getdropbox.dropbox.sync"
+     ],
+     "com.apple.application-identifier": "G7HH3F8CAK.com.getdropbox.dropbox",
+     "com.apple.security.cs.allow-unsigned-executable-memory": true
+    },
+    "notarized": true
+   }
+  }
+ ],
+ "Login/Logout Hooks": [],
+ "Periodic Scripts": [],
+ "Quicklook Plugins": [],
+ "Spotlight Importers": [],
+ "Startup Scripts": [],
+ "Shell Configuration Files": [
+  {
+   "path": "/Users/alex/.zshrc",
+   "hashes": {
+    "md5": "44787654BF84B6171DB8843FC7FD7766",
+    "sha256": "14AE09A9B66FA940A4ECE309A81E49B83A743C97648123CB8288B76534080785",
+    "sha1": "943D9144F5F1D9AFBBDBCC002C7BF34AD0E7C161"
+   },
+   "name": ".zshrc",
+   "plist": "n/a",
+   "signature(s)": {
+    "signatureStatus": -67062
+   }
+  }
+ ],
+ "System Extensions": [
+  {
+   "path": "/Applications/CP210xVCPDriver.app/Contents/Library/SystemExtensions/com.silabs.cp210x.dext/com.silabs.cp210x",
+   "hashes": {
+    "md5": "0487303D4DB293AA1553ECB3B9D4B87F",
+    "sha256": "FB3817E7C506CC600E2E015F69F35EE0EC0D69871960061CA9996078D4391917",
+    "sha1": "9AB586AD6989E4984273CD9CA6ECDBACFC97C1CA"
+   },
+   "name": "com.silabs.cp210x",
+   "plist": "n/a",
+   "signature(s)": {
+    "signatureStatus": 0,
+    "signatureIdentifier": "com.silabs.cp210x",
+    "signatureSigner": 3,
+    "signingFlags": 65536,
+    "signatureAuthorities": [
+     "Developer ID Application: Silicon Laboratories Inc (52444FG85C)",
+     "Developer ID Certification Authority",
+     "Apple Root CA"
+    ],
+    "signatureEntitlements": {
+     "com.apple.security.automation.apple-events": true,
+     "com.apple.developer.driverkit.family.serial": true,
+     "com.apple.developer.team-identifier": "52444FG85C",
+     "com.apple.security.app-sandbox": true,
+     "com.apple.developer.driverkit": true,
+     "com.apple.application-identifier": "52444FG85C.com.silabs.cp210x",
+     "com.apple.developer.driverkit.transport.usb": [
+      {
+       "idVendor": "*"
+      }
+     ]
+    },
+    "notarized": true
+   }
+  }
+ ]
+}

@@ -32,13 +32,13 @@ $ rescue run <module_name>
 
 ## Coverage at a glance
 
-**285 modules** ship in the tree.
+**287 modules** ship in the tree.
 
 | Platform | Modules that run there |
 | --- | ---: |
-| macOS | 197 |
+| macOS | 199 |
 | Windows | 102 |
-| Linux | 30 |
+| Linux | 31 |
 
 A module can support more than one platform, so these numbers add up to more than the total.
 
@@ -48,7 +48,7 @@ A module can support more than one platform, so these numbers add up to more tha
 | [integrity](#integrity) | 106 |
 | [network](#network) | 8 |
 | [performance](#performance) | 51 |
-| [security](#security) | 116 |
+| [security](#security) | 118 |
 
 ## bloatware
 
@@ -259,7 +259,7 @@ Why the machine is slow: CPU and memory pressure, thermals, disk space, startup 
 
 Malware and spyware indicators, persistence, remote access, credential exposure, and system hardening posture.
 
-116 modules — macOS 81, Windows 47, Linux 20.
+118 modules — macOS 83, Windows 47, Linux 21.
 
 | Module | Platforms | Risk | Duration | What it checks |
 | --- | --- | --- | --- | --- |
@@ -305,6 +305,7 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `kernel_extensions_audit` | macOS | safe | 5s | — |
 | `kext_audit` | macOS | safe | 3s | — |
 | `keylogger_indicators` | macOS | safe | 10s | — |
+| `knockknock_scan` | macOS | safe | off unless a profile turns it on; slow when on (first run downloads 2.5 MB) | knockknock_scan: everything set to start on its own on a Mac, using KnockKnock. |
 | `launch_agent_audit` | macOS | safe | 10s | — |
 | `launchd_persistence_audit` | macOS | safe | 10s | — |
 | `linux_account_audit` | Linux | safe | 10s | Who can log in to this machine, and who can become root. |
@@ -327,6 +328,7 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `privacy_permissions_audit` | macOS | safe | 5s | — |
 | `remote_login_check` | macOS | safe | 10s | — |
 | `rootkit_check` | macOS | safe | 5s | — |
+| `rootkit_scanners` | macOS, Linux | safe | off unless a profile turns it on; slow when on, and needs root | rootkit_scanners: rkhunter and chkrootkit, when they're installed. |
 | `safari_extensions` | macOS | safe | 3s | — |
 | `scheduled_tasks_audit` | macOS | safe | 5s | — |
 | `screen_lock_check` | macOS | safe | 3s | — |

@@ -51,6 +51,7 @@ Only these, and only when you run the command that writes them:
 | `~/.config/rescue/revoked_signers.json` | `rescue trust revoke` | Signer IDs you have stopped trusting, and why. |
 | `~/.local/share/rescue/content/` | `rescue update` | The verified content checkout. |
 | `<user cache>/ReclaimCity/hackmyagent-<version>/` | `rescue scan` (the AI tools check), once | The downloaded copy of HackMyAgent. No findings. Safe to delete. |
+| `<user cache>/ReclaimCity/knockknock-<version>/` | `rescue scan --profile deep_startup_check` (or `infected_device`), once | The downloaded copy of KnockKnock. No findings. Safe to delete. |
 
 Case files are written with owner-only permissions (`0600`) where the
 filesystem supports it, because even redacted they describe a machine's
@@ -73,7 +74,7 @@ Otherwise it leaves the file as it is and the finding says so
 
 ## What leaves the machine
 
-Five things, exhaustively:
+Six things, exhaustively:
 
 1. **`rescue update`** contacts the configured content git remote when you run
    it. It sends nothing about your machine — it is a `git fetch`. (On the
@@ -124,6 +125,15 @@ Five things, exhaustively:
    and is deleted, and with telemetry off the ID is never sent. On start it
    also clears old `hma-check-*` and `arp-lab-*` folders from its temp
    folder, which is the throwaway folder too.
+
+6. **The deep startup check's one-time download**, only when you choose the
+   `deep_startup_check` profile (or `infected_device`, which never
+   downloads) and KnockKnock isn't installed in Applications. It downloads
+   the pinned KnockKnock release (2.5 MB) from Objective-See's releases on
+   `github.com` with `curl`. GitHub sees your computer's public IP address and
+   curl's User-Agent (its version); nothing else about your computer is sent.
+   KnockKnock itself runs with `-skipVT` and no VirusTotal key, so it sends
+   nothing. `--no-downloads` turns the download off.
 
 There is no "phone home" on launch, no version check, no usage counter, and no
 error reporting.

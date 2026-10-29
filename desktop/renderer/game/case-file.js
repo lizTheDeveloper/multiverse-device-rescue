@@ -42,6 +42,7 @@ const LEAD_MODULES = new Set([
   'scheduled_tasks_audit', 'browser_extension_audit', 'chrome_extensions', 'safari_extensions', 'suspicious_processes',
   'win_suspicious_processes', 'win_autoruns_audit', 'win_startup', 'win_services_audit', 'network_proxy_check',
   'win_proxy_detect', 'win_remote_access_audit', 'ssh_config_audit', 'sharing_services_audit',
+  'knockknock_scan', 'rootkit_scanners',
 ]);
 // Outside the Gatehouse and the Wires, these still leave a door open.
 const DOOR_MODULES = new Set([

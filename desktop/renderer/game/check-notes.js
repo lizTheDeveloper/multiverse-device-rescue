@@ -827,6 +827,15 @@ export const CHECK_NOTES = {
   "where": "Input Monitoring entries in TCC.db, `log show` for CGEventTap",
   "why": "Keyboard access lets an app record everything typed, including passwords."
  },
+ "knockknock_scan": {
+  "category": "security",
+  "platforms": [
+   "macOS"
+  ],
+  "what": "Everything set to start on its own, and who signed it",
+  "where": "Objective-See's KnockKnock (`-whosthere -skipVT`), optional, from a signed copy",
+  "why": "Unwanted software has to set itself up to start again; an unsigned program there is worth a look."
+ },
  "lan_device_inventory": {
   "category": "network",
   "platforms": [
@@ -1342,6 +1351,16 @@ export const CHECK_NOTES = {
   "what": "Signs of software hiding deep in the system",
   "where": "`csrutil status`, `kextstat`, `codesign -v` on /usr/bin/login, /usr/sbin/sshd, /bin/sh",
   "why": "Some unwanted software hides by changing core system files or loading into the system core."
+ },
+ "rootkit_scanners": {
+  "category": "security",
+  "platforms": [
+   "macOS",
+   "Linux"
+  ],
+  "what": "Known traces of software that hides itself (rootkits)",
+  "where": "`rkhunter --check --rwo` and `chkrootkit -q`, optional, as root",
+  "why": "Rootkits hide from ordinary checks; these scanners look for the traces known ones leave."
  },
  "rosetta_status": {
   "category": "integrity",

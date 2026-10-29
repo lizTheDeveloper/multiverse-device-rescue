@@ -10,14 +10,17 @@ If the person just wants the app, send them to the download buttons in the
 ## Rules
 
 1. **Look, don't touch.** Use `rescue scan --json`, `rescue export`, and
-   `rescue run <module> < /dev/null`. All of these are read-only (two
+   `rescue run <module> < /dev/null`. All of these are read-only (three
    exceptions: a scan removes a "marked as yours" entry from Reclaim City's
-   own list when that item is gone, and says so; and the AI tools check,
+   own list when that item is gone, and says so; the AI tools check,
    `ai_agent_audit`, downloads a free tool, HackMyAgent, from the npm
-   registry once, into the person's cache folder, and runs it). That check
-   is in a plain `rescue scan` and in the `ai_worm_response` profile. Before
-   the first such run, ask the person whether that download is OK; if they
-   say no, or you can't ask, pass `--no-downloads` (it works on `scan`,
+   registry once, into the person's cache folder, and runs it; and the deep
+   startup check, `knockknock_scan`, does the same with KnockKnock (2.5 MB,
+   from Objective-See's GitHub releases) unless it's installed in
+   Applications). The AI tools check is in a plain `rescue scan` and in the
+   `ai_worm_response` profile; the deep startup check downloads only in the
+   `deep_startup_check` profile. Before the first such run, ask the person
+   whether that download is OK; if they say no, or you can't ask, pass `--no-downloads` (it works on `scan`,
    `export` and `run`). Don't pass
    `--auto` or `--yes`, because both apply fixes. A fix needs the person to
    agree to that specific change after you've explained it. `rescue known add`
@@ -63,6 +66,7 @@ uv venv && uv pip install .          # or: python3 -m venv .venv && .venv/bin/pi
 | "Fix up my parent's laptop" | `rescue export --profile home_for_the_holidays --stdout` |
 | "Is there spyware on my iPhone?" (needs a local backup) | ask first, then `rescue run iphone_spyware_check < /dev/null` |
 | Linux machine | `rescue export --profile linux_security_checkup --stdout` |
+| "Is something hidden starting on my Mac?" / "rootkit?" | ask first (slow, may download KnockKnock), then `rescue scan --profile deep_startup_check --json`; on Linux add `sudo` for rkhunter and chkrootkit |
 
 `rescue scan --json` (no profile) and the `ai_worm_response` profile include
 the AI tools check, which downloads HackMyAgent from npm the first time (see
