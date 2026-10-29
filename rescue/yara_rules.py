@@ -16,12 +16,15 @@ build sees the ``yara_x`` import and bundles it (check modules ship as data).
 
 from __future__ import annotations
 
+import hashlib
 import os
 import plistlib
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from rescue import file_scan
 
 XPROTECT_BUNDLE = Path("/Library/Apple/System/Library/CoreServices/XProtect.bundle")
 # (rule set, file name). The rule set becomes the YARA namespace.
@@ -46,6 +49,8 @@ class Match:
     # The rule's own description, e.g. "MACOS.ADLOAD.B" (family = "ADLOAD").
     description: str
     family: str
+    # sha256 of the very bytes that were scanned.
+    sha256: str = ""
 
 
 @dataclass
@@ -117,14 +122,18 @@ def _family(description: str) -> str:
 
 def scan_files(
     rules: Any,
-    paths: list[tuple[str, int]],
+    paths: list,
     *,
     time_budget: float,
     max_total_bytes: int,
     engine: Any = None,
     clock=time.monotonic,
 ) -> tuple[list[Match], ScanStats]:
-    """Scan (path, size) pairs in order until done or a budget runs out.
+    """Scan listed files (file_scan.Target, or (path, size) pairs) in order until done or a budget runs out.
+
+    Each file is read once, from a descriptor opened without following a link
+    and checked to be the file that was listed; the bytes read are the bytes
+    scanned and the bytes hashed, so a match can't be pinned on another file.
 
     When the time runs out the scan stops; a file that would go over the byte
     budget is left out and the scan goes on with the smaller ones after it.
@@ -135,7 +144,9 @@ def scan_files(
     matches: list[Match] = []
     stats = ScanStats()
     start = clock()
-    for index, (path, size) in enumerate(paths):
+    for index, item in enumerate(paths):
+        target = item if isinstance(item, file_scan.Target) else file_scan.Target(path=item[0], size=item[1], place="")
+        path, size = target.path, target.size
         if clock() - start >= time_budget:
             stats.stopped_by = "time"
             stats.left += len(paths) - index
@@ -145,8 +156,12 @@ def scan_files(
             stats.left += 1
             stats.left_bytes += size
             continue
+        data = file_scan.read_target(target, size)  # grown since it was listed: not the file listed
+        if data is None:
+            stats.unreadable += 1
+            continue
         try:
-            results = scanner.scan_file(path)
+            results = scanner.scan(data)
         except yara_x.TimeoutError:
             stats.timed_out += 1
             continue
@@ -157,12 +172,13 @@ def scan_files(
         stats.scanned += 1
         stats.scanned_bytes += size
         found = False
+        digest = hashlib.sha256(data).hexdigest() if results.matching_rules else ""
         for rule in results.matching_rules:
             meta = dict(rule.metadata or ())
             description = str(meta.get("description") or rule.identifier)
             matches.append(Match(
                 path=os.fspath(path), rule=rule.identifier, rule_set=rule.namespace,
-                description=description, family=_family(description),
+                description=description, family=_family(description), sha256=digest,
             ))
             found = True
         if found:

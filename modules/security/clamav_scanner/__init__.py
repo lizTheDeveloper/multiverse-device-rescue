@@ -77,7 +77,8 @@ _BIN_DIRS = {
 }
 _DB_FILES = ("main.cvd", "main.cld", "daily.cvd", "daily.cld")
 # "<path>: <signature> FOUND", one per infected file (clamscan --infected).
-_FOUND_RE = re.compile(r"^(?P<path>.+?): (?P<sig>\S+) FOUND$")
+# The path is matched against the files Reclaim City listed, never trusted.
+_FOUND_RE = re.compile(r"^(?P<path>.+): (?P<sig>[^\s:]+) FOUND$")
 
 _GET_IT = {
     "darwin": (
@@ -148,6 +149,33 @@ def _resolves(host: str = MIRROR_HOST, timeout: float = RESOLVE_TIMEOUT) -> bool
     worker.start()
     worker.join(timeout)
     return bool(answer and answer[0])
+
+
+def _match_found_lines(output: str, chosen: list) -> tuple[list, list]:
+    """(hits, unmatched) from clamscan's FOUND lines.
+
+    A hit is (target, archive member or None, signature), and only for a path
+    that is exactly one of the `chosen` files, or "<chosen file>!<member>" for
+    something found inside one. Anything else is unmatched: never hashed,
+    never offered for quarantine.
+    """
+    by_path = {t.path: t for t in chosen}
+    hits, unmatched = [], []
+    for line in output.splitlines():
+        m = _FOUND_RE.match(line.rstrip("\r"))
+        if not m:
+            continue
+        path, sig = m.group("path"), m.group("sig")
+        if path in by_path:
+            hits.append((by_path[path], None, sig))
+            continue
+        # The listed file is the longest exact prefix that ends just before a "!".
+        cuts = [i for i, c in enumerate(path) if c == "!" and path[:i] in by_path]
+        if cuts:
+            hits.append((by_path[path[:cuts[-1]]], path[cuts[-1] + 1:], sig))
+            continue
+        unmatched.append((path, sig))
+    return hits, unmatched
 
 
 class _CouldNotScan(Exception):
@@ -398,11 +426,7 @@ class Module(ModuleBase):
             res = self._run(self._scan_args(clamscan, database, str(listing)), timeout=self.scan_timeout)
             seconds = round(self._now() - started, 1)
 
-        hits = []
-        for line in res.stdout.splitlines():
-            m = _FOUND_RE.match(line.strip())
-            if m:
-                hits.append((m.group("path"), m.group("sig")))
+        hits, unmatched = _match_found_lines(res.stdout, chosen)
         summary = {
             "files_listed": len(found.targets),
             "files_scanned": len(chosen),
@@ -414,8 +438,27 @@ class Module(ModuleBase):
             "database_dir": database,
             "database_fetched": fetched,
             "exit_code": res.returncode,
+            "skipped_odd_names": found.odd_names,
+            "unmatched_reports": len(unmatched),
         }
-        findings = [self._hit_finding(path, sig, summary) for path, sig in hits]
+        findings = [self._hit_finding(target, member, sig, summary) for target, member, sig in hits]
+        if unmatched:
+            # ClamAV named something that isn't one of the files it was given:
+            # nothing is hashed or offered for quarantine, and it isn't clean.
+            findings.append(Finding(
+                title="ClamAV reported something we couldn't match to a file",
+                description=(
+                    f"ClamAV reported {len(unmatched)} match(es) under a name that isn't one of the "
+                    "files it was asked to check, so we can't say which file it means and nothing "
+                    "was offered for quarantine. This isn't a clean result. Running the scan again "
+                    "usually sorts it out."
+                ),
+                severity=Severity.INFO,
+                category=self.category,
+                code="security.clamav_scanner.scan_incomplete",
+                data={"check": "scan_incomplete", "reason": "unmatched",
+                      "signatures": sorted({sig for _, sig in unmatched})[:20], **summary},
+            ))
         if res.timed_out:
             findings.append(Finding(
                 title="The ClamAV scan didn't finish",
@@ -431,9 +474,9 @@ class Module(ModuleBase):
                 data={"check": "scan_incomplete", "reason": "time", **summary},
             ))
             return findings
-        if res.returncode not in (0, 1) and not hits:
+        if res.returncode not in (0, 1) and not hits and not unmatched:
             raise _CouldNotScan("scan_failed", exit_code=res.returncode, detail=(res.stderr or "")[-300:])
-        if not hits:
+        if not hits and not unmatched:
             more = f" {left} more were left out to keep the scan a manageable size." if left else ""
             findings.append(Finding(
                 title=f"ClamAV found no viruses ({len(chosen)} files checked)",
@@ -456,20 +499,18 @@ class Module(ModuleBase):
             f"--max-scansize={4 * self.max_file_bytes // MB}M",
         ]
 
-    def _hit_finding(self, path: str, signature: str, summary: dict) -> Finding:
-        # A file inside an archive is reported as "archive.zip!inner" or similar;
-        # the file to act on is the archive itself.
-        on_disk = path.split("!")[0] if not os.path.exists(path) else path
-        try:
-            digest = file_scan.sha256_file(on_disk)
-        except OSError:
-            digest = None
+    def _hit_finding(self, target: file_scan.Target, member: str | None, signature: str, summary: dict) -> Finding:
+        # The file is one Reclaim City listed (exactly), hashed only if it's
+        # still the very file listed; inside an archive, the archive is the file.
+        on_disk = target.path
+        digest = file_scan.sha256_target(target)
         name = os.path.basename(on_disk)
         watching = file_scan.monitoring_name(on_disk, signature)
         data = {
             "check": "monitoring_found" if watching else "virus_found",
             "path": on_disk,
             "file_name": name,
+            "archive_member": member,
             "signature": signature,
             "sha256": digest,
             "virustotal_url": file_scan.virustotal_url(digest) if digest else None,

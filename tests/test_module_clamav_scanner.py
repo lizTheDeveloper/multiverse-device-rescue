@@ -247,3 +247,59 @@ def test_emitted_codes_are_declared():
     declared = set(_module().emits_codes)
     assert all(c.startswith("security.clamav_scanner.") for c in declared)
     assert {"security.clamav_scanner.virus_found", "security.clamav_scanner.could_not_scan"} <= declared
+
+
+# --- ClamAV's output is matched against the files it was given, never trusted --------
+
+
+def test_a_reported_path_that_was_not_listed_is_never_hashed_or_blamed(db, targets, tmp_path):
+    db(1)
+    other = targets.home / "Downloads" / "unlisted-but-real"
+    clam = FakeClam(scan=_res(1, f"{other}: Win.Trojan.Fake-1 FOUND\n{targets.bad}x: Win.Trojan.Fake-2 FOUND\n"))
+    res = _deep(which=_which({"clamscan"}), runner=clam, home=targets.home, cache_dir=tmp_path / "c").check(_profile())
+    codes = [f.code.rsplit(".", 1)[1] for f in res.findings]
+    assert "virus_found" not in codes and "scan_clean" not in codes
+    f = next(f for f in res.findings if f.data.get("reason") == "unmatched")
+    assert "isn't a clean result" in f.description and "path" not in f.data and "sha256" not in f.data
+    assert f.data["unmatched_reports"] == 2
+
+
+def test_an_archive_member_is_pinned_on_the_exact_listed_archive(db, targets, tmp_path):
+    db(1)
+    odd = targets.home / "Downloads" / "wow!.zip"
+    odd.write_bytes(b"PK\x03\x04 another archive")
+    out = f"{targets.bad}!dropper.exe: Win.Trojan.Agent-1 FOUND\n{odd}!inner/x.js: Js.Trojan.Agent-2 FOUND\n"
+    res = _deep(which=_which({"clamscan"}), runner=FakeClam(scan=_res(1, out)), home=targets.home,
+                cache_dir=tmp_path / "c").check(_profile())
+    hits = {f.data["path"]: f.data for f in res.findings if f.code.endswith("virus_found")}
+    assert hits[str(targets.bad)]["archive_member"] == "dropper.exe"
+    assert hits[str(odd)]["archive_member"] == "inner/x.js"
+    assert all(len(h["sha256"]) == 64 for h in hits.values())
+
+
+def test_a_file_swapped_after_listing_is_not_hashed(db, targets, tmp_path, monkeypatch):
+    db(1)
+    real_collect = file_scan.collect_targets
+
+    def collect_then_swap(*a, **k):
+        found = real_collect(*a, **k)
+        targets.bad.unlink()
+        targets.bad.write_bytes(b"a different file under the same name")
+        return found
+
+    monkeypatch.setattr(file_scan, "collect_targets", collect_then_swap)
+    res = _deep(which=_which({"clamscan"}), runner=FakeClam(scan=_res(1, f"{targets.bad}: Win.Trojan.A-1 FOUND\n")),
+                home=targets.home, cache_dir=tmp_path / "c").check(_profile())
+    hit = next(f for f in res.findings if f.code.endswith("virus_found"))
+    assert hit.data["sha256"] is None and hit.data["virustotal_url"] is None
+
+
+def test_a_name_with_a_line_break_never_reaches_the_file_list(db, targets, tmp_path):
+    db(1)
+    # A name can't hold "/", but a line break alone would split one entry into two.
+    sneaky = targets.home / "Downloads" / "x.txt\ninvoice.zip"
+    sneaky.write_bytes(b"hello")
+    clam = FakeClam()
+    res = _deep(which=_which({"clamscan"}), runner=clam, home=targets.home, cache_dir=tmp_path / "c").check(_profile())
+    clean = next(f for f in res.findings if f.code.endswith("scan_clean"))
+    assert clean.data["skipped_odd_names"] == 1 and clean.data["files_scanned"] == 2

@@ -18,10 +18,10 @@ Security > Protection history), and that's where its finds belong.
 from __future__ import annotations
 
 import errno
+import hashlib
 import json
 import os
 import re
-import shutil
 import stat
 import sys
 from datetime import datetime, timezone
@@ -168,33 +168,140 @@ def _same_file(a: os.stat_result, b: os.stat_result) -> bool:
     return (a.st_ino, a.st_dev, a.st_size, a.st_mtime_ns) == (b.st_ino, b.st_dev, b.st_size, b.st_mtime_ns)
 
 
-def _move(src: str, dst: str, expect_sha256: str, before: os.stat_result) -> None:
-    """Move a regular file to a new name without replacing anything.
+def _same_inode(a: os.stat_result, b: os.stat_result) -> bool:
+    return (a.st_ino, a.st_dev) == (b.st_ino, b.st_dev)
 
-    On the same disk, ``os.link`` (which fails if anything already exists at
-    ``dst``) then unlink. Across disks, a copy into a file created with
-    O_EXCL, checked against the sha256, then unlink. Either way the original
-    must still be the very file that was checked, or nothing is removed.
+
+# Every file and folder this action touches is reached through descriptors
+# opened without following links, and acted on relative to its folder's
+# descriptor (link/unlink/open with dir_fd, fchmod on an open descriptor), so
+# nothing can be swapped for a symbolic link between a check and the change.
+_DIR_FLAGS = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+_FILE_FLAGS = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+_NEW_FLAGS = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+
+
+def _open_dir(path: str) -> int:
+    """A descriptor for folder `path`, opened one part at a time from / without following any link.
+
+    Raises OSError (ELOOP/ENOTDIR) when any part of the path is a symbolic link.
+    """
+    if not os.path.isabs(path):
+        raise OSError(errno.EINVAL, "not a full path")
+    fd = os.open("/", _DIR_FLAGS)
+    try:
+        for part in [p for p in path.split("/") if p]:
+            if part in (".", ".."):
+                raise OSError(errno.EINVAL, "path has . or ..")
+            nxt = os.open(part, _DIR_FLAGS, dir_fd=fd)
+            os.close(fd)
+            fd = nxt
+    except BaseException:
+        os.close(fd)
+        raise
+    return fd
+
+
+def _hash_fd(fd: int) -> str:
+    digest = hashlib.sha256()
+    os.lseek(fd, 0, os.SEEK_SET)
+    while True:
+        block = os.read(fd, 1024 * 1024)
+        if not block:
+            break
+        digest.update(block)
+    return digest.hexdigest()
+
+
+def _copy_fd(src_fd: int, name: str, dir_fd: int) -> os.stat_result:
+    """Copy an open file into a new file `name` in `dir_fd` (never replacing anything); its stat."""
+    out = os.open(name, _NEW_FLAGS, 0o600, dir_fd=dir_fd)
+    try:
+        os.lseek(src_fd, 0, os.SEEK_SET)
+        while True:
+            block = os.read(src_fd, 1024 * 1024)
+            if not block:
+                break
+            os.write(out, block)
+        os.fsync(out)
+        return os.fstat(out)
+    except BaseException:
+        os.close(out)
+        os.unlink(name, dir_fd=dir_fd)
+        raise
+    finally:
+        try:
+            os.close(out)
+        except OSError:
+            pass
+
+
+def _transfer(src_name: str, src_dir: int, src_fd: int, dst_name: str, dst_dir: int,
+              expect: os.stat_result, expect_sha256: str, mode: int) -> None:
+    """Move one regular file between two folders held open, then set its permissions.
+
+    `src_fd` is the source opened without following links and checked against
+    `expect`. Same disk: a hard link (fails if anything is at `dst_name`).
+    Across disks: a copy into a new O_EXCL file. The new name is then opened
+    without following links and must be the file just made (same inode); its
+    contents must match `expect_sha256`; only then are its permissions set
+    (fchmod on that descriptor) and the old name removed, after checking the
+    old name is still the very file that was checked.
     """
     try:
-        os.link(src, dst, follow_symlinks=False)
+        os.link(src_name, dst_name, src_dir_fd=src_dir, dst_dir_fd=dst_dir, follow_symlinks=False)
+        made = os.fstat(src_fd)
     except OSError as exc:
         if exc.errno != errno.EXDEV:
             raise
-        fd = os.open(dst, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        try:
-            with open(src, "rb") as fin, os.fdopen(fd, "wb") as fout:
-                shutil.copyfileobj(fin, fout)
-                fout.flush()
-                os.fsync(fout.fileno())
-        except OSError:
-            os.unlink(dst)
-            raise
-    now = os.lstat(src)
-    if not _same_file(before, now) or file_scan.sha256_file(dst) != expect_sha256:
-        os.unlink(dst)
+        made = _copy_fd(src_fd, dst_name, dst_dir)
+    try:
+        dfd = os.open(dst_name, _FILE_FLAGS, dir_fd=dst_dir)
+    except OSError:
+        raise OSError("the new file couldn't be opened") from None
+    try:
+        now = os.fstat(dfd)
+        if not stat.S_ISREG(now.st_mode) or not _same_inode(now, made) or _hash_fd(dfd) != expect_sha256:
+            raise OSError("the file changed while it was being moved")
+        os.fchmod(dfd, mode)
+    except BaseException:
+        os.close(dfd)
+        _unlink_if_same(dst_name, dst_dir, made)
+        raise
+    os.close(dfd)
+    old = os.lstat(src_name, dir_fd=src_dir)
+    if not _same_file(old, expect):
+        _unlink_if_same(dst_name, dst_dir, made)
         raise OSError("the file changed while it was being moved")
-    os.unlink(src)
+    os.unlink(src_name, dir_fd=src_dir)
+
+
+def _unlink_if_same(name: str, dir_fd: int, expect: os.stat_result) -> None:
+    try:
+        if _same_inode(os.lstat(name, dir_fd=dir_fd), expect):
+            os.unlink(name, dir_fd=dir_fd)
+    except OSError:
+        pass
+
+
+def _open_quarantine() -> int:
+    """The quarantine folder, made if needed, opened without links, yours, and closed to others."""
+    qdir = quarantine_dir()
+    qdir.mkdir(parents=True, exist_ok=True)
+    fd = _open_dir(os.path.realpath(qdir))
+    st = os.fstat(fd)
+    if st.st_uid != _uid():
+        os.close(fd)
+        raise OSError("the quarantine folder belongs to another account")
+    os.fchmod(fd, 0o700)
+    return fd
+
+
+def _write_manifest(qfd: int, qid: str, entry: dict, new: bool) -> None:
+    flags = (_NEW_FLAGS if new else os.O_WRONLY | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0))
+    fd = os.open(f"{qid}.json", flags, 0o600, dir_fd=qfd)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(json.dumps(entry, indent=2))
 
 
 def _gone_already(path):
@@ -246,51 +353,67 @@ def quarantine(path, *, module: str | None = None, detail: str | None = None) ->
     except Refused as exc:
         return _doc(ACTION, error="not_allowed", message=f"We changed nothing. {exc}")
     real, before = info["path"], info["stat"]
-    try:
-        digest = file_scan.sha256_file(real)
-    except OSError as exc:
-        return _doc(ACTION, status="failed", error="io", message=f"We changed nothing. The file couldn't be read ({exc}).")
+    parent, name = os.path.split(real)
 
-    stamp = datetime.now(timezone.utc)
-    qid = f"{stamp.strftime('%Y%m%dT%H%M%SZ')}-file-{digest[:16]}"
-    qdir = quarantine_dir()
-    dest = _held_path(qid)
-    manifest = _manifest_path(qid)
-    entry = {
-        "id": qid,
-        "original_path": real,
-        "named_path": os.path.expanduser(str(path)),
-        "quarantine_path": str(dest),
-        "quarantined_at": stamp.isoformat(),
-        "sha256": digest,
-        "size": before.st_size,
-        "mode": stat.S_IMODE(before.st_mode),
-        "module": module,
-        "detail": detail,
-    }
+    pfd = sfd = qfd = None
     try:
-        qdir.mkdir(parents=True, exist_ok=True)
-        os.chmod(qdir, 0o700)
-        if os.path.lexists(dest) or manifest.exists():
-            return _doc(ACTION, error="exists", message="We changed nothing. That file is already in quarantine.")
-        manifest.write_text(json.dumps(entry, indent=2), encoding="utf-8")
-        _move(real, str(dest), digest, before)
-        # Read-only for you, nothing for anyone else, and never runnable.
-        os.chmod(dest, 0o400)
-    except OSError as exc:
-        for leftover in (manifest,):
+        try:
+            pfd = _open_dir(parent)
+            sfd = os.open(name, _FILE_FLAGS, dir_fd=pfd)
+        except OSError:
+            return _doc(ACTION, error="not_allowed",
+                        message="We changed nothing. The file or its folder changed (a shortcut appeared), so we left it alone.")
+        if not _same_file(os.fstat(sfd), before):
+            return _doc(ACTION, error="not_allowed", message="We changed nothing. The file changed since it was checked.")
+        try:
+            digest = _hash_fd(sfd)
+        except OSError as exc:
+            return _doc(ACTION, status="failed", error="io", message=f"We changed nothing. The file couldn't be read ({exc}).")
+
+        stamp = datetime.now(timezone.utc)
+        qid = f"{stamp.strftime('%Y%m%dT%H%M%SZ')}-file-{digest[:16]}"
+        dest = _held_path(qid)
+        entry = {
+            "id": qid,
+            "original_path": real,
+            "named_path": os.path.expanduser(str(path)),
+            "quarantine_path": str(dest),
+            "quarantined_at": stamp.isoformat(),
+            "sha256": digest,
+            "size": before.st_size,
+            "mode": stat.S_IMODE(before.st_mode),
+            "module": module,
+            "detail": detail,
+        }
+        try:
+            qfd = _open_quarantine()
             try:
-                leftover.unlink()
+                _write_manifest(qfd, qid, entry, new=True)
+            except FileExistsError:
+                return _doc(ACTION, error="exists", message="We changed nothing. That file is already in quarantine.")
+            try:
+                # Read-only for you, nothing for anyone else, and never runnable.
+                _transfer(name, pfd, sfd, dest.name, qfd, before, digest, 0o400)
             except OSError:
-                pass
-        return _doc(ACTION, status="failed", error="move_failed", message=f"We changed nothing. The file couldn't be moved ({exc}).")
+                try:
+                    os.unlink(f"{qid}.json", dir_fd=qfd)
+                except OSError:
+                    pass
+                raise
+        except OSError as exc:
+            return _doc(ACTION, status="failed", error="move_failed", message=f"We changed nothing. The file couldn't be moved ({exc}).")
 
-    verified = (
-        not os.path.lexists(real)
-        and dest.is_file()
-        and not (os.lstat(dest).st_mode & 0o111)
-        and file_scan.sha256_file(dest) == digest
-    )
+        try:
+            os.lstat(name, dir_fd=pfd)
+            source_gone = False
+        except FileNotFoundError:
+            source_gone = True
+        held = os.lstat(dest.name, dir_fd=qfd)
+        verified = source_gone and stat.S_ISREG(held.st_mode) and not (held.st_mode & 0o111)
+    finally:
+        for fd in (sfd, pfd, qfd):
+            if fd is not None:
+                os.close(fd)
     return _doc(
         ACTION,
         applied=True,
@@ -299,7 +422,7 @@ def quarantine(path, *, module: str | None = None, detail: str | None = None) ->
         message="Done. The file is in quarantine, where it can't run. Nothing was deleted."
         if verified else "We moved the file but could not confirm it.",
         changes=[{
-            "title": f"Quarantined '{os.path.basename(real)}'",
+            "title": f"Quarantined '{name}'",
             "description": f"Moved {real} to {dest} and made it read-only",
             "success": True,
             "error": None,
@@ -311,23 +434,30 @@ def quarantine(path, *, module: str | None = None, detail: str | None = None) ->
     )
 
 
-def _check_destination(original: str) -> None:
-    """Raises Refused when putting a file back at `original` isn't safe."""
-    if not isinstance(original, str) or not os.path.isabs(original) or "\0" in original:
+def _check_destination(original) -> None:
+    """Raises Refused when the recorded place isn't one a file may be put back into (by its path)."""
+    if not isinstance(original, str) or not os.path.isabs(original) or "\0" in original \
+            or any(ord(c) < 32 or ord(c) == 127 for c in original):
         raise Refused("That record looks damaged. We changed nothing.")
     parent = os.path.dirname(original)
     if file_scan.is_protected(original, _platform()) or file_scan.is_system_path(parent + os.sep, _platform()):
         raise Refused("That record points into a system folder. We changed nothing.")
     if _inside(os.path.realpath(parent), quarantine_dir()):
         raise Refused("That record looks damaged. We changed nothing.")
-    try:
-        pst = os.stat(parent)
-    except OSError:
-        raise Refused("The folder it came from isn't there any more, so we did not put it back.") from None
-    if not stat.S_ISDIR(pst.st_mode) or not os.access(parent, os.W_OK):
-        raise Refused("The folder it came from can't be changed from your account, so we did not put it back.")
-    if os.path.lexists(original):
-        raise Refused("Something already exists where this file belongs, so we did not put it back. Nothing was changed.")
+
+
+def _check_parent(pfd: int) -> None:
+    """Raises Refused unless the folder held open is yours and not open for anyone to write in."""
+    st = os.fstat(pfd)
+    if not stat.S_ISDIR(st.st_mode):
+        raise Refused("The place it came from isn't a folder any more, so we did not put it back.")
+    if st.st_uid != _uid():
+        raise Refused(
+            "The folder it came from belongs to another account or the system (a shared or temporary "
+            "folder, for example), so we did not put it back. The file stays safe in quarantine."
+        )
+    if st.st_mode & stat.S_IWOTH and not st.st_mode & stat.S_ISVTX:
+        raise Refused("Anyone can change the folder it came from, so we did not put it back. The file stays safe in quarantine.")
 
 
 def restore(quarantine_id) -> dict:
@@ -337,48 +467,75 @@ def restore(quarantine_id) -> dict:
         return _doc(UNDO_ACTION, error="not_allowed", message="That is not a valid undo id. We changed nothing.")
     qid = quarantine_id
     try:
-        entry = json.loads(_manifest_path(qid).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        qfd = _open_dir(os.path.realpath(quarantine_dir()))
+    except OSError:
         return _doc(UNDO_ACTION, status="failed", error="unknown_item", message="We could not find that item to put back.")
-    if not isinstance(entry, dict) or entry.get("id") != qid or entry.get("restored_at"):
-        return _doc(UNDO_ACTION, error="not_allowed", message="That item was already put back or is not valid. We changed nothing.")
-    digest = entry.get("sha256")
-    # The held file's name is rebuilt from the id, never read from the manifest.
-    src = _held_path(qid)
-    original = entry.get("original_path")
-    if not isinstance(digest, str) or not file_scan.SHA256_RE.match(digest) or not qid.endswith(digest[:16]):
-        return _doc(UNDO_ACTION, error="not_allowed", message="That record looks damaged. We changed nothing.")
-    if src.is_symlink() or not src.is_file():
-        return _doc(UNDO_ACTION, status="failed", error="missing", message="The saved file is missing, so we changed nothing.")
-    if file_scan.sha256_file(src) != digest:
-        return _doc(UNDO_ACTION, error="tampered", message="The saved file has changed since it was set aside, so we did not put it back.")
+    pfd = hfd = None
     try:
-        _check_destination(original)
-    except Refused as exc:
-        return _doc(UNDO_ACTION, error="exists" if "already exists" in str(exc) else "not_allowed", message=str(exc))
-    mode = entry.get("mode")
-    # Its permissions come back as they were, minus set-user/group-id bits.
-    mode = mode & 0o777 if isinstance(mode, int) else 0o644
-    try:
-        os.chmod(src, 0o600)
-        _move(str(src), original, digest, os.lstat(src))
-        os.chmod(original, mode)
-        entry["restored_at"] = datetime.now(timezone.utc).isoformat()
-        _manifest_path(qid).write_text(json.dumps(entry, indent=2), encoding="utf-8")
-    except OSError as exc:
         try:
-            if src.exists():
-                os.chmod(src, 0o400)
+            mfd = os.open(f"{qid}.json", _FILE_FLAGS, dir_fd=qfd)
+            with os.fdopen(mfd, "r", encoding="utf-8") as fh:
+                entry = json.loads(fh.read())
+        except (OSError, ValueError):
+            return _doc(UNDO_ACTION, status="failed", error="unknown_item", message="We could not find that item to put back.")
+        if not isinstance(entry, dict) or entry.get("id") != qid or entry.get("restored_at"):
+            return _doc(UNDO_ACTION, error="not_allowed", message="That item was already put back or is not valid. We changed nothing.")
+        digest = entry.get("sha256")
+        original = entry.get("original_path")
+        if not isinstance(digest, str) or not file_scan.SHA256_RE.match(digest) or not qid.endswith(digest[:16]):
+            return _doc(UNDO_ACTION, error="not_allowed", message="That record looks damaged. We changed nothing.")
+        try:
+            _check_destination(original)
+        except Refused as exc:
+            return _doc(UNDO_ACTION, error="not_allowed", message=str(exc))
+        # The held file's name is rebuilt from the id, never read from the manifest.
+        held_name = f"{qid}{SUFFIX}"
+        try:
+            hfd = os.open(held_name, _FILE_FLAGS, dir_fd=qfd)
         except OSError:
+            return _doc(UNDO_ACTION, status="failed", error="missing", message="The saved file is missing, so we changed nothing.")
+        held = os.fstat(hfd)
+        if not stat.S_ISREG(held.st_mode) or _hash_fd(hfd) != digest:
+            return _doc(UNDO_ACTION, error="tampered", message="The saved file has changed since it was set aside, so we did not put it back.")
+        parent, name = os.path.split(original)
+        try:
+            pfd = _open_dir(parent)
+        except OSError:
+            return _doc(UNDO_ACTION, error="not_allowed",
+                        message="The folder it came from isn't there any more, or is now a shortcut, so we did not put it back.")
+        try:
+            _check_parent(pfd)
+        except Refused as exc:
+            return _doc(UNDO_ACTION, error="not_allowed", message=str(exc))
+        try:
+            os.lstat(name, dir_fd=pfd)
+            return _doc(
+                UNDO_ACTION, error="exists",
+                message="Something already exists where this file belongs, so we did not put it back. Nothing was changed.",
+            )
+        except FileNotFoundError:
             pass
-        return _doc(UNDO_ACTION, status="failed", error="move_failed", message=f"We could not put the file back: {exc}")
+        mode = entry.get("mode")
+        # Its permissions come back as they were, minus set-user/group-id bits.
+        mode = mode & 0o777 if isinstance(mode, int) else 0o644
+        try:
+            _transfer(held_name, qfd, hfd, name, pfd, held, digest, mode)
+            entry["restored_at"] = datetime.now(timezone.utc).isoformat()
+            _write_manifest(qfd, qid, entry, new=False)
+        except OSError as exc:
+            return _doc(UNDO_ACTION, status="failed", error="move_failed", message=f"We could not put the file back: {exc}")
+        back = os.lstat(name, dir_fd=pfd)
+    finally:
+        for fd in (hfd, pfd, qfd):
+            if fd is not None:
+                os.close(fd)
     return _doc(
         UNDO_ACTION,
         applied=True,
-        verified=os.path.isfile(original) and file_scan.sha256_file(original) == digest,
+        verified=stat.S_ISREG(back.st_mode),
         status="restored",
         message="Put back where it was. It can run again, so only do this if you're sure it's safe.",
-        changes=[{"title": f"Put back '{os.path.basename(original)}'", "description": f"Moved it back to {original}",
+        changes=[{"title": f"Put back '{name}'", "description": f"Moved it back to {original}",
                   "success": True, "error": None}],
         target=original,
         quarantine_id=qid,

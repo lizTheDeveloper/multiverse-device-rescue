@@ -262,3 +262,83 @@ def test_cli_lookup_prints_the_hash_and_the_url_and_uploads_nothing(env):
     assert "Nothing was uploaded" in text and "Never upload anything private" in text
     missing = CliRunner().invoke(main, ["lookup-file", str(env.downloads / "nope")])
     assert missing.exit_code != 0
+
+
+# --- links swapped in mid-way never redirect a move or a chmod ------------------------
+
+
+def test_restore_refuses_a_folder_that_became_a_shortcut(env, tmp_path):
+    f = _bad_file(env)
+    qid = qf.quarantine(str(f))["quarantine_id"]
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    env.downloads.rmdir()
+    env.downloads.symlink_to(elsewhere)
+    doc = qf.restore(qid)
+    assert doc["status"] == "refused" and "shortcut" in doc["message"]
+    assert not (elsewhere / f.name).exists()
+    assert (qf.quarantine_dir() / f"{qid}.quarantined").exists()
+
+
+def test_restore_refuses_folders_that_are_not_yours_or_open_to_everyone(env, monkeypatch):
+    f = _bad_file(env)
+    qid = qf.quarantine(str(f))["quarantine_id"]
+    with monkeypatch.context() as m:
+        m.setattr(qf, "_uid", lambda: os.getuid() + 1)
+        doc = qf.restore(qid)
+    assert doc["status"] == "refused" and "belongs to another account" in doc["message"]
+    os.chmod(env.downloads, 0o777)
+    doc = qf.restore(qid)
+    assert doc["status"] == "refused" and "Anyone can change" in doc["message"]
+    assert not f.exists()
+    os.chmod(env.downloads, 0o1777)  # sticky: others can't remove or replace your files
+    assert qf.restore(qid)["status"] == "restored"
+    os.chmod(env.downloads, 0o755)
+
+
+def test_a_link_swapped_in_after_the_move_never_gets_the_chmod(env, monkeypatch, tmp_path):
+    victim = tmp_path / "victim.txt"
+    victim.write_text("someone else's file")
+    os.chmod(victim, 0o644)
+    f = _bad_file(env)
+    qid = qf.quarantine(str(f))["quarantine_id"]
+
+    def link_then_swap(src, dst, *, src_dir_fd=None, dst_dir_fd=None, follow_symlinks=True):
+        os.symlink(str(victim), dst, dir_fd=dst_dir_fd)
+
+    monkeypatch.setattr(qf.os, "link", link_then_swap)
+    doc = qf.restore(qid)
+    assert doc["status"] == "failed"
+    assert stat.S_IMODE(os.stat(victim).st_mode) == 0o644, "the chmod never followed the link"
+    assert (qf.quarantine_dir() / f"{qid}.quarantined").exists()
+
+
+def test_quarantine_never_follows_a_link_swapped_in_for_the_file(env, monkeypatch, tmp_path):
+    real = _bad_file(env)
+    link = env.downloads / "swapped.command"
+    link.symlink_to(real)
+    monkeypatch.setattr(qf, "validate", lambda p: {"path": str(link), "stat": os.lstat(real)})
+    doc = qf.quarantine(str(link))
+    assert doc["status"] == "refused" and "shortcut" in doc["message"]
+    assert real.exists() and link.is_symlink()
+    assert stat.S_IMODE(os.stat(real).st_mode) == 0o755
+
+
+def test_quarantine_refuses_a_file_changed_after_the_check(env, monkeypatch):
+    f = _bad_file(env)
+    before = os.lstat(f)
+    f.write_bytes(b"#!/bin/sh\necho changed, and longer than before\n")
+    monkeypatch.setattr(qf, "validate", lambda p: {"path": str(f), "stat": before})
+    doc = qf.quarantine(str(f))
+    assert doc["status"] == "refused" and "changed" in doc["message"]
+    assert f.exists()
+
+
+def test_control_characters_in_a_recorded_path_are_refused(env):
+    f = _bad_file(env)
+    qid = qf.quarantine(str(f))["quarantine_id"]
+    manifest = qf.quarantine_dir() / f"{qid}.json"
+    entry = json.loads(manifest.read_text())
+    entry["original_path"] = str(env.downloads / "a\nb")
+    manifest.write_text(json.dumps(entry))
+    assert "damaged" in qf.restore(qid)["message"]

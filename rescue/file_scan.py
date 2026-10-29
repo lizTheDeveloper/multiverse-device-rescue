@@ -91,6 +91,10 @@ class Target:
     # Which place it was found in: "downloads", "apps", "background_jobs",
     # "temporary", "shared", "browser_add_ons".
     place: str
+    # The file listed (0 = not recorded). Reading it later checks it's still
+    # this very file, so a name swapped in the meantime is never read or blamed.
+    ino: int = 0
+    dev: int = 0
 
 
 @dataclass
@@ -104,6 +108,9 @@ class TargetSet:
     capped_places: list[str] = field(default_factory=list)
     # Files that weren't programs or scripts (only counted when programs_only).
     not_programs: int = 0
+    # Names with a control character (a line break, say) are never listed:
+    # they could pass for a different file in a list of names.
+    odd_names: int = 0
     # The listing itself ran out of time: some places weren't looked at.
     listing_stopped: bool = False
     seconds: float = 0.0
@@ -134,6 +141,73 @@ def sha256_file(path: str | os.PathLike, chunk: int = 1024 * 1024) -> str:
                 break
             digest.update(block)
     return digest.hexdigest()
+
+
+def has_control_character(text: str) -> bool:
+    return any(ord(c) < 32 or ord(c) == 127 for c in str(text))
+
+
+_READ_FLAGS = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0)
+
+
+def _open_target(target: Target, max_bytes: int | None = None) -> int | None:
+    """A descriptor for the very file that was listed, or None.
+
+    Opened without following a link; it must still be a regular file with the
+    inode it had when listed, and no larger than `max_bytes`.
+    """
+    try:
+        fd = os.open(target.path, _READ_FLAGS)
+    except OSError:
+        return None
+    try:
+        st = os.fstat(fd)
+        same = not target.ino or (st.st_ino, st.st_dev) == (target.ino, target.dev)
+        if stat.S_ISREG(st.st_mode) and same and (max_bytes is None or st.st_size <= max_bytes):
+            return fd
+    except OSError:
+        pass
+    os.close(fd)
+    return None
+
+
+def read_target(target: Target, max_bytes: int) -> bytes | None:
+    """The listed file's contents, read from the same descriptor that was checked; None if it changed."""
+    fd = _open_target(target, max_bytes)
+    if fd is None:
+        return None
+    try:
+        chunks, total = [], 0
+        while total <= max_bytes:
+            block = os.read(fd, 1024 * 1024)
+            if not block:
+                break
+            chunks.append(block)
+            total += len(block)
+        return b"".join(chunks) if total <= max_bytes else None
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+
+
+def sha256_target(target: Target) -> str | None:
+    """sha256 of the very file that was listed, or None if it's gone or was swapped."""
+    fd = _open_target(target)
+    if fd is None:
+        return None
+    try:
+        digest = hashlib.sha256()
+        while True:
+            block = os.read(fd, 1024 * 1024)
+            if not block:
+                break
+            digest.update(block)
+        return digest.hexdigest()
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
 
 
 def is_system_path(path: str, platform: str | None = None, resolve: bool = True) -> bool:
@@ -307,6 +381,9 @@ def collect_targets(
         file (an app's or a job's), not from a walk, so it may go through links."""
         if count[0] >= max_files:
             return False
+        if has_control_character(path):
+            result.odd_names += 1
+            return True
         if time_budget is not None and clock() - start >= time_budget:
             result.listing_stopped = True
             return False
@@ -332,7 +409,8 @@ def collect_targets(
         if key in seen:
             return True
         seen.add(key)
-        by_place.setdefault(place, []).append(Target(path=path, size=st.st_size, place=place))
+        by_place.setdefault(place, []).append(Target(path=path, size=st.st_size, place=place,
+                                                       ino=st.st_ino, dev=st.st_dev))
         count[0] += 1
         return True
 
@@ -382,6 +460,9 @@ def _walk(folder: Path, depth: int, add, result: TargetSet, place: str) -> bool:
         first = False
         for entry in listed:
             looked += 1
+            if has_control_character(entry.name):
+                result.odd_names += 1
+                continue
             if looked > MAX_ENTRIES_PER_PLACE:
                 result.capped_places.append(str(folder))
                 return True
