@@ -742,3 +742,4 @@ kbd { font-family: var(--font-mono); font-size: 10px; padding: 0 4px; border: 1p
 /* Narrow windows: the path and the evidence give way first; the verdicts stay. */
 @media (max-width: 1100px) { .triage { --tri-cols: 22px minmax(0, 11em) minmax(0, 6em) minmax(0, 1.5fr) minmax(0, 1fr) 0 minmax(0, 1fr) 28em; } .tri-path, .tri-colhead > :nth-child(6) { visibility: hidden; } }
 @media (max-width: 860px) { .triage { --tri-cols: 22px minmax(0, 10em) 0 minmax(0, 1.5fr) minmax(0, 1fr) 0 0 28em; } .tri-where, .tri-evid, .tri-colhead > :nth-child(3), .tri-colhead > :nth-child(7) { visibility: hidden; } }
+.vt-lookup .vt-sha { word-break: break-all; font-size: 13px; }

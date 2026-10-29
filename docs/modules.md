@@ -32,13 +32,13 @@ $ rescue run <module_name>
 
 ## Coverage at a glance
 
-**285 modules** ship in the tree.
+**287 modules** ship in the tree.
 
 | Platform | Modules that run there |
 | --- | ---: |
-| macOS | 197 |
-| Windows | 102 |
-| Linux | 30 |
+| macOS | 198 |
+| Windows | 104 |
+| Linux | 31 |
 
 A module can support more than one platform, so these numbers add up to more than the total.
 
@@ -48,7 +48,7 @@ A module can support more than one platform, so these numbers add up to more tha
 | [integrity](#integrity) | 106 |
 | [network](#network) | 8 |
 | [performance](#performance) | 51 |
-| [security](#security) | 116 |
+| [security](#security) | 118 |
 
 ## bloatware
 
@@ -259,7 +259,7 @@ Why the machine is slow: CPU and memory pressure, thermals, disk space, startup 
 
 Malware and spyware indicators, persistence, remote access, credential exposure, and system hardening posture.
 
-116 modules — macOS 81, Windows 47, Linux 20.
+118 modules — macOS 82, Windows 49, Linux 21.
 
 | Module | Platforms | Risk | Duration | What it checks |
 | --- | --- | --- | --- | --- |
@@ -285,7 +285,7 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `certificate_audit` | macOS | safe | 10s | — |
 | `certificate_trust_audit` | macOS | safe | 10s | — |
 | `chrome_extensions` | macOS | safe | 3s | — |
-| `clamav_scanner` | macOS | safe | 2s | — |
+| `clamav_scanner` | macOS, Windows, Linux | safe | 2s; the deep virus scan reads many files | clamav_scanner: is ClamAV here, and (when asked) a ClamAV scan of the places malware lands. |
 | `code_signature_audit` | macOS, Windows | safe | 60s | Check whether installed applications are actually signed by who they claim. |
 | `cron_jobs_audit` | macOS | safe | 5s | — |
 | `crypto_miner_detect` | macOS | safe | 5s | — |
@@ -316,6 +316,7 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `lock_screen_check` | macOS | safe | 3s | — |
 | `login_password_policy` | macOS | safe | 5s | — |
 | `login_window_settings` | macOS | safe | 5s | — |
+| `malware_file_scan` | macOS | safe | up to 40s | malware_file_scan: check files against Apple's own malware rules (macOS). |
 | `malware_scan_indicators` | macOS | safe | 15s | — |
 | `mdm_enrollment` | macOS | safe | 5s | — |
 | `mdm_enrollment_check` | macOS | safe | 5s | — |
@@ -359,6 +360,7 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `win_crypto_miner_detect` | Windows | safe | 20s | Windows counterpart to the macOS ``crypto_miner_detect`` module. |
 | `win_defender` | Windows | moderate | 10s | — |
 | `win_defender_deep_check` | Windows | safe | 15s | — |
+| `win_defender_scan` | Windows | safe | a few seconds; the quick scan, when asked for, takes longer | win_defender_scan: what Windows Defender has found, and (when asked) a Defender quick scan. |
 | `win_firewall` | Windows | moderate | 5s | — |
 | `win_firewall_rules_audit` | Windows | safe | 10s | — |
 | `win_group_policy_audit` | Windows | safe | 10s | — |

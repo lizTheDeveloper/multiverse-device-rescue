@@ -9,6 +9,7 @@ const { createMarkPolicy, handleMark, handleUnmark } = require('./mark-policy');
 const { createFixPolicy, handleRunFix, handleRunAction, handleRunUndo } = require('./fix-policy');
 const { isAllowedSettingUrl, isAllowedGuideUrl } = require('./setting-urls');
 const { routerUrlFor, browserDisplayName } = require('./router-url');
+const { virusTotalUrlFor } = require('./virustotal-url');
 const { isAllowedMissionLink } = require('./mission-links');
 const { APP_ORIGIN, serveApp } = require('./app-protocol');
 const { userDataDir } = require('./user-data');
@@ -145,6 +146,14 @@ app.whenReady().then(() => {
   // built here, for private home-network addresses only (router-url.js).
   ipcMain.handle('open-router', (_e, ip) => {
     const url = routerUrlFor(ip);
+    if (!url) return false;
+    shell.openExternal(url);
+    return true;
+  });
+  // VirusTotal's page for one file's fingerprint. Only the sha256 crosses IPC;
+  // the URL is built here (virustotal-url.js). Nothing is uploaded.
+  ipcMain.handle('open-virustotal', (_e, sha256) => {
+    const url = virusTotalUrlFor(sha256);
     if (!url) return false;
     shell.openExternal(url);
     return true;

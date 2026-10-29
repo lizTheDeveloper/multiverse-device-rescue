@@ -54,16 +54,24 @@ def _fixable(entry) -> dict:
 
 
 def _action_fixable(finding, module_name, app_actions):
-    """A per-finding `fixable` for the disable_launch_agent action, or None."""
-    spec = (app_actions or {}).get("disable_launch_agent")
-    if not isinstance(spec, dict) or module_name not in spec.get("modules", []):
-        return None
+    """A per-finding `fixable` for an engine-level action (disable_launch_agent, quarantine_file), or None."""
     severity = getattr(getattr(finding, "severity", None), "value", None)
-    if severity not in spec.get("severities", []):
-        return None
+    for action, offer in (("disable_launch_agent", _offer_launch_agent), ("quarantine_file", _offer_quarantine)):
+        spec = (app_actions or {}).get(action)
+        if not isinstance(spec, dict) or module_name not in spec.get("modules", []):
+            continue
+        if severity not in spec.get("severities", []):
+            continue
+        fixable = offer(spec, getattr(finding, "data", None), severity, module_name)
+        if fixable is not None:
+            return fixable
+    return None
+
+
+def _offer_launch_agent(spec, data, severity, module_name):
     from rescue.actions.launch_agent import offer_target
 
-    hit = offer_target(getattr(finding, "data", None), severity, module_name)
+    hit = offer_target(data, severity, module_name)
     if hit is None:
         return None
     return {
@@ -72,6 +80,25 @@ def _action_fixable(finding, module_name, app_actions):
         "will_change": spec["will_change"].replace("{label}", hit["label"]),
         "how_to_undo": list(spec["how_to_undo"]),
     }
+
+
+def _offer_quarantine(spec, data, severity, module_name):
+    from rescue.actions.quarantine_file import offer_target
+
+    hit = offer_target(data, severity, module_name)
+    if hit is None:
+        return None
+    out = {
+        "action": "quarantine_file",
+        "target": hit["target"],
+        "will_change": spec["will_change"].replace("{name}", hit["name"]),
+        "how_to_undo": list(spec["how_to_undo"]),
+    }
+    # Monitoring software: whoever set it up may notice it's gone. The app
+    # shows this above the confirmation, before anything can be moved.
+    if hit["monitoring"]:
+        out["safety_note"] = SAFETY_NOTE
+    return out
 
 
 def _markable(finding, module_name):
@@ -128,7 +155,8 @@ def checks_to_json(results, platform: str, walkthroughs=None, app_fixes=None, ma
             cleanly get a "fixable" object so the app can offer a fix.
         app_actions: Optional "actions" section of rescue/app_fixes.json. A
             warning/critical finding from a listed module whose data names a
-            valid user LaunchAgent gets a per-finding action "fixable".
+            valid user LaunchAgent, or a critical malware match whose file can
+            be quarantined, gets a per-finding action "fixable".
         made_by: Optional {id(finding): [maker entry]} from rescue.attribution;
             attached to each finding as "made_by".
 

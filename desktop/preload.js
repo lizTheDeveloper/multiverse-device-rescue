@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('rescue', {
   },
   openSetting: (url) => ipcRenderer.invoke('open-setting', url),
   openRouter: (ip) => ipcRenderer.invoke('open-router', ip),
+  openVirusTotal: (sha256) => ipcRenderer.invoke('open-virustotal', sha256),
   defaultBrowser: () => ipcRenderer.invoke('default-browser'),
   aiPrompt: (payload) => ipcRenderer.invoke('ai-prompt', payload),
   askPreview: (payload) => ipcRenderer.invoke('ask-preview', payload),

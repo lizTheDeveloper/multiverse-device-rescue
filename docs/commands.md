@@ -1505,12 +1505,7 @@ Runs no external commands; reads files and system APIs only.
 
 ### `clamav_scanner`
 
-```text
-clamscan --version
-pgrep clamd
-sigtool --info …
-which …
-```
+Runs no external commands; reads files and system APIs only.
 
 ### `code_signature_audit`
 
@@ -1747,6 +1742,10 @@ defaults read /Library/Preferences/com.apple.loginwindow RetriesUntilHint
 defaults read /Library/Preferences/com.apple.loginwindow SHOWFULLNAME
 defaults read /Library/Preferences/com.apple.loginwindow autoLoginUser
 ```
+
+### `malware_file_scan`
+
+Runs no external commands; reads files and system APIs only.
 
 ### `malware_scan_indicators`
 
@@ -2086,6 +2085,10 @@ powershell -NoProfile -Command …
 powershell -NoProfile -Command 'Get-MpComputerStatus | ConvertTo-Json'
 powershell -NoProfile -Command 'Get-MpPreference | ConvertTo-Json'
 ```
+
+### `win_defender_scan`
+
+Runs no external commands; reads files and system APIs only.
 
 ### `win_firewall`
 

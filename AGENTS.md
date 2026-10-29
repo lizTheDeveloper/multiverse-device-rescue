@@ -18,7 +18,10 @@ If the person just wants the app, send them to the download buttons in the
    is in a plain `rescue scan` and in the `ai_worm_response` profile. Before
    the first such run, ask the person whether that download is OK; if they
    say no, or you can't ask, pass `--no-downloads` (it works on `scan`,
-   `export` and `run`). Don't pass
+   `export` and `run`). The `deep_virus_scan` profile has a second download:
+   where ClamAV is installed and its virus list is more than a week old, it
+   fetches a fresh list (about 115 MB) from ClamAV's own servers into the
+   person's cache folder. Ask about that one too. Don't pass
    `--auto` or `--yes`, because both apply fixes. A fix needs the person to
    agree to that specific change after you've explained it. `rescue known add`
    (marking a finding as "mine") counts as a change too: the person runs it
@@ -36,8 +39,17 @@ If the person just wants the app, send them to the download buttons in the
    person who installed it. Before suggesting removal, give them the safety
    note in the README and ask whether removal is safe for them.
 5. **Don't start heavy scans on your own.** `iphone_spyware_check` runs MVT
-   over an iPhone backup and can take a long time and a lot of memory. Ask
-   first.
+   over an iPhone backup and can take a long time and a lot of memory, and
+   `deep_virus_scan` reads many files (ClamAV, where installed, uses a lot of
+   memory). Ask first.
+6. **Quarantine, never delete; never upload for them.** A malware match can be
+   moved into Reclaim City's quarantine (`rescue fix --action quarantine_file`),
+   which is a change: the person agrees to that file first, and for anything
+   that looks like monitoring software, rule 4 comes first. `rescue undo
+   --quarantine-id <id>` puts it back. Don't upload a file to VirusTotal for
+   them; `rescue lookup-file` only looks up its fingerprint. If they want to
+   upload it, say only programs and scripts, never anything private: uploads
+   can be seen by VirusTotal's paying customers.
 
 ## Install (from source only)
 
@@ -63,6 +75,8 @@ uv venv && uv pip install .          # or: python3 -m venv .venv && .venv/bin/pi
 | "Fix up my parent's laptop" | `rescue export --profile home_for_the_holidays --stdout` |
 | "Is there spyware on my iPhone?" (needs a local backup) | ask first, then `rescue run iphone_spyware_check < /dev/null` |
 | Linux machine | `rescue export --profile linux_security_checkup --stdout` |
+| "Scan my files for viruses" / "is this download a virus?" | ask first (it reads many files; may download ClamAV's list), then `rescue scan --json --profile deep_virus_scan` |
+| "Is this one file bad?" | `rescue lookup-file <file>`: prints its sha256 and VirusTotal link; nothing is uploaded |
 
 `rescue scan --json` (no profile) and the `ai_worm_response` profile include
 the AI tools check, which downloads HackMyAgent from npm the first time (see

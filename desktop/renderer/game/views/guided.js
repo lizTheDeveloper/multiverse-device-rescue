@@ -150,7 +150,7 @@ export function doneHtml(done) {
 // for?" takes the verdict's place, the suggestion first, under the cursor.
 // `steps`: SEE THE STEPS (a mission), or ''. `check`: CHECK AGAIN's state.
 export function inlineCaseHtml({ sig, clues = [], districtName = '', caseHtml = '', chipsHtml = '', door = false, couldnt = false,
-  asking = null, done = null, hint = '', earned = 0, stepsHtml = '', check = null, fold = true }) {
+  asking = null, done = null, hint = '', earned = 0, stepsHtml = '', check = null, fold = true, lookupHtml = '' }) {
   let act;
   if (couldnt) {
     act = '<div class="row g-act"><button type="button" class="btn-s" data-act="tag:noted">NOTED</button><button type="button" class="btn-t" data-go="lesson:couldnt-check">WHAT “COULDN’T CHECK” MEANS ▶</button></div>';
@@ -175,6 +175,7 @@ export function inlineCaseHtml({ sig, clues = [], districtName = '', caseHtml = 
     ${earned > 0 ? `<p class="points g-xp" role="status">+${esc(earned)} INCIDENT RESPONSE XP for looking</p>` : ''}
     ${hint ? `<p class="intel faint">${esc(hint)}</p>` : ''}
     ${clueList ? `<ul class="clues">${clueList}</ul>` : couldnt ? `<p class="intel">${esc(sig.description || 'This check couldn’t run.')}</p>` : ''}
+    ${lookupHtml}
     ${sig.live ? `<p class="intel faint">${esc(LIVE_NOTE)}</p>` : ''}
     ${checkLine}
     <div class="row">${stepsHtml}${checkBtn}<button type="button" class="btn-t" data-act="close-signal">CLOSE</button></div>
