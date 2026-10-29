@@ -233,3 +233,35 @@ def test_stalkerware_offline_with_package_list_knows_installed(linux_disk):
 
     profile = gather_target_profile(linux_disk, Platform.LINUX)
     assert profile.installed_software_known is True
+
+
+def test_stalkerware_offline_unreadable_package_list_is_not_known(linux_disk):
+    import os
+
+    from rescue.profiler.base import gather_target_profile
+
+    status = linux_disk / "var/lib/dpkg/status"
+    status.unlink()
+    os.mkfifo(status)  # exists, but isn't a list that can be read
+    profile = gather_target_profile(linux_disk, Platform.LINUX)
+    assert profile.installed_software_known is False
+    assert "installed programs (this disk's package list can't be read yet)" in (
+        _get_module().check(profile).not_checked
+    )
+
+
+def test_stalkerware_offline_permission_denied_package_list_is_not_known(linux_disk):
+    import os
+
+    import pytest
+
+    from rescue.profiler.base import gather_target_profile
+
+    if os.geteuid() == 0:
+        pytest.skip("root can read a mode-000 file")
+    status = linux_disk / "var/lib/dpkg/status"
+    status.chmod(0)
+    try:
+        assert gather_target_profile(linux_disk, Platform.LINUX).installed_software_known is False
+    finally:
+        status.chmod(0o644)

@@ -25,6 +25,7 @@ loudly to complain.
 
 import fnmatch
 import os
+import re
 import shlex
 from pathlib import Path
 
@@ -311,9 +312,12 @@ class Module(ModuleBase):
         for raw in text.splitlines():
             words = raw.strip().split(None, 1)
             keyword = words[0].lower() if words else ""
-            if keyword == "match":
-                rest = words[1].split("#", 1)[0].strip().lower() if len(words) == 2 else ""
-                in_match = rest != "all"
+            match_args = _match_args(raw)
+            if match_args is not None:
+                # Only a block that is exactly `Match all` is global again. An
+                # argument list that can't be read keeps the lines that follow
+                # (fail toward reporting rather than dropping settings).
+                in_match = match_args != ["all"] and match_args != ["?"]
                 continue
             if len(words) != 2 or keyword != "include":
                 out.append((raw, in_match))
@@ -506,3 +510,17 @@ class Module(ModuleBase):
             kind=ActionKind.GUIDANCE,
             data={"check": check},
         )
+
+
+def _match_args(line: str) -> list[str] | None:
+    """The arguments of a `Match` line, lower-cased, as sshd splits them, or None
+    if the line isn't one. sshd takes `Match all`, `Match=all` and `Match = all`
+    alike, with quotes and trailing comments. `["?"]` means the line is a Match
+    but its arguments can't be read."""
+    m = re.match(r"\s*([A-Za-z]+)(?:\s*=\s*|\s+|$)(.*)", line)
+    if not m or m.group(1).lower() != "match":
+        return None
+    try:
+        return [a.lower() for a in shlex.split(m.group(2), comments=True)]
+    except ValueError:
+        return ["?"]

@@ -365,3 +365,19 @@ def test_ssh_offline_include_cap_is_reported_not_checked(linux_disk):
     assert "some SSH settings files (more than 64)" in r.not_checked
     (ssh / "d" / "064.conf").unlink()
     assert "some SSH settings files (more than 64)" not in _run_offline(linux_disk).not_checked
+
+
+def test_ssh_offline_match_all_spellings_return_to_global(linux_disk):
+    for spelling in ('Match "all"', "Match=all", "Match = all", "MATCH all # back to global"):
+        _write_ssh(linux_disk, f"Match User x\n  PermitRootLogin no\n{spelling}\nPermitRootLogin yes\n")
+        assert _root_open(linux_disk), spelling
+
+
+def test_ssh_offline_match_with_equals_is_still_a_match_block(linux_disk):
+    _write_ssh(linux_disk, "Match=User x\n  PermitRootLogin no\nMatch all\nPermitRootLogin yes\n")
+    assert _root_open(linux_disk)
+
+
+def test_ssh_offline_unreadable_match_line_keeps_the_settings_after_it(linux_disk):
+    _write_ssh(linux_disk, 'Match User "x\nPermitRootLogin yes\n')
+    assert _root_open(linux_disk)

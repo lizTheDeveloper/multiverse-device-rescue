@@ -40,9 +40,13 @@ def _os_release(target: Target) -> dict[str, str]:
     return values
 
 
-def _dpkg_packages(target: Target) -> set[str]:
+def _dpkg_packages(target: Target) -> set[str] | None:
+    """Installed package names, or None when dpkg's list can't be read."""
     names: set[str] = set()
-    text = _read(target, DPKG_STATUS, DPKG_STATUS_LIMIT)
+    try:
+        text = target.read_text(DPKG_STATUS, DPKG_STATUS_LIMIT)
+    except OSError:
+        return None
     blocks = text.split("\n\n")
     try:
         too_big = os.path.getsize(target.resolve(DPKG_STATUS)) > DPKG_STATUS_LIMIT
@@ -81,17 +85,11 @@ def _startup_items(target: Target) -> list[str]:
     return sorted(items)
 
 
-def _has_dpkg_status(target: Target) -> bool:
-    try:
-        return os.path.isfile(target.resolve(DPKG_STATUS))
-    except OSError:
-        return False
-
-
 def gather_linux_target_profile(target: Target) -> SystemProfile:
     release = _os_release(target)
+    dpkg = _dpkg_packages(target)
     software = (
-        _dpkg_packages(target)
+        (dpkg or set())
         | set(_listdir(target, "/var/lib/flatpak/app"))
         | _snap_names(target)
     )
@@ -110,5 +108,5 @@ def gather_linux_target_profile(target: Target) -> SystemProfile:
         hostname=_read(target, "/etc/hostname").strip(),
         target=target,
         # Only dpkg's list is read so far; without it most of what's installed is unknown.
-        installed_software_known=_has_dpkg_status(target),
+        installed_software_known=dpkg is not None,
     )
