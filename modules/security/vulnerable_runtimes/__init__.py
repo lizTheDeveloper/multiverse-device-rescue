@@ -257,7 +257,8 @@ class Module(ModuleBase):
 
                 return bool(ctypes.windll.shell32.IsUserAnAdmin())  # type: ignore[attr-defined]
             except Exception:
-                return False
+                # Can't tell: assume administrator rights, so nothing gets run.
+                return True
         geteuid = getattr(os, "geteuid", None)
         return bool(geteuid is not None and geteuid() == 0)
 
