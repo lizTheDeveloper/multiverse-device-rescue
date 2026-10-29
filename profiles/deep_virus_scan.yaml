@@ -1,0 +1,33 @@
+name: deep_virus_scan
+display_name: "Deep Virus Scan"
+description: >
+  Actually reads files for known malware, with much higher limits than the
+  ordinary checkup. On a Mac, Apple's own malware rules (XProtect's YARA
+  files, already on the Mac) are run over every app's main program, what
+  background jobs start, the Downloads, temporary and shared folders and
+  browser add-ons. Where ClamAV is installed, it scans the same places,
+  inside zip files and disk images too; the first time, it may download a
+  fresh virus list from ClamAV's own servers (about 115 MB; --no-downloads
+  turns that off), and it uses a lot of memory while it runs. On Windows,
+  Windows Defender runs its own quick scan (already on the computer, nothing
+  downloaded). Nothing is moved or deleted by the scan: a match can be put
+  in Reclaim City's quarantine, after you agree, and put back later.
+modules:
+  include:
+    - malware_file_scan
+    - clamav_scanner
+    - win_defender_scan
+  exclude: []
+module_config:
+  malware_file_scan:
+    # 256 MB per file, 8 GB in all, and a 1200-second limit.
+    max_file_bytes: 268435456
+    max_total_bytes: 8589934592
+    max_files: 100000
+    time_budget: 1200
+  clamav_scanner:
+    # Turn the ClamAV file scan ON for this profile (off everywhere else).
+    scan_files: true
+    scan_timeout: 1800
+  win_defender_scan:
+    quick_scan: true

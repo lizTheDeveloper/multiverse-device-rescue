@@ -1,296 +1,305 @@
+"""clamav_scanner: the "is it installed" checks, and the opt-in ClamAV file scan.
+
+Every command goes through a fake runner, and every file lives in a temporary
+folder. No ClamAV is run and nothing is downloaded.
+"""
+
 import os
-import pytest
 import sys
+import time
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-from datetime import datetime, timedelta
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+import pytest
 
-# Skipped off POSIX: clamav_scanner patches os.path.stat, which does not exist on ntpath.
-# The module under test cannot run on Windows, so there is nothing here a
-# Windows job could meaningfully exercise — and a test that fails for the
-# platform rather than for the code teaches people to ignore the suite.
-pytestmark = pytest.mark.skipif(
-    os.name != "posix",
-    reason="clamav_scanner patches os.path.stat, which does not exist on ntpath",
-)
-
-from rescue.models import SystemProfile, Platform, Severity, RiskLevel, Mode
+from rescue import file_scan
+from rescue.command import CommandResult
+from rescue.models import Mode, Platform, RiskLevel, Severity, SystemProfile
 from rescue.registry import discover_modules
 
-
-def _make_profile():
-    return SystemProfile(
-        platform=Platform.DARWIN,
-        os_name="macOS",
-        os_version="15.2",
-        architecture="arm64",
-        cpu_model="Apple M2",
-        cpu_cores=8,
-        ram_bytes=16 * 1024**3,
-    )
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="POSIX paths in the fake ClamAV layout")
 
 
-def _get_module():
-    modules_dir = Path(__file__).parent.parent / "modules"
-    modules = discover_modules(modules_dir)
-    return next(m for m in modules if m.name == "clamav_scanner")
+def _profile(platform=Platform.DARWIN):
+    return SystemProfile(platform=platform, os_name="x", os_version="1", architecture="arm64",
+                         cpu_model="M2", cpu_cores=8, ram_bytes=16 * 1024**3)
 
 
-def _make_subprocess_result(stdout="", stderr="", returncode=0):
-    result = MagicMock()
-    result.stdout = stdout
-    result.stderr = stderr
-    result.returncode = returncode
-    return result
+def _res(code=0, out="", err="", timed_out=False):
+    return CommandResult(args=[], returncode=None if timed_out else code, stdout=out, stderr=err,
+                         timed_out=timed_out, error="timed out" if timed_out else None, duration_s=0, truncated=False)
 
 
-def _fake_run_not_installed():
-    """ClamAV is not installed"""
-    def fake_run(cmd, **kwargs):
-        if isinstance(cmd, list):
-            cmd_str = " ".join(cmd)
-        else:
-            cmd_str = cmd
-
-        if "which clamscan" in cmd_str or (isinstance(cmd, list) and "clamscan" in cmd):
-            return _make_subprocess_result(returncode=1)
-        return _make_subprocess_result()
-    return fake_run
+# The ClamAV folders every test module looks in (the db fixture fills it); empty = none.
+_DB_DIRS: list[str] = []
 
 
-def _fake_run_healthy():
-    """ClamAV installed, up-to-date definitions, clamd running"""
-    def fake_run(cmd, **kwargs):
-        if isinstance(cmd, list):
-            cmd_str = " ".join(cmd)
-        else:
-            cmd_str = cmd
-
-        if "which clamscan" in cmd_str or (isinstance(cmd, list) and len(cmd) > 0 and cmd[0] == "which" and cmd[1] == "clamscan"):
-            return _make_subprocess_result(stdout="/opt/homebrew/bin/clamscan\n")
-        elif "which freshclam" in cmd_str or (isinstance(cmd, list) and len(cmd) > 0 and cmd[0] == "which" and cmd[1] == "freshclam"):
-            return _make_subprocess_result(stdout="/opt/homebrew/bin/freshclam\n")
-        elif "--version" in cmd_str or (isinstance(cmd, list) and "--version" in cmd):
-            return _make_subprocess_result(stdout="ClamAV 0.103.7/26551/Wed Dec 19 12:31:08 2024\n")
-        elif "sigtool" in cmd_str or (isinstance(cmd, list) and "sigtool" in cmd):
-            return _make_subprocess_result(stdout="Version: 26551\nTime: 2024-12-19 12:31:08 +0000\n")
-        elif "pgrep clamd" in cmd_str or (isinstance(cmd, list) and len(cmd) > 0 and cmd[0] == "pgrep" and cmd[1] == "clamd"):
-            return _make_subprocess_result(stdout="12345\n")
-        return _make_subprocess_result()
-    return fake_run
+def _module(**attrs):
+    mod = next(m for m in discover_modules(Path(__file__).parent.parent / "modules") if m.name == "clamav_scanner")
+    mod.db_dirs = _DB_DIRS
+    for k, v in attrs.items():
+        setattr(mod, k, v)
+    return mod
 
 
-def _fake_run_outdated_definitions():
-    """ClamAV installed but definitions are >30 days old"""
-    def fake_run(cmd, **kwargs):
-        if isinstance(cmd, list):
-            cmd_str = " ".join(cmd)
-        else:
-            cmd_str = cmd
+class FakeClam:
+    """clamscan/freshclam/sigtool/pgrep, answered from a table; every call is recorded."""
 
-        if "which clamscan" in cmd_str or (isinstance(cmd, list) and len(cmd) > 0 and cmd[0] == "which" and cmd[1] == "clamscan"):
-            return _make_subprocess_result(stdout="/opt/homebrew/bin/clamscan\n")
-        elif "which freshclam" in cmd_str or (isinstance(cmd, list) and len(cmd) > 0 and cmd[0] == "which" and cmd[1] == "freshclam"):
-            return _make_subprocess_result(stdout="/opt/homebrew/bin/freshclam\n")
-        elif "--version" in cmd_str or (isinstance(cmd, list) and "--version" in cmd):
-            return _make_subprocess_result(stdout="ClamAV 0.103.7/26551/Wed Dec 19 12:31:08 2024\n")
-        elif "sigtool" in cmd_str or (isinstance(cmd, list) and "sigtool" in cmd):
-            return _make_subprocess_result(stdout="Version: 26500\nTime: 2024-05-15 12:31:08 +0000\n")
-        elif "pgrep clamd" in cmd_str or (isinstance(cmd, list) and len(cmd) > 0 and cmd[0] == "pgrep" and cmd[1] == "clamd"):
-            return _make_subprocess_result(stdout="12345\n")
-        return _make_subprocess_result()
-    return fake_run
+    def __init__(self, scan=None, fresh=None, daemon=True):
+        self.calls = []
+        self.scan = scan or _res(0)
+        self.fresh = fresh
+        self.daemon = daemon
 
-
-def _fake_run_daemon_not_running():
-    """ClamAV installed with fresh definitions but daemon not running"""
-    def fake_run(cmd, **kwargs):
-        if isinstance(cmd, list):
-            cmd_str = " ".join(cmd)
-        else:
-            cmd_str = cmd
-
-        if "which clamscan" in cmd_str or (isinstance(cmd, list) and len(cmd) > 0 and cmd[0] == "which" and cmd[1] == "clamscan"):
-            return _make_subprocess_result(stdout="/opt/homebrew/bin/clamscan\n")
-        elif "which freshclam" in cmd_str or (isinstance(cmd, list) and len(cmd) > 0 and cmd[0] == "which" and cmd[1] == "freshclam"):
-            return _make_subprocess_result(stdout="/opt/homebrew/bin/freshclam\n")
-        elif "--version" in cmd_str or (isinstance(cmd, list) and "--version" in cmd):
-            return _make_subprocess_result(stdout="ClamAV 0.103.7/26551/Wed Dec 19 12:31:08 2024\n")
-        elif "sigtool" in cmd_str or (isinstance(cmd, list) and "sigtool" in cmd):
-            return _make_subprocess_result(stdout="Version: 26551\nTime: 2024-12-19 12:31:08 +0000\n")
-        elif "pgrep clamd" in cmd_str or (isinstance(cmd, list) and len(cmd) > 0 and cmd[0] == "pgrep" and cmd[1] == "clamd"):
-            return _make_subprocess_result(returncode=1)  # Not running
-        return _make_subprocess_result()
-    return fake_run
+    def __call__(self, args, timeout=None):
+        self.calls.append(list(args))
+        prog = os.path.basename(args[0])
+        if args[1:] == ["--version"]:
+            return _res(0, "ClamAV 1.4.1/27450/Mon Oct 20 08:00:00 2026\n")
+        if prog == "sigtool":
+            return _res(0, "Version: 62\n")
+        if prog == "pgrep":
+            return _res(0 if self.daemon else 1, "123\n" if self.daemon else "")
+        if prog == "freshclam":
+            return self.fresh(args) if self.fresh else _res(1)
+        if prog == "clamscan":
+            return self.scan
+        raise AssertionError(args)
 
 
-def _fake_run_no_definitions():
-    """ClamAV installed but no definitions found"""
-    def fake_run(cmd, **kwargs):
-        if isinstance(cmd, list):
-            cmd_str = " ".join(cmd)
-        else:
-            cmd_str = cmd
-
-        if "which clamscan" in cmd_str or (isinstance(cmd, list) and len(cmd) > 0 and cmd[0] == "which" and cmd[1] == "clamscan"):
-            return _make_subprocess_result(stdout="/opt/homebrew/bin/clamscan\n")
-        elif "which freshclam" in cmd_str or (isinstance(cmd, list) and len(cmd) > 0 and cmd[0] == "which" and cmd[1] == "freshclam"):
-            return _make_subprocess_result(stdout="/opt/homebrew/bin/freshclam\n")
-        elif "--version" in cmd_str or (isinstance(cmd, list) and "--version" in cmd):
-            return _make_subprocess_result(stdout="ClamAV 0.103.7/26551/Wed Dec 19 12:31:08 2024\n")
-        elif "sigtool" in cmd_str or (isinstance(cmd, list) and "sigtool" in cmd):
-            # Definitions not found
-            return _make_subprocess_result(returncode=1)
-        elif "pgrep clamd" in cmd_str or (isinstance(cmd, list) and len(cmd) > 0 and cmd[0] == "pgrep" and cmd[1] == "clamd"):
-            return _make_subprocess_result(stdout="12345\n")
-        return _make_subprocess_result()
-    return fake_run
+def _which(installed):
+    return lambda name: f"/usr/local/bin/{os.path.basename(name)}" if os.path.basename(name) in installed else None
 
 
-def test_clamav_scanner_discovered():
-    """Test module is discovered"""
-    mod = _get_module()
-    assert mod.name == "clamav_scanner"
-    assert mod.category == "security"
-    assert mod.risk_level == RiskLevel.SAFE
+@pytest.fixture
+def db(tmp_path):
+    """A ClamAV virus list folder, `age` days old; modules made by _module() look only there."""
+    folder = tmp_path / "clamdb"
+    folder.mkdir()
+
+    def make(age):
+        for name in ("main.cvd", "daily.cvd"):
+            p = folder / name
+            p.write_bytes(b"cvd")
+            t = time.time() - age * 86400
+            os.utime(p, (t, t))
+        return str(folder)
+
+    _DB_DIRS[:] = [str(folder)]
+    yield make
+    _DB_DIRS[:] = []
 
 
-def test_clamav_not_installed():
-    """ClamAV not installed"""
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_not_installed()):
-        result = mod.check(_make_profile())
-    assert result.has_issues
-    assert len(result.findings) == 1
-    assert result.findings[0].severity == Severity.WARNING
-    assert result.findings[0].data["check"] == "clamav_not_installed"
+@pytest.fixture
+def targets(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / "Downloads").mkdir(parents=True)
+    monkeypatch.setattr(file_scan, "app_programs", lambda h: [])
+    monkeypatch.setattr(file_scan, "job_programs", lambda h: [])
+    monkeypatch.setattr(file_scan, "places", lambda platform, h: [("downloads", h / "Downloads", 4)])
+    bad = home / "Downloads" / "invoice.zip"
+    bad.write_bytes(b"PK\x03\x04 pretend archive")
+    (home / "Downloads" / "letter.pdf").write_bytes(b"%PDF")
+    return type("T", (), {"home": home, "bad": bad})
 
 
-def test_clamav_healthy():
-    """ClamAV healthy: installed, definitions up-to-date, daemon running"""
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_healthy()):
-        with patch("os.path.exists", return_value=True):
-            with patch("os.path.stat") as mock_stat:
-                # Mock file modification time to be recent (within 30 days)
-                mock_stat_result = MagicMock()
-                mock_stat_result.st_mtime = datetime.now().timestamp()
-                mock_stat = MagicMock(return_value=mock_stat_result)
-
-                result = mod.check(_make_profile())
-
-    assert result.has_issues  # Always has findings (INFO at minimum)
-    # Check for version, definitions, and daemon running
-    severity_list = [f.severity for f in result.findings]
-    assert Severity.INFO in severity_list
-    # Should NOT have CRITICAL (definitions outdated)
-    critical_checks = [f.data.get("check") for f in result.findings if f.severity == Severity.CRITICAL]
-    assert "clamav_outdated_definitions" not in critical_checks
+# --- is it installed --------------------------------------------------------------
 
 
-def test_clamav_outdated_definitions():
-    """ClamAV with outdated definitions (>30 days)"""
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_outdated_definitions()):
-        with patch("os.path.exists", return_value=True):
-            # Mock file modification time to be 45 days old
-            mock_stat_result = MagicMock()
-            old_time = datetime.now() - timedelta(days=45)
-            mock_stat_result.st_mtime = old_time.timestamp()
-
-            with patch("pathlib.Path.stat", return_value=mock_stat_result):
-                result = mod.check(_make_profile())
-
-    assert result.has_issues
-    # Should have CRITICAL finding for outdated definitions
-    critical_findings = [f for f in result.findings if f.severity == Severity.CRITICAL]
-    assert len(critical_findings) > 0
-    assert any(f.data.get("check") == "clamav_outdated_definitions" for f in critical_findings)
+def test_metadata():
+    mod = _module()
+    assert mod.category == "security" and mod.risk_level == RiskLevel.SAFE
+    assert set(mod.platforms) == {Platform.DARWIN, Platform.LINUX, Platform.WIN32}
 
 
-def test_clamav_daemon_not_running():
-    """ClamAV installed but daemon not running"""
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_daemon_not_running()):
-        with patch("os.path.exists", return_value=True):
-            with patch("os.path.stat") as mock_stat:
-                mock_stat_result = MagicMock()
-                mock_stat_result.st_mtime = datetime.now().timestamp()
-                mock_stat = MagicMock(return_value=mock_stat_result)
-
-                result = mod.check(_make_profile())
-
-    assert result.has_issues
-    # Should have WARNING for daemon not running
-    warning_findings = [f for f in result.findings if f.severity == Severity.WARNING]
-    assert any(f.data.get("check") == "clamd_not_running" for f in warning_findings)
+@pytest.mark.parametrize("platform, words", [
+    (Platform.DARWIN, ".pkg file"), (Platform.WIN32, ".msi file"), (Platform.LINUX, "apt install clamav"),
+])
+def test_not_installed_is_information_with_a_route_for_everyone(platform, words):
+    res = _module(which=_which(set()), runner=FakeClam()).check(_profile(platform))
+    assert [f.code for f in res.findings] == ["security.clamav_scanner.clamav_not_installed"]
+    f = res.findings[0]
+    assert f.severity == Severity.INFO
+    assert words in f.description
+    assert ("clamav.net/downloads" in f.description) == (platform != Platform.LINUX)
 
 
-def test_clamav_fix_not_installed():
-    """Fix for ClamAV not installed"""
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_not_installed()):
-        check = mod.check(_make_profile())
-        fix = mod.fix(check, Mode.MANUAL)
-
-    assert fix.all_succeeded
-    assert any("Install ClamAV" in a.title for a in fix.actions)
+def test_not_installed_and_a_deep_scan_was_asked_for_says_it_did_not_run():
+    mod = _module(which=_which(set()), runner=FakeClam())
+    mod.configure({"scan_files": True})
+    codes = [f.data.get("reason") for f in mod.check(_profile()).findings]
+    assert "not_installed" in codes
 
 
-def test_clamav_fix_outdated():
-    """Fix for outdated definitions"""
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_outdated_definitions()):
-        with patch("os.path.exists", return_value=True):
-            mock_stat_result = MagicMock()
-            old_time = datetime.now() - timedelta(days=45)
-            mock_stat_result.st_mtime = old_time.timestamp()
-
-            with patch("pathlib.Path.stat", return_value=mock_stat_result):
-                check = mod.check(_make_profile())
-                fix = mod.fix(check, Mode.MANUAL)
-
-    assert fix.all_succeeded
-    assert any("Update ClamAV" in a.title for a in fix.actions)
+def test_healthy_install_offers_the_deep_scan(db):
+    db(2)
+    res = _module(which=_which({"clamscan", "freshclam", "sigtool"}), runner=FakeClam()).check(_profile())
+    codes = {f.code.rsplit(".", 1)[1] for f in res.findings}
+    assert {"clamav_version", "clamav_definitions", "clamd_running", "deep_scan_available"} <= codes
+    assert all(f.severity == Severity.INFO for f in res.findings)
+    offer = next(f for f in res.findings if f.code.endswith("deep_scan_available"))
+    assert "115 MB" in offer.description
 
 
-def test_clamav_fix_daemon_not_running():
-    """Fix for daemon not running"""
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_daemon_not_running()):
-        with patch("os.path.exists", return_value=True):
-            mock_stat_result = MagicMock()
-            mock_stat_result.st_mtime = datetime.now().timestamp()
-
-            with patch("pathlib.Path.stat", return_value=mock_stat_result):
-                check = mod.check(_make_profile())
-                fix = mod.fix(check, Mode.MANUAL)
-
-    assert fix.all_succeeded
-    assert any("Start clamd" in a.title for a in fix.actions)
+def test_old_list_and_no_updater_are_warnings(db):
+    db(45)
+    res = _module(which=_which({"clamscan"}), runner=FakeClam(daemon=False)).check(_profile())
+    by = {f.code.rsplit(".", 1)[1]: f for f in res.findings}
+    assert by["clamav_outdated_definitions"].severity == Severity.WARNING
+    assert by["freshclam_not_installed"].severity == Severity.WARNING
+    assert by["clamd_not_running"].severity == Severity.INFO
 
 
-def test_clamav_fix_healthy():
-    """Fix for healthy ClamAV state"""
-    mod = _get_module()
-    with patch("subprocess.run", side_effect=_fake_run_healthy()):
-        with patch("os.path.exists", return_value=True):
-            mock_stat_result = MagicMock()
-            mock_stat_result.st_mtime = datetime.now().timestamp()
+def test_fix_is_guidance_only_and_not_homebrew_only():
+    mod = _module(which=_which(set()), runner=FakeClam())
+    fix = mod.fix(mod.check(_profile()), Mode.MANUAL)
+    assert fix.all_succeeded and fix.actions[0].title == "Install ClamAV"
+    assert "clamav.net/downloads" in fix.actions[0].description
 
-            with patch("pathlib.Path.stat", return_value=mock_stat_result):
-                check = mod.check(_make_profile())
-                fix = mod.fix(check, Mode.MANUAL)
 
-    assert fix.all_succeeded
-    # Healthy state should have no actions needed
-    assert len(fix.actions) == 0
+# --- the deep scan ----------------------------------------------------------------
+
+
+def _deep(**attrs):
+    mod = _module(**attrs)
+    mod.configure({"scan_files": True})
+    return mod
+
+
+def test_deep_scan_reports_a_virus_with_its_fingerprint(db, targets, tmp_path):
+    db(1)
+    clam = FakeClam(scan=_res(1, f"{targets.bad}: Win.Trojan.Agent-123 FOUND\n"))
+    mod = _deep(which=_which({"clamscan", "freshclam"}), runner=clam, home=targets.home, cache_dir=tmp_path / "c")
+    res = mod.check(_profile())
+    hit = next(f for f in res.findings if f.code == "security.clamav_scanner.virus_found")
+    assert hit.severity == Severity.CRITICAL
+    assert hit.data["path"] == str(targets.bad) and hit.data["signature"] == "Win.Trojan.Agent-123"
+    assert hit.data["virustotal_url"].endswith(hit.data["sha256"])
+    scan = next(c for c in clam.calls if os.path.basename(c[0]) == "clamscan" and "--file-list" in c)
+    assert "--infected" in scan and scan[scan.index("--database") + 1].endswith("clamdb")
+    assert mod.check_timeout and mod.check_timeout > mod.scan_timeout
+
+
+def test_deep_scan_monitoring_hit_carries_the_warning(db, targets, tmp_path):
+    db(1)
+    clam = FakeClam(scan=_res(1, f"{targets.bad}: Osx.Spyware.FlexiSpy-1 FOUND\n"))
+    res = _deep(which=_which({"clamscan"}), runner=clam, home=targets.home, cache_dir=tmp_path / "c").check(_profile())
+    hit = next(f for f in res.findings if f.code == "security.clamav_scanner.monitoring_found")
+    assert "removing it can alert them" in hit.description
+
+
+def test_deep_scan_clean_and_timed_out(db, targets, tmp_path):
+    db(1)
+    clean = _deep(which=_which({"clamscan"}), runner=FakeClam(), home=targets.home, cache_dir=tmp_path / "c")
+    f = next(f for f in clean.check(_profile()).findings if f.code.endswith("scan_clean"))
+    assert f.data["files_scanned"] == 2 and "ruling one out" in f.description
+    late = _deep(which=_which({"clamscan"}), runner=FakeClam(scan=_res(timed_out=True)), home=targets.home,
+                 cache_dir=tmp_path / "c")
+    f = next(f for f in late.check(_profile()).findings if f.code.endswith("scan_incomplete"))
+    assert "isn't a clean result" in f.description
+
+
+@pytest.mark.parametrize("setup, reason", [
+    ({"env": True}, "downloads_off"),
+    ({"config": True}, "kept_offline"),
+    ({"elevated": True}, "elevated"),
+    ({"offline": True}, "offline"),
+    ({"no_freshclam": True}, "no_freshclam"),
+    ({}, "fetch_failed"),
+])
+def test_an_old_list_that_cannot_be_refreshed_is_not_a_scan(db, targets, tmp_path, monkeypatch, setup, reason):
+    db(40)
+    monkeypatch.delenv("RESCUE_NO_DOWNLOADS", raising=False)
+    if setup.get("env"):
+        monkeypatch.setenv("RESCUE_NO_DOWNLOADS", "1")
+    installed = {"clamscan"} if setup.get("no_freshclam") else {"clamscan", "freshclam"}
+    clam = FakeClam()
+    mod = _module(which=_which(installed), runner=clam, home=targets.home, cache_dir=tmp_path / "c",
+                  elevated=bool(setup.get("elevated")), mirror_resolves=lambda: not setup.get("offline"))
+    mod.configure({"scan_files": True, **({"downloads": False} if setup.get("config") else {})})
+    res = mod.check(_profile())
+    could_not = [f for f in res.findings if f.code == "security.clamav_scanner.could_not_scan"]
+    assert [f.data["reason"] for f in could_not] == [reason]
+    assert not any(os.path.basename(c[0]) == "clamscan" and "--file-list" in c for c in clam.calls)
+
+
+def test_a_fresh_list_is_downloaded_into_the_cache_once_allowed(db, targets, tmp_path, monkeypatch):
+    db(40)
+    monkeypatch.delenv("RESCUE_NO_DOWNLOADS", raising=False)
+    cache = tmp_path / "cache"
+
+    def fetch(args):
+        for name in ("main.cvd", "daily.cvd"):
+            (cache / name).write_bytes(b"cvd")
+        return _res(0)
+
+    clam = FakeClam(fresh=fetch)
+    mod = _deep(which=_which({"clamscan", "freshclam"}), runner=clam, home=targets.home, cache_dir=cache,
+                elevated=False, mirror_resolves=lambda: True)
+    res = mod.check(_profile())
+    fresh = next(c for c in clam.calls if os.path.basename(c[0]) == "freshclam")
+    assert f"--datadir={cache}" in fresh
+    assert "DatabaseMirror database.clamav.net" in (cache / "freshclam.conf").read_text()
+    clean = next(f for f in res.findings if f.code.endswith("scan_clean"))
+    assert clean.data["database_fetched"] is True and clean.data["database_dir"] == str(cache)
 
 
 def test_emitted_codes_are_declared():
-    mod = _get_module()
-    declared = set(mod.emits_codes)
-    assert declared, "emits_codes must be populated"
+    declared = set(_module().emits_codes)
     assert all(c.startswith("security.clamav_scanner.") for c in declared)
+    assert {"security.clamav_scanner.virus_found", "security.clamav_scanner.could_not_scan"} <= declared
+
+
+# --- ClamAV's output is matched against the files it was given, never trusted --------
+
+
+def test_a_reported_path_that_was_not_listed_is_never_hashed_or_blamed(db, targets, tmp_path):
+    db(1)
+    other = targets.home / "Downloads" / "unlisted-but-real"
+    clam = FakeClam(scan=_res(1, f"{other}: Win.Trojan.Fake-1 FOUND\n{targets.bad}x: Win.Trojan.Fake-2 FOUND\n"))
+    res = _deep(which=_which({"clamscan"}), runner=clam, home=targets.home, cache_dir=tmp_path / "c").check(_profile())
+    codes = [f.code.rsplit(".", 1)[1] for f in res.findings]
+    assert "virus_found" not in codes and "scan_clean" not in codes
+    f = next(f for f in res.findings if f.data.get("reason") == "unmatched")
+    assert "isn't a clean result" in f.description and "path" not in f.data and "sha256" not in f.data
+    assert f.data["unmatched_reports"] == 2
+
+
+def test_an_archive_member_is_pinned_on_the_exact_listed_archive(db, targets, tmp_path):
+    db(1)
+    odd = targets.home / "Downloads" / "wow!.zip"
+    odd.write_bytes(b"PK\x03\x04 another archive")
+    out = f"{targets.bad}!dropper.exe: Win.Trojan.Agent-1 FOUND\n{odd}!inner/x.js: Js.Trojan.Agent-2 FOUND\n"
+    res = _deep(which=_which({"clamscan"}), runner=FakeClam(scan=_res(1, out)), home=targets.home,
+                cache_dir=tmp_path / "c").check(_profile())
+    hits = {f.data["path"]: f.data for f in res.findings if f.code.endswith("virus_found")}
+    assert hits[str(targets.bad)]["archive_member"] == "dropper.exe"
+    assert hits[str(odd)]["archive_member"] == "inner/x.js"
+    assert all(len(h["sha256"]) == 64 for h in hits.values())
+
+
+def test_a_file_swapped_after_listing_is_not_hashed(db, targets, tmp_path, monkeypatch):
+    db(1)
+    real_collect = file_scan.collect_targets
+
+    def collect_then_swap(*a, **k):
+        found = real_collect(*a, **k)
+        targets.bad.unlink()
+        targets.bad.write_bytes(b"a different file under the same name")
+        return found
+
+    monkeypatch.setattr(file_scan, "collect_targets", collect_then_swap)
+    res = _deep(which=_which({"clamscan"}), runner=FakeClam(scan=_res(1, f"{targets.bad}: Win.Trojan.A-1 FOUND\n")),
+                home=targets.home, cache_dir=tmp_path / "c").check(_profile())
+    hit = next(f for f in res.findings if f.code.endswith("virus_found"))
+    assert hit.data["sha256"] is None and hit.data["virustotal_url"] is None
+
+
+def test_a_name_with_a_line_break_never_reaches_the_file_list(db, targets, tmp_path):
+    db(1)
+    # A name can't hold "/", but a line break alone would split one entry into two.
+    sneaky = targets.home / "Downloads" / "x.txt\ninvoice.zip"
+    sneaky.write_bytes(b"hello")
+    clam = FakeClam()
+    res = _deep(which=_which({"clamscan"}), runner=clam, home=targets.home, cache_dir=tmp_path / "c").check(_profile())
+    clean = next(f for f in res.findings if f.code.endswith("scan_clean"))
+    assert clean.data["skipped_odd_names"] == 1 and clean.data["files_scanned"] == 2

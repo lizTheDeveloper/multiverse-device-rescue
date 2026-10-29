@@ -65,7 +65,7 @@ def load_app_actions(path: Path | None = None) -> dict[str, dict]:
 
 
 _ACTION_KEYS = _ALLOWED_KEYS | {"audit", "modules", "severities"}
-KNOWN_ACTIONS = {"disable_launch_agent"}
+KNOWN_ACTIONS = {"disable_launch_agent", "quarantine_file"}
 
 
 def validate_app_actions(actions: dict[str, dict]) -> list[str]:

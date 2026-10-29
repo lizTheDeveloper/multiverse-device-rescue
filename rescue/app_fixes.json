@@ -9,11 +9,30 @@
         "ai_worm_persistence",
         "ai_threat_indicators"
       ],
-      "severities": ["warning", "critical"],
+      "severities": [
+        "warning",
+        "critical"
+      ],
       "will_change": "Stops the background job '{label}' and moves its settings file to Reclaim City's quarantine folder. Nothing is deleted.",
       "how_to_undo": [
         "Open Reclaim City and choose Undo on this item",
         "Or move the file from ~/Library/Application Support/Device Rescue/Quarantine back to ~/Library/LaunchAgents and log out and back in"
+      ],
+      "needs_admin": false
+    },
+    "quarantine_file": {
+      "audit": "OFFER",
+      "modules": [
+        "malware_file_scan",
+        "clamav_scanner"
+      ],
+      "severities": [
+        "critical"
+      ],
+      "will_change": "Moves '{name}' into Reclaim City's quarantine folder and makes it read-only, so it can't run. Nothing is deleted.",
+      "how_to_undo": [
+        "Open Reclaim City and choose Undo on this item",
+        "Or, in Terminal: rescue quarantine list, then rescue undo --quarantine-id <the id it shows>"
       ],
       "needs_admin": false
     }

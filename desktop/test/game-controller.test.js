@@ -1339,3 +1339,29 @@ test('watch: a refusal or failure shows main’s message; a closed gate leaves t
   assert.strictEqual(g.html(), running, 'the gate closed: app.js showed the list, nothing redrawn');
   assert.doesNotMatch(g.storage.getItem('device-rescue.game.v1'), /Mail connected/);
 });
+
+// A virus scan's match: LOOK IT UP ON VIRUSTOTAL on its briefing sends only the fingerprint.
+test('a malware match offers the VirusTotal lookup and sends only the sha256', async () => {
+  const { createController } = await import('../renderer/game/controller.js');
+  const { findingsToCity } = await import('../renderer/game/findings-to-city.js');
+  const sha = 'cd'.repeat(32);
+  const hit = { title: 'A file matched Apple’s malware rules: Player.command', description: 'd', severity: 'critical',
+    category: 'security', code: 'security.malware_file_scan.malware_match',
+    data: { check: 'malware_match', path: '/Users/sam/Downloads/Player.command', sha256: sha } };
+  const doc = scan({ ...mod('malware_file_scan', [hit]), category: 'security' });
+  const m = findingsToCity(doc).districts.flatMap((d) => d.missions).find((x) => x.module === 'malware_file_scan');
+  const stub = stubWin([]);
+  const opened = [];
+  stub.win.rescue.openVirusTotal = async (h) => { opened.push(h); return true; };
+  const ctl = createController({ win: stub.win, storage: memStore(), scoutSprite: () => '', loadGame: () => new Promise(() => {}) });
+  await tick();
+  ctl.show(doc, { id: 'sketchy' });
+  stub.click({ 'data-go': `mission:${m.id}` });
+  assert.match(stub.frame.innerHTML, /LOOK IT UP ON VIRUSTOTAL/);
+  stub.click({ 'data-act': `vt-open:${sha}` });
+  await tick();
+  assert.deepStrictEqual(opened, [sha]);
+  stub.click({ 'data-act': 'vt-open:not-a-hash' });
+  await tick();
+  assert.deepStrictEqual(opened, [sha]);
+});

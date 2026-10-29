@@ -116,7 +116,9 @@ def stdlib_imports_of(src_dir: Path):
     return sorted(found)
 
 
-hiddenimports = collect_submodules("rescue") + stdlib_imports_of(PROJECT_ROOT / "modules")
+# yara_x: the YARA-X engine rescue/yara_rules.py loads for malware_file_scan.
+# It's imported inside a function, so it's named here to be sure it's bundled.
+hiddenimports = collect_submodules("rescue") + stdlib_imports_of(PROJECT_ROOT / "modules") + ["yara_x"]
 
 a = Analysis(
     [str(PROJECT_ROOT / "rescue" / "cli.py")],

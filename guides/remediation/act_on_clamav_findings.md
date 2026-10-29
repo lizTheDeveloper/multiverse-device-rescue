@@ -1,7 +1,6 @@
 ---
 title: "Act on ClamAV scanner findings"
-estimated_time: "20 minutes"
-platforms: [macos]
+platforms: [macos, windows, linux]
 remediates:
   - security.clamav_scanner.clamav_not_installed
   - security.clamav_scanner.clamav_version
@@ -22,60 +21,47 @@ automatable_steps: []
 human_only_steps: [1, 2, 3, 4]
 ---
 
-This walkthrough covers everything the `clamav_scanner` module can flag:
-whether ClamAV (an optional, free/open-source antivirus engine) and its
-`freshclam` definition updater are installed, how old the virus
-definitions are, and whether the `clamd` on-access scanning daemon is
-running. ClamAV is complementary to Apple's built-in protections
-(see `enable_antivirus.md` and `update_xprotect.md`) — it is not required,
-but if you've chosen to run it, these findings keep it effective.
+ClamAV is a free, open-source virus scanner. It's optional: your computer's
+own protection (XProtect on a Mac, Windows Security on Windows) already runs,
+and on a Mac Reclaim City reads files with Apple's own malware rules. ClamAV
+is a second opinion that the deep virus scan uses when it's installed.
 
-## Step 1: Install ClamAV if you want extra virus scanning
+## Step 1: Install ClamAV if you'd like a second opinion
 
-`clamav_not_installed` and `freshclam_not_installed` mean ClamAV or its
-updater isn't present.
+`clamav_not_installed` and `freshclam_not_installed` mean ClamAV, or its
+updater, isn't here.
 
-1. Decide whether you actually want an on-disk scanning engine — many
-   users rely solely on Apple's built-in XProtect/Gatekeeper/MRT
-   protections and never need this. If you don't have a specific reason to
-   run ClamAV, no action is required.
-2. If you do want it, install via Homebrew: `brew install clamav`. This
-   installs both `clamscan`/`clamd` and `freshclam` together.
-3. Verify the install: `clamscan --version` and `freshclam --version`
-   should both report a version.
+1. Decide whether you want it. If you don't have a reason to, no action is
+   needed.
+2. On a Mac or Windows: download the installer from
+   https://www.clamav.net/downloads (the `.pkg` file for a Mac, the `.msi`
+   file for Windows) and open it. If you already use Homebrew on a Mac,
+   `brew install clamav` works too.
+3. On Linux: install the `clamav` package from your software app or package
+   manager (on Ubuntu or Debian, `sudo apt install clamav clamav-freshclam`).
+4. Check it: `clamscan --version` should print a version.
 
-## Step 2: Update your virus definition files
+## Step 2: Update its virus list
 
-`clamav_outdated_definitions` (definitions older than 30 days) means
-ClamAV is present but effectively providing a false sense of security —
-it won't catch recent malware.
+`clamav_outdated_definitions` means ClamAV's list of known viruses is more
+than a month old, so it would miss recent ones.
 
-1. Back up nothing is needed here (definitions are a public signature
-   database, not user data), but do confirm you're running this from a
-   trusted network before pulling updates.
-2. Run `freshclam` manually to pull the latest signatures.
-3. If `freshclam` fails with a permissions or lock error, check whether a
-   `clamd` process is mid-update; wait for it to finish rather than killing
-   it.
-4. Consider setting up a recurring update (e.g. `brew services start
-   clamav` runs `freshclam` on a schedule as part of the Homebrew
-   service, or add your own `launchd` job) so this doesn't go stale again.
+1. Run ClamAV's updater, `freshclam`, from a network you trust.
+2. If it reports a lock or permission problem, another update may be
+   running; let it finish instead of stopping it.
+3. The deep virus scan (`rescue scan --profile deep_virus_scan`) fetches a
+   fresh list of its own into Reclaim City's cache folder when ClamAV's is
+   more than a week old, so you don't have to do this before a scan.
 
-## Step 3: Start the background virus scanner
+## Step 3: The background scanner is optional
 
-`clamd_not_running` means the daemon that would provide on-access
-scanning isn't active. `clamd_running` is the informational
-confirmation that it is.
+`clamd_not_running` means ClamAV's background service isn't running. Reclaim
+City doesn't need it: it runs `clamscan` when you ask for a scan. Start it
+only if you want ClamAV watching all the time (it costs memory and power).
+`clamd_running` is the confirmation that it's on.
 
-1. Confirm you actually want on-access scanning running continuously in
-   the background — it has a real CPU/memory cost. If you'd rather run
-   occasional manual scans with `clamscan` instead, no daemon is needed.
-2. To start it: `brew services start clamav`.
-3. Confirm it's active: `pgrep clamd` should return a PID.
+## Step 4: Check its version and list
 
-## Step 4: Check your scanner version and definition age
-
-`clamav_version` and `clamav_definitions` are informational — they report
-the installed engine and signature database versions. No action is
-required beyond periodically confirming the definition age stays low
-(see Step 2) if you're relying on ClamAV for protection.
+`clamav_version` and `clamav_definitions` are for your information: which
+ClamAV is installed and how old its virus list is. Nothing to do unless the
+list gets old (Step 2).

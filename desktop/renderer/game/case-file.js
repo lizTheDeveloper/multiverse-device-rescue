@@ -42,12 +42,22 @@ const LEAD_MODULES = new Set([
   'scheduled_tasks_audit', 'browser_extension_audit', 'chrome_extensions', 'safari_extensions', 'suspicious_processes',
   'win_suspicious_processes', 'win_autoruns_audit', 'win_startup', 'win_services_audit', 'network_proxy_check',
   'win_proxy_detect', 'win_remote_access_audit', 'ssh_config_audit', 'sharing_services_audit',
-  'knockknock_scan', 'rootkit_scanners',
+  'knockknock_scan', 'rootkit_scanners', 'malware_file_scan',
 ]);
-// Leads from a check whose other findings are doors: a package a scan
-// lists as malicious is a thing someone put there, not a setting.
+// A virus scan's match names one file, so it's a lead, but those checks also
+// report on themselves (ClamAV's list is old, Defender is off): only the
+// matches are leads. Likewise a package a scan lists as malicious is a thing
+// someone put there, though the dependency scan's other findings are doors.
 const LEAD_CODES = new Set([
-  'security.endor_dependency_scan.malicious_dependency',
+  'security.malware_file_scan.malware_match', 'security.clamav_scanner.virus_found',
+  'security.win_defender_scan.threat_still_there', 'security.endor_dependency_scan.malicious_dependency',
+]);
+// A virus scan's match that looks like monitoring software: SAFETY FIRST like
+// a held finding, so no tag (MINE included) can close it. Its quarantine still
+// shows, with the safety note above the confirmation.
+export const MONITORING_MATCH_CODES = new Set([
+  'security.malware_file_scan.monitoring_match', 'security.clamav_scanner.monitoring_found',
+  'security.win_defender_scan.monitoring_threat',
 ]);
 // Outside the Gatehouse and the Wires, these still leave a door open. An
 // out-of-date Node.js or PHP, or a project package with a known hole, is
@@ -103,9 +113,10 @@ function priorityOf(type, sig, held) {
 // `closed`: its mission is fixed and confirmed (progress.js).
 export function caseOf(sig, { kinds = null, held = false, closed = false } = {}) {
   const s = sig || {};
-  const type = typeOf(s, kinds, !!held);
-  const status = statusOf(type, s, { held: !!held, closed: !!closed });
-  return { type, status, priority: priorityOf(type, s, !!held), open: CASE_STATUSES[status].open };
+  const safety = !!held || MONITORING_MATCH_CODES.has((s.finding || {}).code);
+  const type = typeOf(s, kinds, safety);
+  const status = statusOf(type, s, { held: safety, closed: !!closed });
+  return { type, status, priority: priorityOf(type, s, safety), open: CASE_STATUSES[status].open };
 }
 
 // A lead's line under its title, e.g. "UNIDENTIFIED · HIGH RISK IF NOT YOURS".

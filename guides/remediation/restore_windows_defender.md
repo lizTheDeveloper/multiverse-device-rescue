@@ -11,7 +11,9 @@ remediates:
   - security.win_defender_deep_check.stale_full_scan
   - security.win_defender_deep_check.controlled_folder_access_disabled
   - security.win_defender_deep_check.all_passed
+  - security.win_defender_scan.defender_off
 steps_for:
+  security.win_defender_scan.defender_off: [1, 3, 6]
   security.win_defender_deep_check.realtime_disabled: [1]
   security.win_defender_deep_check.cloud_protection_off: [2]
   security.win_defender_deep_check.tamper_protection_disabled: [3]

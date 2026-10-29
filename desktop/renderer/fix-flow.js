@@ -64,10 +64,16 @@ const FixFlow = (function () {
     const watched = opts && opts.watched
       ? `<p class="fix-panel__line fix-panel__warning"><strong>${esc(WATCHED_WARNING)}</strong></p>`
       : '';
+    // Monitoring software (a quarantine of it): the engine's safety note comes
+    // before anything else in the confirmation, so it's read before "Yes".
+    const safety = typeof fixable.safety_note === 'string' && fixable.safety_note.trim()
+      ? `<p class="fix-panel__line fix-panel__warning" role="note"><strong>${esc(fixable.safety_note)}</strong></p>`
+      : '';
     return `
       <div class="fix-it" data-fix-module="${esc(finding.module)}"${attrs}>
         <button type="button" class="btn btn--secondary btn--small" data-fix-open>Fix it for me</button>
         <div class="fix-panel" data-fix-panel hidden role="group" aria-label="Confirm fix">
+          ${safety}
           <p class="fix-panel__line"><strong>This will:</strong> ${esc(fixable.will_change)}</p>
           <p class="fix-panel__line"><strong>To undo later:</strong></p>
           ${undoListHtml(fixable.how_to_undo)}
@@ -99,6 +105,15 @@ const FixFlow = (function () {
 
     if (r.action === 'disable_launch_agent' && r.status === 'nothing_to_fix' && !r.error) {
       return { tone: 'info', headline: 'This is already turned off.', detail: said, undo: [] };
+    }
+    if (r.action === 'quarantine_file' && r.applied === true && r.verified === true && r.status === 'fixed') {
+      return { tone: 'success', headline: 'Done. The file is in quarantine, where it can’t run. Nothing was deleted.', detail: '', undo, undoId: qid };
+    }
+    if (r.action === 'undo_quarantine_file' && r.applied === true && r.status === 'restored') {
+      return { tone: 'info', restored: true, headline: 'Put back where it was.', detail: said, undo: [] };
+    }
+    if (r.action === 'quarantine_file' && r.status === 'nothing_to_fix' && !r.error) {
+      return { tone: 'info', headline: 'This file is already taken care of.', detail: said, undo: [] };
     }
     if (r.status === 'nothing_to_fix' && !r.error) {
       return { tone: 'info', headline: 'There is nothing to fix. This already looks fine.', detail: '', undo: [] };
@@ -141,12 +156,15 @@ const FixFlow = (function () {
       </div>`;
   }
 
-  // Shown on other cards about the same background job once one card turned it off.
-  function handledElsewhereHtml() {
+  // Shown on other cards about the same background job (or file) once one card handled it.
+  function handledElsewhereHtml(action) {
+    const file = action === 'quarantine_file';
     return `
       <div class="fix-status--info fix-status__box">
-        <p class="fix-status__headline"><strong>Already turned off.</strong></p>
-        <p class="fix-status__detail">This is the same background job you just turned off on another card. Nothing more to do here.</p>
+        <p class="fix-status__headline"><strong>${file ? 'Already in quarantine.' : 'Already turned off.'}</strong></p>
+        <p class="fix-status__detail">${file
+          ? 'This is the same file you just put in quarantine on another card. Nothing more to do here.'
+          : 'This is the same background job you just turned off on another card. Nothing more to do here.'}</p>
       </div>`;
   }
 
@@ -205,7 +223,7 @@ const FixFlow = (function () {
         const open = other.querySelector('[data-fix-open]');
         const status = other.querySelector('[data-fix-status]');
         if (open) open.hidden = true;
-        if (status) { status.hidden = false; status.innerHTML = handledElsewhereHtml(); }
+        if (status) { status.hidden = false; status.innerHTML = handledElsewhereHtml(other.getAttribute('data-fix-action')); }
         other.setAttribute('data-fix-handled-by-other', '');
         touched.push(other);
       }

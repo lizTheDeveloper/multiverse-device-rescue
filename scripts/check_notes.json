@@ -170,9 +170,9 @@
     "where": "manifest.json files in ~/Library/Application Support/Google/Chrome/Default/Extensions"
   },
   "clamav_scanner": {
-    "what": "Whether ClamAV antivirus is installed and current",
-    "why": "An antivirus with an old virus list can miss newer threats.",
-    "where": "`clamscan --version`, `sigtool --info` on main.cvd, `pgrep clamd`"
+    "what": "Whether ClamAV is installed; asked, a ClamAV file scan",
+    "why": "Another opinion from a free virus list, inside zip files and disk images too.",
+    "where": "`clamscan --version`; deep scan: `clamscan` on Downloads, temp, apps"
   },
   "clamshell_mode": {
     "what": "Power settings for using a Mac with the lid closed",
@@ -583,6 +583,11 @@
     "what": "Mail app accounts and storage",
     "why": "Turned-off or POP accounts can explain missing email or a very large Mail folder.",
     "where": "`defaults read com.apple.mail`, ~/Library/Mail"
+  },
+  "malware_file_scan": {
+    "what": "Programs and scripts checked against Apple's malware rules",
+    "why": "Apple's XProtect rules recognise known Mac malware, even before it runs.",
+    "where": "Apps, background jobs, Downloads, temporary folders, add-ons"
   },
   "malware_scan_indicators": {
     "what": "Known adware and malware names on the Mac",
@@ -1138,6 +1143,11 @@
     "what": "Windows Defender settings and exclusions",
     "why": "Defender works best with its cloud, tamper and ransomware protections on and few exclusions.",
     "where": "`Get-MpComputerStatus`, `Get-MpPreference`"
+  },
+  "win_defender_scan": {
+    "what": "What Windows Defender has found, and who is in charge",
+    "why": "Defender's own records show threats it caught and any it couldn't remove.",
+    "where": "`Get-MpThreatDetection`, `Get-MpThreat`; asked, `MpCmdRun -Scan`"
   },
   "win_disk_cleanup": {
     "what": "Space Windows could free up",
