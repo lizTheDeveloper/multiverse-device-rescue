@@ -23,6 +23,10 @@ door. The module checks whether sshd is actually running before deciding how
 loudly to complain.
 """
 
+import fnmatch
+import os
+import re
+import shlex
 from pathlib import Path
 
 from rescue.command import run
@@ -40,8 +44,14 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.target import Target
 
 _TIMEOUT = 10.0
+
+_OFFLINE_SOURCE = "/etc/ssh/sshd_config on the checked disk"
+_MAX_INCLUDES = 64
+_ENABLED_UNITS = ("ssh.service", "sshd.service", "ssh.socket", "sshd.socket")
+_NOT_CHECKED = ["whether SSH was running"]
 
 # Values of PermitRootLogin that still allow a root session of some kind. Only
 # "no" fully closes it; "prohibit-password"/"without-password" allow key-based
@@ -59,6 +69,7 @@ class Module(ModuleBase):
     priority = 84
     depends_on = []
     estimated_duration = "10s"
+    offline_capable = True
 
     emits_codes = [
         "security.linux_ssh_hardening.root_login_permitted",
@@ -82,14 +93,29 @@ class Module(ModuleBase):
                 ),
             )
 
-        config, source = self._effective_config()
+        target = profile.target
+        not_checked = list(_NOT_CHECKED) if target is not None else []
+        if target is not None:
+            config, source, capped = self._offline_config(target)
+            if capped:
+                not_checked.append(f"some SSH settings files (more than {_MAX_INCLUDES})")
+        else:
+            config, source = self._effective_config()
         if config is None:
-            if not is_file_nofollow(self.sshd_config_path):
+            if target is not None:
+                try:
+                    exists = os.path.lexists(target.resolve(self.sshd_config_path))
+                except OSError:
+                    exists = True  # a link loop is something there, just unreadable
+            else:
+                exists = is_file_nofollow(self.sshd_config_path)
+            if not exists:
                 # No sshd config at all: no SSH server installed. Nothing to
                 # harden, and saying so is more useful than silence.
-                return CheckResult(module_name=self.name, findings=[])
+                return CheckResult(module_name=self.name, findings=[], not_checked=not_checked)
             return CheckResult(
                 module_name=self.name,
+                not_checked=not_checked,
                 findings=[
                     Finding(
                         title="Could not read the SSH settings file",
@@ -107,7 +133,9 @@ class Module(ModuleBase):
                 ],
             )
 
-        running = self._sshd_running()
+        running = self._offline_enabled(target) if target is not None else self._sshd_running()
+        # Offline, "running" only means "set to start automatically".
+        state = {"sshd_enabled": running} if target is not None else {"sshd_running": running}
         confidence = 0.95 if source == "sshd -T" else 0.7
         findings: list[Finding] = []
 
@@ -119,8 +147,7 @@ class Module(ModuleBase):
                     description=(
                         "Your computer is set up to let the main administrator account "
                         "(called 'root') log in directly from the internet. "
-                        + ("This is currently active because the service is running." if running else
-                        "This is not currently active because the service is off, but it will turn on if the service starts.")
+                        + self._root_login_sentence(running, target)
                         + "\n\nThis is a major security risk. Automated bots constantly try to break into computers using this exact method. "
                         "If you do not use remote access, you should turn this off.\n\n"
                         "What to do: Open your terminal and type `sudo nano /etc/ssh/sshd_config`. "
@@ -132,7 +159,7 @@ class Module(ModuleBase):
                     category=self.category,
                     code="security.linux_ssh_hardening.root_login_permitted",
                     confidence=confidence,
-                    data={"check": "root_login_permitted", "value": root_login, "sshd_running": running, "source": source},
+                    data={"check": "root_login_permitted", "value": root_login, **state, "source": source},
                 )
             )
         elif root_login in _ROOT_LOGIN_KEYS_ONLY:
@@ -159,8 +186,9 @@ class Module(ModuleBase):
                     description=(
                         "Your computer is set up to accept logins using a password if "
                         "someone connects to it remotely. "
-                        + ("This is currently active because the service is running." if running else
-                        "This is not currently active because the service is off.")
+                        + (self._offline_sentence(running) if target is not None else
+                           "This is currently active because the service is running." if running else
+                           "This is not currently active because the service is off.")
                         + "\n\nThis makes it easier for automated bots to guess your password and get in. "
                         "Using a digital key instead of a password is much safer.\n\n"
                         "What to do: If you use remote access, set up key-based login. "
@@ -172,7 +200,7 @@ class Module(ModuleBase):
                     category=self.category,
                     code="security.linux_ssh_hardening.password_auth_enabled",
                     confidence=confidence,
-                    data={"check": "password_auth_enabled", "sshd_running": running, "source": source},
+                    data={"check": "password_auth_enabled", **state, "source": source},
                 )
             )
 
@@ -204,9 +232,8 @@ class Module(ModuleBase):
                 Finding(
                     title="SSH is open to all connected networks",
                     description=(
-                        "sshd is bound to all interfaces, so it answers on whatever network "
-                        "this machine joins next — hotel wifi, a conference network, a "
-                        "cafe. If you only use SSH on a home LAN, bind it to that interface "
+                        self._listen_sentence(target)
+                        + " If you only use SSH on a home LAN, bind it to that interface "
                         "or restrict it in the firewall."
                     ),
                     severity=Severity.INFO,
@@ -217,7 +244,148 @@ class Module(ModuleBase):
                 )
             )
 
-        return CheckResult(module_name=self.name, findings=findings)
+        return CheckResult(module_name=self.name, findings=findings, not_checked=not_checked)
+
+    @staticmethod
+    def _listen_sentence(target: Target | None) -> str:
+        if target is not None:
+            return (
+                "With these settings SSH would answer on every network that computer "
+                "joins once SSH starts — hotel wifi, a conference network, a cafe."
+            )
+        return (
+            "sshd is bound to all interfaces, so it answers on whatever network "
+            "this machine joins next — hotel wifi, a conference network, a cafe."
+        )
+
+    @staticmethod
+    def _offline_sentence(enabled: bool) -> str:
+        if enabled:
+            return (
+                "On that computer the SSH service is set to start automatically, "
+                "so this is active whenever it's switched on."
+            )
+        return (
+            "On that computer the SSH service isn't set to start automatically, "
+            "but this applies if it's ever started."
+        )
+
+    @staticmethod
+    def _root_login_sentence(running: bool, target: Target | None) -> str:
+        if target is not None:
+            return Module._offline_sentence(running)
+        if running:
+            return "This is currently active because the service is running."
+        return (
+            "This is not currently active because the service is off, but it will "
+            "turn on if the service starts."
+        )
+
+    # ---- offline: read the disk, run nothing ----
+
+    def _offline_config(self, target: Target) -> tuple[dict[str, str] | None, str, bool]:
+        """Parse sshd_config with each Include spliced in at its own line.
+
+        sshd keeps the first value it sees for a keyword, and reads an Include
+        where the line stands, so the order here is the order sshd reads.
+        Settings inside a Match block apply only to some connections, so they
+        never fill a global setting. The third value is True when more files
+        were included than this check reads.
+        """
+        try:
+            main = target.read_text(self.sshd_config_path)
+        except OSError:
+            return None, "", False
+        seen = {self.sshd_config_path}
+        state = {"budget": _MAX_INCLUDES, "capped": False}
+        lines = [raw for raw, in_match in self._splice(main, target, seen, state, False) if not in_match]
+        return self._parse("\n".join(lines), first_wins=True), _OFFLINE_SOURCE, state["capped"]
+
+    def _splice(self, text, target, seen, state, in_match) -> list[tuple[str, bool]]:
+        """(line, inside a Match block) for `text`, with Include lines replaced
+        by the files they match.
+
+        A Match block runs until `Match all` or the end of the file it is in;
+        an included file starts in the context of the line that included it.
+        """
+        out: list[tuple[str, bool]] = []
+        for raw in text.splitlines():
+            words = raw.strip().split(None, 1)
+            keyword = words[0].lower() if words else ""
+            match_args = _match_args(raw)
+            if match_args is not None:
+                # Only a block that is exactly `Match all` is global again. An
+                # argument list that can't be read keeps the lines that follow
+                # (fail toward reporting rather than dropping settings).
+                in_match = match_args != ["all"] and match_args != ["?"]
+                continue
+            if len(words) != 2 or keyword != "include":
+                out.append((raw, in_match))
+                continue
+            try:
+                patterns = shlex.split(words[1])
+            except ValueError:
+                patterns = words[1].split()
+            for pattern in patterns:
+                for view in self._expand_include(pattern, target):
+                    if view in seen:
+                        continue
+                    if state["budget"] <= 0:
+                        state["capped"] = True
+                        continue
+                    seen.add(view)
+                    state["budget"] -= 1
+                    try:
+                        sub = target.read_text(view)
+                    except OSError:
+                        continue
+                    out.extend(self._splice(sub, target, seen, state, in_match))
+        return out
+
+    @staticmethod
+    def _expand_include(pattern: str, target: Target) -> list[str]:
+        """Target-view paths an Include pattern names; globs matched against the disk."""
+        if not pattern.startswith("/"):
+            pattern = "/etc/ssh/" + pattern
+        directory, _, name_pattern = pattern.rpartition("/")
+        directory = directory or "/"
+        if any(c in directory for c in "*?["):
+            return []  # wildcard directories aren't expanded
+        if not any(c in name_pattern for c in "*?["):
+            return [pattern]
+        try:
+            with os.scandir(target.resolve(directory)) as it:
+                names = sorted(e.name for e in it if fnmatch.fnmatchcase(e.name, name_pattern))
+        except OSError:
+            return []
+        return [directory.rstrip("/") + "/" + n for n in names]
+
+    @staticmethod
+    def _offline_enabled(target: Target) -> bool:
+        """True when SSH is set to start automatically on the disk.
+
+        That is an ssh/sshd service or socket in any *.wants/ directory
+        (Ubuntu 22.10 and later enable ssh.socket in sockets.target.wants/),
+        or the sshd.service alias entry `systemctl enable ssh` leaves in
+        /etc/systemd/system.
+        """
+        base = "/etc/systemd/system"
+        try:
+            base_host = target.resolve(base)
+            if os.path.lexists(base_host / "sshd.service"):
+                return True
+            with os.scandir(base_host) as top:
+                wants = [e.name for e in top if e.name.endswith(".wants")]
+        except OSError:
+            return False
+        for d in wants:
+            try:
+                with os.scandir(target.resolve(f"{base}/{d}")) as it:
+                    if any(e.name in _ENABLED_UNITS for e in it):
+                        return True
+            except OSError:
+                continue
+        return False
 
     def _effective_config(self) -> tuple[dict[str, str] | None, str]:
         """Return sshd's resolved settings, preferring `sshd -T` over the file."""
@@ -232,13 +400,18 @@ class Module(ModuleBase):
         return self._parse(text), self.sshd_config_path
 
     @staticmethod
-    def _parse(text: str) -> dict[str, str]:
-        """Parse `keyword value` lines; last occurrence wins, as sshd -T emits.
+    def _parse(text: str, first_wins: bool = False) -> dict[str, str]:
+        """Parse `keyword value` lines; by default the last occurrence wins, as sshd -T emits.
 
         For a hand-written config file sshd actually honours the *first*
         occurrence, but a file with the same keyword twice is already a
         configuration the operator should look at, and preferring the last line
         errs toward reporting the more permissive value rather than missing it.
+
+        `first_wins=True` keeps the first value instead, which is what sshd
+        does with a config file. The offline check uses it on the spliced
+        Include order with Match blocks already removed, so it reads the
+        global settings the way sshd would.
         """
         config: dict[str, str] = {}
         for raw in text.splitlines():
@@ -248,7 +421,10 @@ class Module(ModuleBase):
             parts = line.split(None, 1)
             if len(parts) != 2:
                 continue
-            config[parts[0].lower()] = parts[1].strip().lower()
+            key = parts[0].lower()
+            if first_wins and key in config:
+                continue
+            config[key] = parts[1].strip().lower()
         return config
 
     def _sshd_running(self) -> bool:
@@ -334,3 +510,17 @@ class Module(ModuleBase):
             kind=ActionKind.GUIDANCE,
             data={"check": check},
         )
+
+
+def _match_args(line: str) -> list[str] | None:
+    """The arguments of a `Match` line, lower-cased, as sshd splits them, or None
+    if the line isn't one. sshd takes `Match all`, `Match=all` and `Match = all`
+    alike, with quotes and trailing comments. `["?"]` means the line is a Match
+    but its arguments can't be read."""
+    m = re.match(r"\s*([A-Za-z]+)(?:\s*=\s*|\s+|$)(.*)", line)
+    if not m or m.group(1).lower() != "match":
+        return None
+    try:
+        return [a.lower() for a in shlex.split(m.group(2), comments=True)]
+    except ValueError:
+        return ["?"]

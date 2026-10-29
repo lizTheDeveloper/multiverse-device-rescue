@@ -95,6 +95,7 @@ class Module(ModuleBase):
     priority = 82
     depends_on = []
     estimated_duration = "20s"
+    offline_capable = True
     emits_codes = ["security.stalkerware_scan.monitoring_software_found"]
 
     def check(self, profile: SystemProfile) -> CheckResult:
@@ -117,8 +118,15 @@ class Module(ModuleBase):
         elif profile.platform == Platform.WIN32:
             observations.extend(self._scan_windows_uninstall_entries(applicable))
 
+        not_checked: list[str] = []
+        if profile.target is not None:
+            not_checked.append("programs running right now")
+            if not profile.installed_software_known:
+                not_checked.append("installed programs (this disk's package list can't be read yet)")
         return CheckResult(
-            module_name=self.name, findings=self._to_findings(observations)
+            module_name=self.name,
+            findings=self._to_findings(observations),
+            not_checked=not_checked,
         )
 
     def fix(self, findings: CheckResult, mode: Mode) -> FixResult:

@@ -189,3 +189,79 @@ def test_missing_data_file_is_reported_as_unavailable_not_healthy():
         result = mod.check(_make_profile())
     assert result.error is not None
     assert not result.findings
+
+
+def test_stalkerware_offline_matches_installed_and_says_processes_unchecked(linux_disk):
+    from rescue.profiler.base import gather_target_profile
+
+    with open(linux_disk / "var/lib/dpkg/status", "a") as f:
+        f.write("Package: flexispy\nStatus: install ok installed\nVersion: 1\n\n")
+    result = _get_module().check(gather_target_profile(linux_disk, Platform.LINUX))
+    assert result.findings
+    assert "programs running right now" in result.not_checked
+
+
+def test_stalkerware_offline_clean_disk_still_lists_unchecked(linux_disk):
+    from rescue.profiler.base import gather_target_profile
+
+    result = _get_module().check(gather_target_profile(linux_disk, Platform.LINUX))
+    assert not result.findings
+    assert result.not_checked == ["programs running right now"]
+
+
+def test_stalkerware_live_profile_has_empty_not_checked():
+    assert _check(_get_module(), _make_profile()).not_checked == []
+
+
+def test_stalkerware_is_offline_capable():
+    assert _get_module().offline_capable is True
+
+
+def test_stalkerware_offline_without_package_list_says_installed_unchecked(linux_disk):
+    from rescue.profiler.base import gather_target_profile
+
+    (linux_disk / "var/lib/dpkg/status").unlink()
+    profile = gather_target_profile(linux_disk, Platform.LINUX)
+    assert profile.installed_software_known is False
+    result = _get_module().check(profile)
+    assert "installed programs (this disk's package list can't be read yet)" in result.not_checked
+    assert "programs running right now" in result.not_checked
+
+
+def test_stalkerware_offline_with_package_list_knows_installed(linux_disk):
+    from rescue.profiler.base import gather_target_profile
+
+    profile = gather_target_profile(linux_disk, Platform.LINUX)
+    assert profile.installed_software_known is True
+
+
+def test_stalkerware_offline_unreadable_package_list_is_not_known(linux_disk):
+    import os
+
+    from rescue.profiler.base import gather_target_profile
+
+    status = linux_disk / "var/lib/dpkg/status"
+    status.unlink()
+    os.mkfifo(status)  # exists, but isn't a list that can be read
+    profile = gather_target_profile(linux_disk, Platform.LINUX)
+    assert profile.installed_software_known is False
+    assert "installed programs (this disk's package list can't be read yet)" in (
+        _get_module().check(profile).not_checked
+    )
+
+
+def test_stalkerware_offline_permission_denied_package_list_is_not_known(linux_disk):
+    import os
+
+    import pytest
+
+    from rescue.profiler.base import gather_target_profile
+
+    if os.geteuid() == 0:
+        pytest.skip("root can read a mode-000 file")
+    status = linux_disk / "var/lib/dpkg/status"
+    status.chmod(0)
+    try:
+        assert gather_target_profile(linux_disk, Platform.LINUX).installed_software_known is False
+    finally:
+        status.chmod(0o644)

