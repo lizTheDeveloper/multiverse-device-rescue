@@ -17,6 +17,7 @@ export const NOT_DETECTIONS = new Set([
   'security.mvt_spyware_scan.mvt_backup_too_large',
   'security.mvt_spyware_scan.mvt_backup_encrypted',
   'security.mvt_spyware_scan.mvt_scan_incomplete',
+  'security.mvt_spyware_scan.mvt_no_indicators',
   'security.mvt_spyware_scan.mvt_clean_scan',
   'security.keylogger_indicators.input_monitoring_access',
 ]);
@@ -33,6 +34,7 @@ export const COULDNT_LOOK = new Set([
   'security.mvt_spyware_scan.mvt_backup_too_large',
   'security.mvt_spyware_scan.mvt_backup_encrypted',
   'security.mvt_spyware_scan.mvt_scan_incomplete',
+  'security.mvt_spyware_scan.mvt_no_indicators',
 ]);
 // What the city says about it: plain, the same words as any check that couldn't run.
 export const COULDNT_LOOK_REASON = 'This check couldn’t look here.';

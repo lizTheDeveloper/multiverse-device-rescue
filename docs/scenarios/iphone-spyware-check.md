@@ -10,8 +10,9 @@ your iPhone or iPad. This profile scans a **backup of that device that already
 exists on your computer**, using Amnesty International's Mobile Verification
 Toolkit (MVT).
 
-This is the tool's only real mobile capability. There are no modules that talk
-to a phone directly; everything else mobile in this project is human-guided.
+There are no modules that talk to a phone directly. The other mobile check is
+the [Android spyware check](android-spyware-check.md), which reads an AndroidQF
+acquisition the same way.
 
 !!! info "Start with the walkthrough, not this page"
     [Check an iPhone or iPad for spyware](../CHECK_IPHONE_FOR_SPYWARE.md) is
@@ -50,17 +51,30 @@ is possible; only this profile turns it on, through `module_config`:
 module_config:
   mvt_spyware_scan:
     scan_backups: true
-    max_backup_bytes: 2147483648   # 2 GB
+    look_for: ios
+    max_backup_bytes: 0   # no size limit
 ```
 
-**The 2 GB limit is a safety measure, not a capability limit.** Backups larger
-than that are *skipped rather than scanned*, because scanning a very large
-backup can use a lot of memory. Raising `max_backup_bytes` lets bigger backups
-through — only do that on a computer with plenty of free memory.
+**Backups of any size are scanned.** Most full iPhone backups are tens of GB;
+an earlier 2 GB default skipped almost all of them. `max_backup_bytes` is still
+there for a machine short on memory.
 
-The module's declared duration reflects this: *"instant by default; 1–10m if
-backup scanning is enabled"*. It is `RiskLevel.SAFE` and reads the backup; it
-does not modify it.
+Three things are reported as *not checked*, never as clean:
+
+- **No indicator lists.** MVT doesn't download its lists by itself; until
+  `mvt-ios download-iocs` has been run once, it matches nothing. The module
+  reports `mvt_no_indicators` and doesn't scan.
+- **An encrypted backup.** MVT has to decrypt it first (`mvt-ios
+  decrypt-backup`, which asks for the backup password). The module reads
+  `Manifest.plist` and reports `mvt_backup_encrypted` with the commands.
+- **A scan that fails or times out** (one hour per backup): `mvt_scan_incomplete`.
+
+Matches against an indicator list are critical `mvt_spyware_detected`
+findings, read from MVT's `alerts.json`; MVT's own HIGH-level heuristics are
+`mvt_suspicious_signal` warnings. The module is `RiskLevel.SAFE` and reads the
+backup; it does not modify it.
+
+For Android, see the [Android spyware check](android-spyware-check.md).
 
 ## What stays human-led
 

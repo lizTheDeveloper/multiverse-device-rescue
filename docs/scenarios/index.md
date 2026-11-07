@@ -20,6 +20,7 @@ $ rescue guide <name>                    # the human walkthrough, where one exis
 | I installed a compromised package, or I'm worried about an AI-driven worm. | [AI worm response](ai-worm-response.md) |
 | I want my code projects' packages checked for malicious or vulnerable ones. | [Checking your projects' packages](ai-worm-response.md#checking-your-projects-packages) |
 | I think there's spyware on my iPhone or iPad. | [iPhone / iPad spyware check](iphone-spyware-check.md) |
+| I think there's spyware or stalkerware on my Android phone. | [Android spyware check](android-spyware-check.md) |
 | I want a security review of a Linux machine. | [Linux security checkup](linux-security-checkup.md) |
 | I'm visiting family and want to leave their laptop in better shape. | [Home for the holidays](home-for-the-holidays.md) |
 | A computer is clearly infected, barely starts or won't start, and I don't want it on my network. | [Infected computer, kept offline](infected-device.md) |
@@ -38,6 +39,7 @@ come back once you know more. If you have an AI provider configured,
 | [`ai_worm_response`](ai-worm-response.md) | 12 | none | all three |
 | [`dependency_scan`](ai-worm-response.md#checking-your-projects-packages) | 2 | none | all three (sends package details to Endor Labs; you ask for it) |
 | [`iphone_spyware_check`](iphone-spyware-check.md) | 1 | none — see the [walkthrough](../CHECK_IPHONE_FOR_SPYWARE.md) | all three (scans a backup on your computer) |
+| [`android_spyware_check`](android-spyware-check.md) | 1 | none — see the [walkthrough](../CHECK_ANDROID_FOR_SPYWARE.md) | macOS, Linux (scans an AndroidQF acquisition on your computer) |
 | [`linux_security_checkup`](linux-security-checkup.md) | 10 | none | Linux |
 | [`home_for_the_holidays`](home-for-the-holidays.md) | 4 | 1 phase, 13 steps | macOS |
 | [`infected_device`](infected-device.md) | 41 | 6 phases | macOS, Windows (works offline) |

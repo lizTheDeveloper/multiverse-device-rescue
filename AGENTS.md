@@ -41,10 +41,11 @@ If the person just wants the app, send them to the download buttons in the
    or housemate is monitoring them, removing that software can alert the
    person who installed it. Before suggesting removal, give them the safety
    note in the README and ask whether removal is safe for them.
-5. **Don't start heavy scans on your own.** `iphone_spyware_check` runs MVT
-   over an iPhone backup and can take a long time and a lot of memory, and
-   `deep_virus_scan` reads many files (ClamAV, where installed, uses a lot of
-   memory). Ask first.
+5. **Don't start heavy scans on your own.** `iphone_spyware_check` and
+   `android_spyware_check` run MVT over a phone backup and can take a long
+   time, and `deep_virus_scan` reads many files (ClamAV, where installed,
+   uses a lot of memory). Ask first. Android also needs the phone owner's
+   consent (AndroidQF's licence requires it).
 6. **The code-project package check sends data to Endor Labs.** The
    `dependency_scan` profile runs Endor Labs' `endorctl` over the person's
    code projects. It sends each project's package names and versions and
@@ -91,6 +92,7 @@ uv venv && uv pip install .          # or: python3 -m venv .venv && .venv/bin/pi
 | "Check my projects' packages" (sends data to Endor Labs; see rule 6) | ask first, then `rescue scan --profile dependency_scan --json` |
 | "Fix up my parent's laptop" | `rescue export --profile home_for_the_holidays --stdout` |
 | "Is there spyware on my iPhone?" (needs a local backup) | ask first, then `rescue run iphone_spyware_check < /dev/null` |
+| "Is there spyware on my Android phone?" (needs an AndroidQF acquisition) | ask first, then `rescue run android_spyware_check < /dev/null` |
 | Linux machine | `rescue export --profile linux_security_checkup --stdout` |
 | "Is something hidden starting on my Mac?" / "rootkit?" | ask first (slow, may download KnockKnock), then `rescue scan --profile deep_startup_check --json`; on Linux add `sudo` for rkhunter and chkrootkit |
 | "Scan my files for viruses" / "is this download a virus?" | ask first (it reads many files; may download ClamAV's list), then `rescue scan --json --profile deep_virus_scan` |

@@ -322,7 +322,7 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `malware_scan_indicators` | macOS | safe | 15s | — |
 | `mdm_enrollment` | macOS | safe | 5s | — |
 | `mdm_enrollment_check` | macOS | safe | 5s | — |
-| `mvt_spyware_scan` | macOS, Windows, Linux | safe | instant by default; 1-10m if backup scanning is enabled | mvt_spyware_scan: wraps Amnesty International's Mobile Verification Toolkit |
+| `mvt_spyware_scan` | macOS, Windows, Linux | safe | instant by default; minutes to an hour when scanning is on | mvt_spyware_scan: wraps Amnesty International's Mobile Verification Toolkit |
 | `network_connections_monitor` | macOS, Windows, Linux | safe | 5s | — |
 | `network_proxy` | macOS | safe | 2s | — |
 | `open_ports_scan` | macOS, Windows, Linux | safe | 3s | — |
