@@ -95,6 +95,7 @@ class Target:
     # this very file, so a name swapped in the meantime is never read or blamed.
     ino: int = 0
     dev: int = 0
+    mtime_ns: int = 0
 
 
 @dataclass
@@ -154,7 +155,8 @@ def _open_target(target: Target, max_bytes: int | None = None) -> int | None:
     """A descriptor for the very file that was listed, or None.
 
     Opened without following a link; it must still be a regular file with the
-    inode it had when listed, and no larger than `max_bytes`.
+    inode, size and modification time it had when listed, and no larger than
+    `max_bytes`.
     """
     try:
         fd = os.open(target.path, _READ_FLAGS)
@@ -162,7 +164,10 @@ def _open_target(target: Target, max_bytes: int | None = None) -> int | None:
         return None
     try:
         st = os.fstat(fd)
-        same = not target.ino or (st.st_ino, st.st_dev) == (target.ino, target.dev)
+        # Linux hands a freed inode number straight to the next new file, so a
+        # swapped-in file can have the old one: size and change time too.
+        same = not target.ino or ((st.st_ino, st.st_dev, st.st_size, st.st_mtime_ns)
+                                  == (target.ino, target.dev, target.size, target.mtime_ns))
         if stat.S_ISREG(st.st_mode) and same and (max_bytes is None or st.st_size <= max_bytes):
             return fd
     except OSError:
@@ -410,7 +415,7 @@ def collect_targets(
             return True
         seen.add(key)
         by_place.setdefault(place, []).append(Target(path=path, size=st.st_size, place=place,
-                                                       ino=st.st_ino, dev=st.st_dev))
+                                                       ino=st.st_ino, dev=st.st_dev, mtime_ns=st.st_mtime_ns))
         count[0] += 1
         return True
 

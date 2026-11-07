@@ -245,12 +245,14 @@ def test_on_a_mac_every_note_says_how_little_they_see(setup):
     assert "sealed part of the disk" in f.description
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="root ownership is a POSIX idea")
 def test_owned_by_root_refuses_a_file_others_can_change(tmp_path):
     code = _code_module()
     exe = tmp_path / "tool"
     exe.write_text("x")
     assert code.owned_by_root(str(exe)) is False  # owned by the test user
-    assert code.owned_by_root("/bin/sh") is True
+    # A real file on both systems (Ubuntu's /bin is a link to /usr/bin, so /bin/sh is refused).
+    assert code.owned_by_root("/usr/bin/env") is True
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="uses macOS's root-owned /etc -> private/etc link")

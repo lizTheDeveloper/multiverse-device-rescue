@@ -172,6 +172,7 @@ def test_the_scan_is_read_only_and_never_asks_virustotal(setup):
     assert runner.ran("curl") == []
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="KnockKnock is macOS-only; POSIX modes and paths")
 def test_unsigned_and_ad_hoc_programs_are_leads_and_macos_own_are_left_out(setup, monkeypatch):
     mod, _ = setup()
     monkeypatch.setenv("HOME", "/Users/alex")  # the fixture's home folder
@@ -414,6 +415,7 @@ def test_live_download_and_scan(tmp_path, monkeypatch):
     assert CODE + "signed_inventory" in codes or CODE + "could_not_check" in codes
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="KnockKnock is macOS-only; POSIX modes and paths")
 def test_it_never_runs_the_installed_bundle_in_place(setup, tmp_path):
     mod, runner = setup()
     mod.check(_profile())
