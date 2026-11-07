@@ -7,6 +7,7 @@ users commonly see.
 """
 
 import functools
+import os
 import sys
 from pathlib import Path
 
@@ -251,8 +252,9 @@ def test_owned_by_root_refuses_a_file_others_can_change(tmp_path):
     exe = tmp_path / "tool"
     exe.write_text("x")
     assert code.owned_by_root(str(exe)) is False  # owned by the test user
-    # A real file on both systems (Ubuntu's /bin is a link to /usr/bin, so /bin/sh is refused).
-    assert code.owned_by_root("/usr/bin/env") is True
+    # The real file behind env: Ubuntu links /bin to /usr/bin and, with the Rust
+    # coreutils, /usr/bin/env to a file elsewhere; a link on the path is refused.
+    assert code.owned_by_root(os.path.realpath("/usr/bin/env")) is True
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="uses macOS's root-owned /etc -> private/etc link")
