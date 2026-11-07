@@ -460,8 +460,9 @@ def test_suggested_commands_quote_the_path():
     ]:
         result, _, _ = _scan(mod, [target], alerts=alerts)
         f = next(f for f in result.findings if f.data.get("check") == check)
-        assert "'/fake/x$(touch pwned)'" in f.description, (target, check)
-        assert '"/fake/x$(touch pwned)"' not in f.description
+        shown = str(target["path"])  # backslashes on Windows
+        assert f"'{shown}'" in f.description, (target, check)
+        assert f'"{shown}"' not in f.description
 
 
 def test_zip_bomb_is_not_unpacked(tmp_path):
