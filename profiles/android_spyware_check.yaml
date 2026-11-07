@@ -1,0 +1,25 @@
+name: android_spyware_check
+display_name: "Android Spyware Check"
+description: >
+  Checks an Android phone for known stalkerware and mercenary spyware using
+  Amnesty International's Mobile Verification Toolkit (MVT). It reads an
+  acquisition you make first with Amnesty's AndroidQF tool (a file named like
+  <UUID>.zip, in your home folder, Downloads or Desktop); it never connects
+  to the phone itself. The acquisition is unpacked into a private temporary
+  folder for the scan and deleted afterwards. MVT's spyware lists must be
+  downloaded once (mvt-android download-iocs): without them nothing is
+  checked, and this check says so rather than reporting clean. An encrypted
+  (.zip.age) acquisition, or a scan that doesn't finish, is reported as not
+  checked, never as clean.
+  See docs/CHECK_ANDROID_FOR_SPYWARE.md.
+modules:
+  include:
+    - mvt_spyware_scan
+  exclude: []
+module_config:
+  mvt_spyware_scan:
+    scan_backups: true
+    look_for: android
+    # No size limit (0): acquisitions that include copies of every app can be
+    # several GB.
+    max_backup_bytes: 0

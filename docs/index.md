@@ -105,9 +105,11 @@ allowed to do.
   tool, not a forensic imager.
 - **Antivirus.** It looks for indicators and misconfiguration, and it does not
   replace an endpoint-protection product.
-- **Android and iOS device internals.** Mobile steps are human-guided. The one
-  exception is scanning an iPhone/iPad *backup* that already exists on your
-  computer — see the [iPhone spyware check](scenarios/iphone-spyware-check.md).
+- **Android and iOS device internals.** Mobile steps are human-guided. The
+  exceptions are scanning an iPhone/iPad *backup*, or an Android snapshot from
+  AndroidQF, that already exists on your computer — see the
+  [iPhone](scenarios/iphone-spyware-check.md) and
+  [Android](scenarios/android-spyware-check.md) spyware checks.
 
 !!! danger "If the person who may have access is someone you know"
     If a partner, ex-partner, family member, or housemate may be monitoring

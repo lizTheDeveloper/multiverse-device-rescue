@@ -164,10 +164,11 @@ resolve against root's home instead of yours.
 
 ## `rescue guide` says "No guide content found"
 
-Two profiles ship no guide: `ai_worm_response` and `iphone_spyware_check`. Both
-are scan-only — run them with `rescue --auto --profile <name>`. For the iPhone
-check, the human walkthrough is
-[Check an iPhone or iPad for spyware](CHECK_IPHONE_FOR_SPYWARE.md).
+Three profiles ship no guide: `ai_worm_response`, `iphone_spyware_check` and
+`android_spyware_check`. All are scan-only — run them with
+`rescue --auto --profile <name>`. The phone checks have human walkthroughs:
+[Check an iPhone or iPad for spyware](CHECK_IPHONE_FOR_SPYWARE.md) and
+[Check an Android phone for spyware](CHECK_ANDROID_FOR_SPYWARE.md).
 
 If a profile that *should* have a guide reports this, the content directory is
 missing — see "No modules discovered" above.

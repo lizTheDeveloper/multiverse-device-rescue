@@ -12,6 +12,8 @@ remediates:
   - security.mvt_spyware_scan.mvt_scan_available
   - security.mvt_spyware_scan.mvt_backup_encrypted
   - security.mvt_spyware_scan.mvt_scan_incomplete
+  - security.mvt_spyware_scan.mvt_no_indicators
+  - security.mvt_spyware_scan.mvt_suspicious_signal
 steps_for:
   security.mvt_spyware_scan.mvt_requires_wsl: [1]
   security.mvt_spyware_scan.no_backups_found: [2]
@@ -22,6 +24,8 @@ steps_for:
   security.mvt_spyware_scan.mvt_scan_available: [3]
   security.mvt_spyware_scan.mvt_backup_encrypted: [2]
   security.mvt_spyware_scan.mvt_scan_incomplete: [3]
+  security.mvt_spyware_scan.mvt_no_indicators: [3]
+  security.mvt_spyware_scan.mvt_suspicious_signal: [4]
 automatable_steps: []
 human_only_steps: [1, 2, 3, 4, 5]
 monitoring_risk: true
@@ -60,8 +64,10 @@ phone directly.
    `~/Library/Application Support/MobileSync/Backup` (macOS) or
    `~/.local/share/libimobiledevice/Backup` / `~/MobileSync/Backup`
    (Linux).
-2. **Android**: use `adb backup` or a full device backup tool supported by
-   MVT's `mvt-android` command; place it where you intend to point the scan.
+2. **Android**: run Amnesty International's AndroidQF tool with the phone
+   plugged in and USB debugging on. It saves a `<UUID>.zip` acquisition; leave
+   it in your home folder, Downloads or Desktop. See
+   docs/CHECK_ANDROID_FOR_SPYWARE.md. Only with the phone owner's consent.
 3. Re-run the scan once a backup exists.
 4. Even before a scan runs, if you suspect you are a high-risk target
    (journalist, activist, dissident, human-rights worker), consider Step 5's
@@ -76,7 +82,9 @@ phone directly.
 2. For iOS backup decryption support, also install `libimobiledevice`
    (`brew install libimobiledevice` on macOS, or your Linux distro's
    package).
-3. Re-run the scan once installed; it will use `mvt-ios` or `mvt-android`
+3. Download MVT's spyware lists once: `mvt-ios download-iocs`. Without them
+   MVT matches nothing, and the scan reports that it couldn't check.
+4. Re-run the scan once installed; it will use `mvt-ios` or `mvt-android`
    automatically depending on what's found.
 
 ## Step 4: Clean your phone if spyware is found

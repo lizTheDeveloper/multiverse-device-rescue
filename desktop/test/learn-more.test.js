@@ -41,6 +41,7 @@ test('worries with a matching chapter deep-link to it', () => {
 test('not offered to someone who may be watched, or with no real match', () => {
   assert.strictEqual(learnMoreFor(byId('watched'), {}), null);
   assert.strictEqual(learnMoreFor(byId('phone'), {}), null);
+  assert.strictEqual(learnMoreFor(byId('android'), {}), null);
   assert.strictEqual(learnMoreFor(byId('sketchy'), {}), null);
   assert.strictEqual(learnMoreFor(byId('wifi'), {}), null);
   assert.strictEqual(learnMoreFor(null, {}), null);
