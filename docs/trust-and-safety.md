@@ -13,7 +13,7 @@ overstates its own guarantees is teaching you the wrong habit.
 | --- | --- |
 | Does `rescue --auto` change my system? | No. Zero shipped modules opt in to unattended change. |
 | Does it ever ask for a password, 2FA code, or recovery key? | No. There is no such prompt anywhere in the tool. |
-| Does it send anything anywhere? | Only when you ask: the AI layer when you turn it on, `rescue update` when you run it, and the "who runs this address" lookups after a connection watch you start or for addresses you give `rescue lookup`. Those send only the public addresses: to RIPE NCC, to rdap.org, which redirects your computer to the regional registry that holds each address (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC) to ask it directly, and to reverse DNS through your computer's own resolver. Each service also sees your computer's public IP address, as any website does, and the app's name and version. `rescue watch --no-lookups` turns them off. One download happens during a normal scan: the AI tools check fetches HackMyAgent from the npm registry once, pinned by integrity hash. The registry sees your IP address and npm's own User-Agent (npm and Node.js versions, operating system, processor type); nothing else about your computer is sent. `--no-downloads` on `scan`, `export` or `run` turns it off. |
+| Does it send anything anywhere? | Only when you ask: the AI layer when you turn it on, `rescue update` when you run it, and the "who runs this address" lookups after a connection watch you start or for addresses you give `rescue lookup`. Those send only the public addresses: to RIPE NCC, to rdap.org, which redirects your computer to the regional registry that holds each address (ARIN, RIPE NCC, APNIC, LACNIC or AFRINIC) to ask it directly, and to reverse DNS through your computer's own resolver. Each service also sees your computer's public IP address, as any website does, and the app's name and version. `rescue watch --no-lookups` turns them off. One download happens during a normal scan: the AI tools check fetches HackMyAgent from the npm registry once, pinned by integrity hash. The registry sees your IP address and npm's own User-Agent (npm and Node.js versions, operating system, processor type); nothing else about your computer is sent. `--no-downloads` on `scan`, `export` or `run` turns it off. The code-project package check sends package and git details to Endor Labs, and only runs when you ask for it (`rescue scan --profile dependency_scan`); see [Privacy](privacy.md#what-leaves-the-machine). |
 | Can an update push new Python code to my machine? | Not through the sanctioned path. Updates carry data files only, and content commits containing anything else are rejected. |
 | Can I read what a check does before running it? | Yes. Every module is one plain Python file in the source tree. |
 | Does it verify it has not been tampered with? | Yes, at every launch, with a SHA-256 manifest — but the check warns and continues rather than blocking. |
@@ -43,6 +43,7 @@ history or page contents, or opens your documents and photos. The
 | `~/.config/rescue/revoked_signers.json` | `rescue trust revoke` |
 | `~/.local/share/rescue/content/` | `rescue update`, after signature verification |
 | `<user cache>/ReclaimCity/hackmyagent-<version>/` | `rescue scan`, once: the AI tools check's downloaded copy of HackMyAgent (see below) |
+| `<user cache>/ReclaimCity/knockknock-<version>/` | `rescue scan --profile deep_startup_check` (or `infected_device`), once: the deep startup check's downloaded copy of KnockKnock (see below) |
 
 Case files are written `0600` where the filesystem supports it, because even a
 redacted case describes a machine's security posture and lands in a home
@@ -424,6 +425,107 @@ this with HackMyAgent (OpenA2A, Apache-2.0,
 
 Updating the pinned version is a reviewed change to the lockfile, never
 automatic.
+
+### Two developer checks that run programs already on the computer
+
+- **`vulnerable_runtimes`** (in every scan) finds each copy of Node.js and
+  PHP in the usual places and compares its version with the advisories in
+  the module (today: Node2Shell, CVE-2026-111497, and PHP2Shell,
+  CVE-2026-109618 and CVE-2026-109619, all on CISA's KEV list). It reads the
+  version from the install's own version header where there is one. Where
+  there isn't, it runs the copy it found with `--version` (Node.js) or
+  `-n -v` (PHP, with no settings file or add-ons loaded). That runs a
+  program from the computer, so it never happens while Reclaim City has
+  administrator rights. Node.js inside Electron apps isn't checked.
+- **`endor_dependency_scan`** runs only in the `dependency_scan` profile,
+  and only when Endor Labs' `endorctl` is installed and already signed in.
+  It runs `endorctl api list -r Project --page-size=1` to tell whether
+  you're signed in, then `endorctl scan --path <project> --dependencies
+  --quick-scan --output-type json` per project, each with a time limit. What
+  that sends to Endor Labs is in [Privacy](privacy.md#what-leaves-the-machine).
+  endorctl builds a project it can't read a lock file for, which runs the
+  project's own install and build code, so only JavaScript projects with a
+  lock file are scanned; the others are listed as not checked. It never
+  runs with administrator rights, never reads endorctl's credentials file,
+  and notes if a project's top folder changed during its scan.
+  Disclosure: Endor Labs is one of Reclaim City's sponsors.
+
+### The deep startup check downloads one tool, when you choose it
+
+`knockknock_scan` lists everything set to start on its own on a Mac with
+KnockKnock (Objective-See, GPL-3.0, <https://github.com/objective-see/KnockKnock>).
+It is off in a plain `rescue scan`; the `deep_startup_check` and
+`infected_device` profiles turn it on, because KnockKnock hashes every item it
+finds and reads a lot of files.
+
+- **What is used.** A KnockKnock in `/Applications` (not `~/Applications`,
+  which any program running as you can fill), if
+  `codesign` says it is signed by Objective-See's Developer ID (team
+  `VBG97UB4TA`, identifier `com.objective-see.KnockKnock`) and notarized.
+  Otherwise the pinned release (4.1.0) is downloaded once from GitHub with
+  `curl` (HTTPS only, redirects too), checked against its published sha256,
+  unpacked with `ditto` (a zip with any entry outside `KnockKnock.app` is
+  refused), and kept in the user cache folder only if it passes the same
+  signature check. Neither is ever run in place: each run copies the bundle
+  with `ditto` into a new temp folder only you can open (0700), checks the
+  copy's signature, runs the copy, checks it again afterwards, and deletes
+  it. If the after-run check fails, the results are thrown away and the
+  saved download is deleted. A program already running as you can still
+  write to that temp folder; the checks narrow that window, they can't close
+  it.
+- **What runs.** `KnockKnock -whosthere -skipVT`. With no `-key` it never
+  contacts VirusTotal, and its command-line mode doesn't check for updates.
+  It needs Full Disk Access for the app running the checkup; without it,
+  KnockKnock stops and the check says it couldn't run.
+- **Not as administrator.** Like HackMyAgent, a checkup with administrator
+  rights doesn't run it.
+- **Off switch.** `--no-downloads`, `RESCUE_NO_DOWNLOADS=1`, or the
+  profile setting `downloads: false` (the infected_device profile).
+
+What becomes a finding, and why: Reclaim City's light startup checks
+(`launch_agent_audit`, `launchd_persistence_audit`, `cron_jobs_audit`,
+`kext_audit`, `system_extensions`, `browser_extension_audit`) read launch
+agents and the rest directly and stay in every checkup. None of them checks
+code signatures, and none looks at background items macOS manages, library
+inserts, authorization plugins, login hooks, Spotlight or Quick Look plugins,
+or startup and periodic scripts. KnockKnock does both, so it *supplements*
+them rather than replacing them. To avoid saying the same thing twice, its
+cron jobs, browser extensions and shell start-up files are only counted (the
+light checks cover those), an item KnockKnock lists twice (a launch agent is
+also a background item) is one finding, and what macOS makes is left out:
+KnockKnock's own filter drops Apple-signed items and files it knows by hash,
+and Reclaim City also drops items that just run an Apple program (a script
+started with `bash`, whose script the light checks name) and items on the
+sealed system volume. A lead is a program with no signature, an ad-hoc one,
+one that doesn't check out or couldn't be read, or anything in a rarely used
+place. Signed third-party items are one inventory note.
+
+### Rootkit scanners run only when you choose them, as root
+
+`rootkit_scanners` runs rkhunter (`--check --sk --rwo --nocolors --nolog
+--nomow`) and chkrootkit (`-q`) when they are installed. Neither is
+downloaded. They run only from fixed system folders, only when the file and
+every folder above it are real folders (a link anywhere on the path is
+refused) that belong to root and only root can change, checked again right
+before each run, and only when the checkup itself runs as root. The path that
+was checked is the path that runs. Each runs in a folder only root can
+change: chkrootkit in its helper folder (it starts `./chkproc` and its other
+helpers from the folder it runs in), rkhunter in `/`; never in the folder the
+scan was started from. `--nolog` keeps rkhunter from writing
+its log; Reclaim City never runs `--update` or `--propupd`. Warnings that
+match well-known harmless causes are explained in one note; the rest are
+leads.
+
+**On a Mac they see very little.** rkhunter's last release (1.4.6) is from
+2018 and its Mac signatures stop at malware from about 2016; chkrootkit has a
+handful of old Mac checks. Neither knows about background items, system
+extensions, configuration profiles or privacy permissions. The system files
+rkhunter fingerprints (`/bin`, `/sbin`, `/usr/bin`, `/usr/sbin`) are on the
+sealed system volume, which macOS verifies at every start and which nothing
+can change while System Integrity Protection is on, so that part of its work
+is already done. Running as root on a Mac doesn't give them Full Disk Access
+either, so they can't read protected folders in your home. They are allowed
+to run there, and every finding says this.
 
 ## Read the source of any check
 

@@ -24,9 +24,17 @@ modules:
     - win_scheduled_tasks_security
     - win_services_security_audit
     - linux_persistence_audit
+    # The deeper startup list (KnockKnock, only if a copy is already here) and
+    # the rootkit scanners (only if installed, and only with sudo).
+    - knockknock_scan
+    - rootkit_scanners
     # What is running, and known malware signs.
     - malware_scan_indicators
     - win_malware_indicators
+    # Files read against Apple's own malware rules (on the Mac already), and
+    # Windows Defender's own records: neither needs the internet.
+    - malware_file_scan
+    - win_defender_scan
     - suspicious_processes
     - win_suspicious_processes
     - process_scanner
@@ -65,8 +73,20 @@ modules:
 module_config:
   malware_scan_indicators:
     sensitivity: elevated
+  # A computer that is clearly infected gets the deep virus scan's limits.
+  malware_file_scan:
+    max_file_bytes: 268435456
+    max_total_bytes: 8589934592
+    max_files: 100000
+    time_budget: 1200
   # Kept offline: never fetch HackMyAgent. A copy already saved still runs.
   ai_agent_audit:
     downloads: false
+  # Kept offline: KnockKnock runs only from Applications or a saved copy.
+  knockknock_scan:
+    run_scan: true
+    downloads: false
+  rootkit_scanners:
+    run_scanners: true
 guides:
   - infected_device

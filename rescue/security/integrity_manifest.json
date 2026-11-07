@@ -3,6 +3,7 @@
     "__init__.py": "b502b0461c959fb330c04edd1d56cf64063d61820c0b90fb73154a172afca8fc",
     "actions/__init__.py": "318661780028338f35d04081ade49e8a4103093add2e7f7878b3a8506758519d",
     "actions/launch_agent.py": "d8c1bf58ff13e629a845c7d5af968dec693772c5685691202de88470819a4bf9",
+    "actions/quarantine_file.py": "543b60e1611d688af30c26bf569e9c5131109893f31ad0d75393d8f0f0bf25a1",
     "ai/__init__.py": "dafebe7611a3de71e92157cba38a39a9deb51f39e4cf873b112445016fea40f6",
     "ai/copilot.py": "657c5f72c0cf001797e04c6afa82919650114d55ead6e14aca88b8bd05c9c440",
     "ai/explainer.py": "5f778d937a00265b3a6c15b91190ecbdc86bee8ec856bbb0457f4a0596b96c35",
@@ -13,14 +14,15 @@
     "ai/providers/ollama_provider.py": "64eca9224d7e65b670bfbc619ed93320f95385888148554b5d5de5dcebaf4ef8",
     "ai/providers/openai_provider.py": "1a32636cff5234bd1b684d821b80e5dc0ecfd689e8c6832e6f2c940cd5402b5a",
     "ai/recommender.py": "4427a4340f37eb8963f6f6656eaeb44647d01fc5b8a8f7b1ce1c7a0a85fd2d27",
-    "app_fixes.py": "2240ff50aa8bd93955ac7d04bb6ec37634aad42a0f464092ea884bbfc034f9c4",
+    "app_fixes.py": "a4b8dfa1b9504089786a8f1ba1702cb70dd2bc8ceacb53bb72495efeedb1f429",
     "app_names.py": "3aeb2248d91f8d09d3190c6dce4d6481ec0d9978ef6b06609c2c67dfb77f2c88",
     "attribution.py": "65b8a1da8a1f6ce25fb26521d53172a613109f93c865a6dd7ecb5154f72b9f73",
     "backup_tools.py": "a07d6302c67c13dc024d3454b06a4e55fe3410781753015514e7c7edb46550c2",
     "case.py": "a6b9e1fd314395f97e971194f6d3a352b85e2273d986eb422b659ade3feb0e87",
-    "cli.py": "682fa1ce205532de7fa76cf736862318de8c4c3ff39af954afb4f9231dec658d",
+    "cli.py": "7489f372d4de5034339357835d8b35c5eb768c1823ba122e222b66360d84cc54",
     "command.py": "fa75b1df5b3b742f81e0e3117f628030523c9442c63aac5c747e99d3c632043e",
     "crash_reports.py": "eb72bf87abb042fad6931a1166fb27b201a25ec15c19071874458458dea185bc",
+    "file_scan.py": "2295c323798e19aadcea4f4680b7a018f3ff22f093e10f35625197334aff2f14",
     "fsbounds.py": "9eae7c588b5e31a373a42bc3d0fa029e3ac7df15f9d50409b61c2c80acbacdc8",
     "guides.py": "0c3898d0d3e2595095cbd09b5beb30fc2876dfea5184ff5f5a0fff07ebb1253b",
     "known_extensions.py": "cccb506706deb79cb1da44231cf40161ff62b2fed9d2517988348d25a715fafc",
@@ -44,7 +46,7 @@
     "security/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "security/integrity.py": "e0d9cdc38fe6abf4c6c3ec046adb0e0e2c69f56f418ab94581c2b3f5e2edb7ad",
     "security/signers.py": "b270dfe8fba3034dfe9174ea4974ae23c480c3c473f77bb3af53c7bb61677bda",
-    "serialize.py": "afa1566a262d6584d296f121596e6bcb51be46ac13e271a7cfa40a3eb5e30968",
+    "serialize.py": "f81e87cdbd624690cccd0cd6611e5eb06f528b9e100a704a4d12a87a779387e4",
     "session.py": "4628542f83fc4b631669c9afc589f8146b2c13f44c4f5c2254f74f4dc901eb6f",
     "target.py": "85cf34ec10a352e789dbffd3135197e910aa6013c4463fab63b2afe69e3fee46",
     "threat_map.py": "abab59fb860938dc5d3d386a931b5021b09aaebd9a578eecad3834eeeb83ad28",
@@ -72,6 +74,7 @@
     "update/verify.py": "d902798e797833a54e550ca01a9d0961bfbf29614a2f831a412eed450b680f7a",
     "validate.py": "0015bb87a7ebd7f3085af48a7b4c25619d05c01a6b9307c17570eb97298671b8",
     "watch.py": "d29b57742695e7367b4255543644ff4e0afc05fac19c38165051760f87c9dd19",
-    "whois.py": "eaef1ac9d18148e364330f79d80422525238916e05495a6ecbf8dd2a1495b6aa"
+    "whois.py": "eaef1ac9d18148e364330f79d80422525238916e05495a6ecbf8dd2a1495b6aa",
+    "yara_rules.py": "1da9e8976231027f99a182a54934a0e52a7751a2b18a34bc580b5231fe5544a9"
   }
 }

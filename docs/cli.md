@@ -135,7 +135,7 @@ module. Never applies a fix and never prompts.
 | `--live` | With `--json` and `--progress` or `--trace`: each `done` line also carries the finished check as `result`, in the same shape as its entry in the final JSON's `modules`. The desktop app uses it to show what a check found while the rest of the scan runs. The "who made it" lookups happen once, as each check finishes, and the final JSON reuses them. |
 | `--target-root <path>` | Check the disk mounted at `<path>` instead of this computer (for example from a rescue stick). Needs `--target-os`; one without the other exits `2`. Reads only, never writes to the disk. Only checks for the disk's system appear (with `--target-os linux`, the Linux checks; checks for other systems are left out, not reported). Of those, the ones that can work from files run; the rest are reported as `"supported": false` (couldn't check, not clean). Findings carry no fix or "It's mine" offers, because those would act on this computer, not the disk. Warns on stderr when not run as an administrator, since files only an administrator can read on the disk are then skipped (and named in `not_checked`). "Who made it" lookups and "marked as yours" entries are skipped. Refuses `/` (exit `2`). Warns on stderr if the disk is mounted read-write; mounting with `-o ro` is safer. |
 | `--target-os windows\|linux\|macos` | Which system is on the disk. Only `linux` works so far; the others exit `2`. With `--json` the output gains a top-level `"target": {"root", "os", "read_only"}` and `"platform"` is the disk's OS. |
-| `--no-downloads` | Don't download tools a check needs. Today that is one: the AI tools check (`ai_agent_audit`) fetches HackMyAgent from the npm registry the first time it runs. With this flag (or `RESCUE_NO_DOWNLOADS=1`) that check reports "couldn't check" instead; a copy already downloaded still runs, without the network, after it is checked against the committed file list. `rescue export` and `rescue run` take the same flag. |
+| `--no-downloads` | Don't download tools a check needs. Today that is three: the AI tools check (`ai_agent_audit`) fetches HackMyAgent from the npm registry the first time it runs, and the ClamAV file scan (`clamav_scanner`, only in the `deep_virus_scan` profile, only where ClamAV is installed) fetches a fresh virus list (about 115 MB) from ClamAV's own servers with ClamAV's `freshclam` when the installed one is more than a week old, and the deep startup check (`knockknock_scan`, only in the `deep_startup_check` profile) fetches KnockKnock (2.5 MB) from Objective-See's GitHub releases unless it's installed in Applications. With this flag (or `RESCUE_NO_DOWNLOADS=1`) those checks report "couldn't check" instead; a copy already downloaded still runs. `rescue export` and `rescue run` take the same flag. |
 
 The AI tools check (`ai_agent_audit`) needs Node.js 18 or newer. The first
 time it runs it downloads HackMyAgent (OpenA2A, Apache-2.0) with
@@ -323,6 +323,49 @@ reserved addresses, the special-purpose ranges (0.0.0.0/8, 192.0.0.0/24,
 and 64:ff9b:1::/48), and anything that isn't an address are never looked up:
 they print `null`, with a line on stderr saying so. The exit code is `0`
 either way.
+
+---
+
+## `rescue lookup-file` — one file's fingerprint on VirusTotal
+
+```console
+$ rescue lookup-file <file> [--open] [--json]
+```
+
+Prints the file's sha256 and VirusTotal's page for it,
+`https://www.virustotal.com/gui/file/<sha256>`. That is a lookup of the
+fingerprint only: **nothing is uploaded**, and no API key is used or asked for.
+`--open` also opens the page in your web browser. `--json` prints `sha256`,
+`size`, `virustotal_url`, `uploaded` (always `false`) and `upload_warning`.
+
+If VirusTotal has never seen the file, you can upload it yourself on their
+site. Only upload programs and scripts. Never upload anything private
+(documents, photos, anything with your name, passwords or work files): files
+uploaded to VirusTotal can be seen and downloaded by its paying customers.
+
+---
+
+## `rescue quarantine` — files Reclaim City set aside
+
+```console
+$ rescue quarantine list [--json]
+$ rescue fix --action quarantine_file --target <file> --json --i-understand
+$ rescue undo --quarantine-id <id> [--json]
+```
+
+A critical match from `malware_file_scan` (Apple's XProtect rules) or
+`clamav_scanner` carries a `fixable` block offering `quarantine_file`. With the
+person's agreement (`--i-understand`, which the app passes only after "Yes, fix
+it"), the file is moved into Reclaim City's quarantine folder
+(`~/Library/Application Support/Device Rescue/Quarantine/Files` on a Mac,
+`~/.local/share/device-rescue/quarantine/files` on Linux), renamed
+`<id>.quarantined` and made read-only, with a JSON manifest beside it (original
+path, sha256, permissions, time). Nothing is deleted. The operating system's own
+files, a file another account owns, and symbolic links are refused, with the
+reason. `rescue quarantine list` shows what is held and each id;
+`rescue undo --quarantine-id <id>` puts a file back with its permissions as they
+were. On Windows, Defender keeps its own quarantine (Windows Security >
+Virus & threat protection > Protection history), so this action isn't offered.
 
 ---
 

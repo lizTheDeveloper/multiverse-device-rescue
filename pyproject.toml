@@ -12,6 +12,9 @@ dependencies = [
     "pyyaml>=6.0",
     "python-frontmatter>=1.0",
     "textual>=8,<9",
+    # YARA-X (VirusTotal, BSD-3-Clause): reads Apple's XProtect malware rules
+    # for malware_file_scan. One abi3 wheel per platform, no runtime download.
+    "yara-x>=1.22,<2",
 ]
 
 [project.optional-dependencies]

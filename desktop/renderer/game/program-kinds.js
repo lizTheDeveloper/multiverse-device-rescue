@@ -89,12 +89,16 @@ export function kindsOf(finding, ctx = null) {
   const tail = codeTail(finding.code);
   const ids = new Set();
   const markKind = str(d.marked_kind) || str(finding.markable && finding.markable.kind);
-  if (LAUNCHD.has(mod) || markKind === 'background_task') launchdKinds(d, ctx).forEach((k) => ids.add(k));
+  // KnockKnock's items that come from a launchd settings file read like the launchd checks'.
+  if (LAUNCHD.has(mod) || markKind === 'background_task' || (mod === 'knockknock_scan' && str(d.plist))) {
+    launchdKinds(d, ctx).forEach((k) => ids.add(k));
+  }
   else if (MARK_KIND[markKind]) ids.add(MARK_KIND[markKind]);
   else if (EXTENSION_MODULES.has(mod)) ids.add('extension');
   else if (RUNNING_MODULES.has(mod)) ids.add('running');
   else if (SCHEDULE_MODULES.has(mod)) ids.add('schedule');
   else if (STARTS_MODULES.has(mod)) ids.add('starts');
+  else if (mod === 'knockknock_scan' && str(d.path)) ids.add('starts');
   else if (mod === 'win_scheduled_tasks_security') ids.add(tail === 'frequent_schedule' ? 'schedule' : tail === 'recent_boot_logon' ? 'starts' : 'background');
   else if (mod === 'win_scheduled_tasks') ids.add('background');
   else if (mod === 'win_startup_programs_audit') ids.add('starts');

@@ -32,13 +32,13 @@ $ rescue run <module_name>
 
 ## Coverage at a glance
 
-**285 modules** ship in the tree.
+**291 modules** ship in the tree.
 
 | Platform | Modules that run there |
 | --- | ---: |
-| macOS | 197 |
-| Windows | 102 |
-| Linux | 30 |
+| macOS | 202 |
+| Windows | 106 |
+| Linux | 34 |
 
 A module can support more than one platform, so these numbers add up to more than the total.
 
@@ -48,7 +48,7 @@ A module can support more than one platform, so these numbers add up to more tha
 | [integrity](#integrity) | 106 |
 | [network](#network) | 8 |
 | [performance](#performance) | 51 |
-| [security](#security) | 116 |
+| [security](#security) | 122 |
 
 ## bloatware
 
@@ -259,7 +259,7 @@ Why the machine is slow: CPU and memory pressure, thermals, disk space, startup 
 
 Malware and spyware indicators, persistence, remote access, credential exposure, and system hardening posture.
 
-116 modules — macOS 81, Windows 47, Linux 20.
+122 modules — macOS 86, Windows 51, Linux 24.
 
 | Module | Platforms | Risk | Duration | What it checks |
 | --- | --- | --- | --- | --- |
@@ -285,7 +285,7 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `certificate_audit` | macOS | safe | 10s | — |
 | `certificate_trust_audit` | macOS | safe | 10s | — |
 | `chrome_extensions` | macOS | safe | 3s | — |
-| `clamav_scanner` | macOS | safe | 2s | — |
+| `clamav_scanner` | macOS, Windows, Linux | safe | 2s; the deep virus scan reads many files | clamav_scanner: is ClamAV here, and (when asked) a ClamAV scan of the places malware lands. |
 | `code_signature_audit` | macOS, Windows | safe | 60s | Check whether installed applications are actually signed by who they claim. |
 | `cron_jobs_audit` | macOS | safe | 5s | — |
 | `crypto_miner_detect` | macOS | safe | 5s | — |
@@ -293,6 +293,7 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `disk_encryption_recovery` | macOS | safe | 5s | — |
 | `dns_poisoning_check` | macOS | safe | 3s | — |
 | `encryption_check` | macOS | safe | 3s | — |
+| `endor_dependency_scan` | macOS, Windows, Linux | safe | about a second; when turned on, up to 5 minutes per project | endor_dependency_scan: known-bad packages in the person's code projects, using Endor Labs. |
 | `evidence_bundle` | macOS, Windows, Linux | safe | 10s | Warn when cleanup is about to destroy the evidence of what happened. |
 | `filevault_recovery` | macOS | safe | 5s | — |
 | `find_my_mac_check` | macOS | safe | 3s | — |
@@ -305,6 +306,7 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `kernel_extensions_audit` | macOS | safe | 5s | — |
 | `kext_audit` | macOS | safe | 3s | — |
 | `keylogger_indicators` | macOS | safe | 10s | — |
+| `knockknock_scan` | macOS | safe | off unless a profile turns it on; slow when on (first run downloads 2.5 MB) | knockknock_scan: everything set to start on its own on a Mac, using KnockKnock. |
 | `launch_agent_audit` | macOS | safe | 10s | — |
 | `launchd_persistence_audit` | macOS | safe | 10s | — |
 | `linux_account_audit` | Linux | safe | 10s | Who can log in to this machine, and who can become root. |
@@ -316,6 +318,7 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `lock_screen_check` | macOS | safe | 3s | — |
 | `login_password_policy` | macOS | safe | 5s | — |
 | `login_window_settings` | macOS | safe | 5s | — |
+| `malware_file_scan` | macOS | safe | up to 40s | malware_file_scan: check files against Apple's own malware rules (macOS). |
 | `malware_scan_indicators` | macOS | safe | 15s | — |
 | `mdm_enrollment` | macOS | safe | 5s | — |
 | `mdm_enrollment_check` | macOS | safe | 5s | — |
@@ -327,6 +330,7 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `privacy_permissions_audit` | macOS | safe | 5s | — |
 | `remote_login_check` | macOS | safe | 10s | — |
 | `rootkit_check` | macOS | safe | 5s | — |
+| `rootkit_scanners` | macOS, Linux | safe | off unless a profile turns it on; slow when on, and needs root | rootkit_scanners: rkhunter and chkrootkit, when they're installed. |
 | `safari_extensions` | macOS | safe | 3s | — |
 | `scheduled_tasks_audit` | macOS | safe | 5s | — |
 | `screen_lock_check` | macOS | safe | 3s | — |
@@ -348,6 +352,7 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `usb_device_audit` | macOS | safe | 5s | — |
 | `user_account_audit` | macOS | safe | 5s | — |
 | `vpn_config` | macOS | safe | 3s | — |
+| `vulnerable_runtimes` | macOS, Windows, Linux | safe | about a second | vulnerable_runtimes: copies of Node.js and PHP with a bug attackers are using now. |
 | `win_antivirus_status` | Windows | moderate | 10s | — |
 | `win_autorun` | Windows | safe | 5s | — |
 | `win_autoruns_audit` | Windows | safe | 10s | — |
@@ -359,6 +364,7 @@ Malware and spyware indicators, persistence, remote access, credential exposure,
 | `win_crypto_miner_detect` | Windows | safe | 20s | Windows counterpart to the macOS ``crypto_miner_detect`` module. |
 | `win_defender` | Windows | moderate | 10s | — |
 | `win_defender_deep_check` | Windows | safe | 15s | — |
+| `win_defender_scan` | Windows | safe | a few seconds; the quick scan, when asked for, takes longer | win_defender_scan: what Windows Defender has found, and (when asked) a Defender quick scan. |
 | `win_firewall` | Windows | moderate | 5s | — |
 | `win_firewall_rules_audit` | Windows | safe | 10s | — |
 | `win_group_policy_audit` | Windows | safe | 10s | — |

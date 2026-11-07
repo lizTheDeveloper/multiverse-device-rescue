@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import stat
 import sys
 from pathlib import Path
 
@@ -933,28 +934,33 @@ def _apply_app_fix(module_name: str, acknowledged: bool) -> tuple[dict, int]:
 
 def _apply_app_action(action: str, target: str | None, acknowledged: bool) -> tuple[dict, int]:
     """Run one allowlisted engine-level action (not a module fix())."""
-    from rescue.actions import launch_agent
+    from rescue.actions import launch_agent, quarantine_file
 
+    handlers = {
+        launch_agent.ACTION: (launch_agent.disable, launch_agent.exit_code),
+        quarantine_file.ACTION: (quarantine_file.quarantine, quarantine_file.exit_code),
+    }
     if not acknowledged:
         return _fix_doc(
             action, action=action, error="not_confirmed",
             message="Refusing to change anything without --i-understand.",
         ), 2
-    if action not in load_app_actions() or action != launch_agent.ACTION:
+    if action not in load_app_actions() or action not in handlers:
         return _fix_doc(
             action, action=action, error="not_allowed",
             message="This fix is not available in the app. Use the written steps instead.",
         ), 2
     if not target:
         return _fix_doc(action, action=action, error="not_allowed", message="No target was given. We changed nothing."), 2
-    doc = launch_agent.disable(target)
-    return doc, launch_agent.exit_code(doc)
+    apply, exit_code = handlers[action]
+    doc = apply(target)
+    return doc, exit_code(doc)
 
 
 @main.command(name="fix")
 @click.argument("module_name", required=False)
 @click.option("--action", "action", default=None, help="An engine-level action, e.g. disable_launch_agent.")
-@click.option("--target", "target", default=None, help="What the action acts on (a plist path).")
+@click.option("--target", "target", default=None, help="What the action acts on (a plist path, or the file to quarantine).")
 @click.option("--json", "as_json", is_flag=True, help="Emit the result as one JSON document on stdout.")
 @click.option(
     "--i-understand",
@@ -984,20 +990,88 @@ def fix_cmd(module_name, action, target, as_json, acknowledged):
 
 
 @main.command(name="undo")
-@click.option("--quarantine-id", "quarantine_id", required=True, help="The id returned when the job was turned off.")
+@click.option("--quarantine-id", "quarantine_id", required=True, help="The id returned when the job was turned off or the file was quarantined.")
 @click.option("--json", "as_json", is_flag=True, help="Emit the result as one JSON document on stdout.")
 def undo_cmd(quarantine_id, as_json):
-    """Put back a background job that Device Rescue turned off."""
-    from rescue.actions import launch_agent
+    """Put back a background job that Device Rescue turned off, or a file it quarantined."""
+    from rescue.actions import launch_agent, quarantine_file
 
-    doc = launch_agent.restore(quarantine_id)
+    action = quarantine_file if quarantine_file.is_file_quarantine_id(quarantine_id) else launch_agent
+    doc = action.restore(quarantine_id)
     if as_json:
         click.echo(json.dumps(doc, indent=2))
     else:
         click.echo(doc["message"])
-    code = launch_agent.exit_code(doc)
+    code = action.exit_code(doc)
     if code:
         raise SystemExit(code)
+
+
+@main.group(name="quarantine")
+def quarantine_group():
+    """Files Reclaim City moved into quarantine (nothing there is ever deleted)."""
+
+
+@quarantine_group.command("list")
+@click.option("--json", "as_json", is_flag=True, help="Emit the list as JSON on stdout.")
+def quarantine_list(as_json):
+    """List the files in quarantine and the id that puts each one back."""
+    from rescue.actions import quarantine_file
+
+    items = quarantine_file.list_items()
+    if as_json:
+        click.echo(json.dumps({"folder": str(quarantine_file.quarantine_dir()), "items": items}, indent=2))
+        return
+    if not items:
+        click.echo("Nothing is in quarantine.")
+        return
+    for item in items:
+        click.echo(f"{item['id']}  {item['original_path']}  (since {item['quarantined_at']})")
+    click.echo("To put one back: rescue undo --quarantine-id <id>")
+
+
+_UPLOAD_WARNING = (
+    "If VirusTotal has never seen this file, you can upload it yourself on their site. "
+    "Only upload programs and scripts. Never upload anything private (documents, photos, "
+    "anything with your name, passwords or work files): files uploaded to VirusTotal can be "
+    "seen and downloaded by its paying customers."
+)
+
+
+@main.command(name="lookup-file")
+@click.argument("file_path", type=click.Path(dir_okay=False, path_type=str))
+@click.option("--open", "open_browser", is_flag=True, help="Also open the VirusTotal page in your web browser.")
+@click.option("--json", "as_json", is_flag=True, help="Emit the hash and URL as JSON on stdout.")
+def lookup_cmd(file_path, open_browser, as_json):
+    """Print one file's sha256 and its VirusTotal page. Nothing is uploaded."""
+    from rescue import file_scan
+
+    path = os.path.expanduser(file_path)
+    try:
+        st = os.stat(path)
+        if not stat.S_ISREG(st.st_mode):
+            raise OSError("not an ordinary file")
+        digest = file_scan.sha256_file(path)
+    except OSError as exc:
+        doc = {"status": "failed", "path": path, "message": f"Couldn't read that file: {exc}"}
+        click.echo(json.dumps(doc, indent=2) if as_json else doc["message"], err=not as_json)
+        raise SystemExit(1)
+    url = file_scan.virustotal_url(digest)
+    doc = {
+        "status": "ok", "path": path, "sha256": digest, "size": st.st_size, "virustotal_url": url,
+        "uploaded": False, "upload_warning": _UPLOAD_WARNING,
+    }
+    if open_browser:
+        import webbrowser
+
+        doc["opened"] = bool(webbrowser.open(url))
+    if as_json:
+        click.echo(json.dumps(doc, indent=2))
+        return
+    click.echo(f"sha256: {digest}")
+    click.echo(f"VirusTotal: {url}")
+    click.echo("This is a lookup of the file's fingerprint only. Nothing was uploaded.")
+    click.echo(_UPLOAD_WARNING)
 
 
 def _stdin_is_tty() -> bool:

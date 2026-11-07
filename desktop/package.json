@@ -26,6 +26,7 @@
       "mission-links.js",
       "mission-links.json",
       "router-url.js",
+      "virustotal-url.js",
       "ask-about.js",
       "ai-prompt.js",
       "renderer/**",

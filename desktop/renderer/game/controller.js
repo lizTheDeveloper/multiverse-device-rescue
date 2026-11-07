@@ -41,6 +41,8 @@ import { SIX_ROSES } from './side-district.js';
 import { renderSide, sideTileHtml, heldNoticeHtml } from './views/side-district.js';
 import { createAccountsScreen, ACCOUNT_SCREENS } from './accounts-screen.js';
 import { HACK_MODULES } from './account-recovery.js';
+// A virus scan's match: its fingerprint, looked up on VirusTotal.
+import { lookupHtml, lookupActSha } from './lookup.js';
 // "This is mine", the fast way, and the YOURS district.
 import { createMarkDesk } from './mark-desk.js';
 import { yoursInventory } from './yours.js';
@@ -625,7 +627,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     return renderSignalPanel({ signal: sig, districtName: nameOf(sig.districtId), clues: cluesOf(sig), opened: openedFor(sig.id),
       tagged: s.signal.tagged, right: s.signal.right, read: s.signal.read, points: s.signal.points, scout, mineHtml: mine,
       range: s.screen === 'range' ? { hasCity: !!s.city } : null, quickHtml: quick, chipsHtml: chipsFor(sig),
-      fold: policy().foldRaw, evidenceHtml: sig.kind === 'real' ? evidenceFor(sig.finding, cluesOf(sig)) : '', catHtml: cat, onSweep, caseHtml });
+      fold: policy().foldRaw, evidenceHtml: sig.kind === 'real' ? evidenceFor(sig.finding, cluesOf(sig)) + lookupHtml(sig.finding) : '', catHtml: cat, onSweep, caseHtml });
   }
 
   // New and everyday open a case in its own row, not in a panel across the
@@ -644,7 +646,8 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       chipsHtml: chipsFor(sig), door, couldnt: sig.kind === 'couldnt', asking, done: s.done, earned: g.points,
       hint: g.guided === 'light' ? 'Read who made it and what it does, then make your call.' : '',
       stepsHtml: sig.missionId && !sig.live ? `<button type="button" class="btn-t" data-go="mission:${esc(sig.missionId)}">${sig.fixable ? 'SEE THE FIX ▶' : 'SEE THE STEPS ▶'}</button>` : '',
-      check: { offered, busy: s.checking === sig.id, text: g.check || '' }, fold: true });
+      check: { offered, busy: s.checking === sig.id, text: g.check || '' }, fold: true,
+      lookupHtml: sig.kind === 'real' ? lookupHtml(sig.finding) : '' });
   }
 
   // The guided walkthrough's panel (guided.js): the steps, then after the
@@ -1201,7 +1204,7 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
       const sigHere = note.kind === 'held' ? null : signalsNow().find((x) => x.id === m.id);
       const quick = sigHere ? quickControl(sigHere, false) : '';
       const controls = note.kind === 'held' ? ''
-        : `${win.FixFlow.fixControlsHtml(m.primary, watchedOpts())}${quick || win.MarkFlow.markControlsHtml(m.primary, watchedOpts())}${routerHtml(m.primary)}`;
+        : `${win.FixFlow.fixControlsHtml(m.primary, watchedOpts())}${quick || win.MarkFlow.markControlsHtml(m.primary, watchedOpts())}${routerHtml(m.primary)}${lookupHtml(m.primary)}`;
       return renderBriefing({ mission: m, status: (s.progress.missions[m.id] || {}).status || 'open', controlsHtml: controls,
         scout, busy: s.busy, wantsSafety: win.RescueHost.wantsSafety(m.primary), learned: lessonForModule(s.lessons, s.progress, m.module), note,
         forHack: acct.offered() && HACK_MODULES.has(m.module), fold: policy().foldRaw, evidenceHtml: evidenceFor(m.primary) });
@@ -1396,6 +1399,15 @@ export function createController({ win, storage, scoutSprite, loadGame = loadRc,
     if (act === 'open-router') {
       const ctx = routerFor();
       if (ctx && !ctx.blocked) Promise.resolve().then(() => win.rescue.openRouter(ctx.ip)).catch(() => {});
+      return;
+    }
+    // VirusTotal's page for one file's fingerprint: only the sha256 goes to main,
+    // which builds the URL. It changes nothing, so it's fine mid-re-check.
+    const vtSha = lookupActSha(act);
+    if (vtSha) {
+      if (win.rescue && typeof win.rescue.openVirusTotal === 'function') {
+        Promise.resolve().then(() => win.rescue.openVirusTotal(vtSha)).catch(() => {});
+      }
       return;
     }
     // The connection watch runs alongside everything else, re-checks included.

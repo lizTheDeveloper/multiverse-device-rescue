@@ -328,11 +328,13 @@ export const CHECK_NOTES = {
  "clamav_scanner": {
   "category": "security",
   "platforms": [
-   "macOS"
+   "macOS",
+   "Windows",
+   "Linux"
   ],
-  "what": "Whether ClamAV antivirus is installed and current",
-  "where": "`clamscan --version`, `sigtool --info` on main.cvd, `pgrep clamd`",
-  "why": "An antivirus with an old virus list can miss newer threats."
+  "what": "Whether ClamAV is installed; asked, a ClamAV file scan",
+  "where": "`clamscan --version`; deep scan: `clamscan` on Downloads, temp, apps",
+  "why": "Another opinion from a free virus list, inside zip files and disk images too."
  },
  "clamshell_mode": {
   "category": "performance",
@@ -563,6 +565,17 @@ export const CHECK_NOTES = {
   "what": "Whether disk encryption (FileVault) is on",
   "where": "`fdesetup status`",
   "why": "Encryption keeps your files private if the computer is lost or stolen."
+ },
+ "endor_dependency_scan": {
+  "category": "security",
+  "platforms": [
+   "macOS",
+   "Windows",
+   "Linux"
+  ],
+  "what": "Malicious or unsafe packages in your code projects",
+  "where": "Endor Labs' `endorctl scan`, only when asked, on projects in ~/src, ~/code...",
+  "why": "Bad packages are how many attacks on developers' computers start."
  },
  "energy_saver_check": {
   "category": "performance",
@@ -827,6 +840,15 @@ export const CHECK_NOTES = {
   "where": "Input Monitoring entries in TCC.db, `log show` for CGEventTap",
   "why": "Keyboard access lets an app record everything typed, including passwords."
  },
+ "knockknock_scan": {
+  "category": "security",
+  "platforms": [
+   "macOS"
+  ],
+  "what": "Everything set to start on its own, and who signed it",
+  "where": "Objective-See's KnockKnock (`-whosthere -skipVT`), optional, from a signed copy",
+  "why": "Unwanted software has to set itself up to start again; an unsigned program there is worth a look."
+ },
  "lan_device_inventory": {
   "category": "network",
   "platforms": [
@@ -1062,6 +1084,15 @@ export const CHECK_NOTES = {
   "what": "Mail app accounts and storage",
   "where": "`defaults read com.apple.mail`, ~/Library/Mail",
   "why": "Turned-off or POP accounts can explain missing email or a very large Mail folder."
+ },
+ "malware_file_scan": {
+  "category": "security",
+  "platforms": [
+   "macOS"
+  ],
+  "what": "Programs and scripts checked against Apple's malware rules",
+  "where": "Apps, background jobs, Downloads, temporary folders, add-ons",
+  "why": "Apple's XProtect rules recognise known Mac malware, even before it runs."
  },
  "malware_scan_indicators": {
   "category": "security",
@@ -1342,6 +1373,16 @@ export const CHECK_NOTES = {
   "what": "Signs of software hiding deep in the system",
   "where": "`csrutil status`, `kextstat`, `codesign -v` on /usr/bin/login, /usr/sbin/sshd, /bin/sh",
   "why": "Some unwanted software hides by changing core system files or loading into the system core."
+ },
+ "rootkit_scanners": {
+  "category": "security",
+  "platforms": [
+   "macOS",
+   "Linux"
+  ],
+  "what": "Known traces of software that hides itself (rootkits)",
+  "where": "`rkhunter --check --rwo` and `chkrootkit -q`, optional, as root",
+  "why": "Rootkits hide from ordinary checks; these scanners look for the traces known ones leave."
  },
  "rosetta_status": {
   "category": "integrity",
@@ -1856,6 +1897,17 @@ export const CHECK_NOTES = {
   "where": "`scutil --nc list`, `scutil --nc status`, `scutil --dns`, `netstat -rn`",
   "why": "A VPN that lets some traffic or lookups go around it gives less privacy than expected."
  },
+ "vulnerable_runtimes": {
+  "category": "security",
+  "platforms": [
+   "macOS",
+   "Windows",
+   "Linux"
+  ],
+  "what": "Copies of Node.js and PHP with a bug attackers are using now",
+  "where": "PATH, Homebrew, nvm, fnm, Volta, asdf, mise, MAMP, XAMPP, Herd; `node --version`",
+  "why": "A website or tool run with an affected Node.js or PHP can be taken over from outside."
+ },
  "wifi_diagnostics": {
   "category": "integrity",
   "platforms": [
@@ -2062,6 +2114,15 @@ export const CHECK_NOTES = {
   "what": "Windows Defender settings and exclusions",
   "where": "`Get-MpComputerStatus`, `Get-MpPreference`",
   "why": "Defender works best with its cloud, tamper and ransomware protections on and few exclusions."
+ },
+ "win_defender_scan": {
+  "category": "security",
+  "platforms": [
+   "Windows"
+  ],
+  "what": "What Windows Defender has found, and who is in charge",
+  "where": "`Get-MpThreatDetection`, `Get-MpThreat`; asked, `MpCmdRun -Scan`",
+  "why": "Defender's own records show threats it caught and any it couldn't remove."
  },
  "win_disk_cleanup": {
   "category": "performance",

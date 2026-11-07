@@ -170,9 +170,9 @@
     "where": "manifest.json files in ~/Library/Application Support/Google/Chrome/Default/Extensions"
   },
   "clamav_scanner": {
-    "what": "Whether ClamAV antivirus is installed and current",
-    "why": "An antivirus with an old virus list can miss newer threats.",
-    "where": "`clamscan --version`, `sigtool --info` on main.cvd, `pgrep clamd`"
+    "what": "Whether ClamAV is installed; asked, a ClamAV file scan",
+    "why": "Another opinion from a free virus list, inside zip files and disk images too.",
+    "where": "`clamscan --version`; deep scan: `clamscan` on Downloads, temp, apps"
   },
   "clamshell_mode": {
     "what": "Power settings for using a Mac with the lid closed",
@@ -298,6 +298,11 @@
     "what": "Whether disk encryption (FileVault) is on",
     "why": "Encryption keeps your files private if the computer is lost or stolen.",
     "where": "`fdesetup status`"
+  },
+  "endor_dependency_scan": {
+    "what": "Malicious or unsafe packages in your code projects",
+    "why": "Bad packages are how many attacks on developers' computers start.",
+    "where": "Endor Labs' `endorctl scan`, only when asked, on projects in ~/src, ~/code..."
   },
   "energy_saver_check": {
     "what": "Sleep, wake and battery power settings",
@@ -444,6 +449,11 @@
     "why": "Keyboard access lets an app record everything typed, including passwords.",
     "where": "Input Monitoring entries in TCC.db, `log show` for CGEventTap"
   },
+  "knockknock_scan": {
+    "what": "Everything set to start on its own, and who signed it",
+    "why": "Unwanted software has to set itself up to start again; an unsigned program there is worth a look.",
+    "where": "Objective-See's KnockKnock (`-whosthere -skipVT`), optional, from a signed copy"
+  },
   "lan_device_inventory": {
     "what": "Devices that are visible on your home network",
     "why": "Knowing every device on the network is the first step to spotting one that doesn't belong.",
@@ -573,6 +583,11 @@
     "what": "Mail app accounts and storage",
     "why": "Turned-off or POP accounts can explain missing email or a very large Mail folder.",
     "where": "`defaults read com.apple.mail`, ~/Library/Mail"
+  },
+  "malware_file_scan": {
+    "what": "Programs and scripts checked against Apple's malware rules",
+    "why": "Apple's XProtect rules recognise known Mac malware, even before it runs.",
+    "where": "Apps, background jobs, Downloads, temporary folders, add-ons"
   },
   "malware_scan_indicators": {
     "what": "Known adware and malware names on the Mac",
@@ -723,6 +738,11 @@
     "what": "Signs of software hiding deep in the system",
     "why": "Some unwanted software hides by changing core system files or loading into the system core.",
     "where": "`csrutil status`, `kextstat`, `codesign -v` on /usr/bin/login, /usr/sbin/sshd, /bin/sh"
+  },
+  "rootkit_scanners": {
+    "what": "Known traces of software that hides itself (rootkits)",
+    "why": "Rootkits hide from ordinary checks; these scanners look for the traces known ones leave.",
+    "where": "`rkhunter --check --rwo` and `chkrootkit -q`, optional, as root"
   },
   "rosetta_status": {
     "what": "Rosetta, which runs older Intel apps",
@@ -1004,6 +1024,11 @@
     "why": "A VPN that lets some traffic or lookups go around it gives less privacy than expected.",
     "where": "`scutil --nc list`, `scutil --nc status`, `scutil --dns`, `netstat -rn`"
   },
+  "vulnerable_runtimes": {
+    "what": "Copies of Node.js and PHP with a bug attackers are using now",
+    "why": "A website or tool run with an affected Node.js or PHP can be taken over from outside.",
+    "where": "PATH, Homebrew, nvm, fnm, Volta, asdf, mise, MAMP, XAMPP, Herd; `node --version`"
+  },
   "wifi_diagnostics": {
     "what": "Wi-Fi connection and signal strength",
     "why": "A weak signal or low connection speed can make the internet feel slow or drop out.",
@@ -1118,6 +1143,11 @@
     "what": "Windows Defender settings and exclusions",
     "why": "Defender works best with its cloud, tamper and ransomware protections on and few exclusions.",
     "where": "`Get-MpComputerStatus`, `Get-MpPreference`"
+  },
+  "win_defender_scan": {
+    "what": "What Windows Defender has found, and who is in charge",
+    "why": "Defender's own records show threats it caught and any it couldn't remove.",
+    "where": "`Get-MpThreatDetection`, `Get-MpThreat`; asked, `MpCmdRun -Scan`"
   },
   "win_disk_cleanup": {
     "what": "Space Windows could free up",

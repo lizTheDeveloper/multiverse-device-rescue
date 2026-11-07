@@ -26,12 +26,21 @@ In the desktop app, open **Show technical details** while a checkup runs.
 
 Besides commands, checks read files (launch agents, browser profiles, logs)
 directly; read a module's `__init__.py` for the full picture. No check writes
-anything — `fix()` is separate and always asks first — with one exception:
+anything — `fix()` is separate and always asks first — with two exceptions.
 `ai_agent_audit` downloads HackMyAgent once, with `npm ci` from the pinned
 lockfile in `vendor/hackmyagent/`, into the user cache folder
 (`ReclaimCity/hackmyagent-<version>`), checks every file of it against
 `vendor/hackmyagent/tree.sha256` before each run, and reuses it.
 `--no-downloads` (on `scan`, `export` and `run`) turns the download off.
+
+Two checks run programs that were already on the computer rather than system
+commands. `vulnerable_runtimes` runs each copy of Node.js or PHP it finds
+with `--version` (Node.js) or `-n -v` (PHP, which loads no settings file or
+add-ons), and only for a copy whose install has no version header to read;
+it never does this while Reclaim City has administrator rights.
+`endor_dependency_scan` runs Endor Labs' `endorctl`, only in the
+`dependency_scan` profile and only when it is already signed in; that sends
+package and git details to Endor Labs (see [Privacy](privacy.md#what-leaves-the-machine)).
 
 HackMyAgent is a program of its own, so the commands *it* runs aren't in the
 list below. While `detect` runs it executes `ps aux` (running programs and
@@ -45,6 +54,18 @@ start-up self-check also appends to `~/.nanomind/integrity-events.jsonl`;
 Reclaim City removes those lines after the run when they are surely its own.
 HackMyAgent runs from a private, checked copy of the saved download, with an
 allow-listed environment (no `NODE_OPTIONS` or `npm_config_*`).
+
+`knockknock_scan` runs only when a profile turns it on (`deep_startup_check`,
+`infected_device`). Unless KnockKnock is installed in Applications, it
+downloads the pinned KnockKnock release from GitHub once with `curl`, checks
+its sha256, unpacks it with `ditto` into the user cache folder
+(`ReclaimCity/knockknock-<version>`), and keeps it only if `codesign` says it
+is signed by Objective-See (team `VBG97UB4TA`) and notarized. Each run copies
+the bundle with `ditto` into a new 0700 temp folder, checks the copy, runs it,
+checks it again afterwards and deletes it. `--no-downloads` turns the
+download off. KnockKnock is a program of its own: it reads the places macOS
+starts things from and runs `lsof` and code-signature checks itself. With
+`-skipVT` and no `-key` it sends nothing to VirusTotal.
 
 
 ## Bloatware
@@ -1505,12 +1526,7 @@ Runs no external commands; reads files and system APIs only.
 
 ### `clamav_scanner`
 
-```text
-clamscan --version
-pgrep clamd
-sigtool --info …
-which …
-```
+Runs no external commands; reads files and system APIs only.
 
 ### `code_signature_audit`
 
@@ -1576,6 +1592,15 @@ scutil --dns
 ```text
 fdesetup status
 ```
+
+### `endor_dependency_scan`
+
+```text
+endorctl api list -r Project --page-size=1
+endorctl scan --path … --dependencies --quick-scan --output-type json
+```
+
+Plus 2 command(s) built at runtime.
 
 ### `evidence_bundle`
 
@@ -1668,6 +1693,17 @@ log show --last 1h --predicate "eventMessage CONTAINS 'CGEventTap' AND processIm
 sqlite3 … "SELECT client FROM access WHERE service='kTCCServiceListenEvent' AND auth_value=2"
 ```
 
+### `knockknock_scan`
+
+```text
+/usr/bin/codesign --verify --strict --deep … -- …
+/usr/bin/curl --fail --silent --show-error --location --proto =https --proto-redir =https --max-filesize … --max-time … --output …
+/usr/bin/ditto -x -k …
+/usr/bin/ditto …
+```
+
+Plus 5 command(s) built at runtime.
+
 ### `launch_agent_audit`
 
 Runs no external commands; reads files and system APIs only.
@@ -1747,6 +1783,10 @@ defaults read /Library/Preferences/com.apple.loginwindow RetriesUntilHint
 defaults read /Library/Preferences/com.apple.loginwindow SHOWFULLNAME
 defaults read /Library/Preferences/com.apple.loginwindow autoLoginUser
 ```
+
+### `malware_file_scan`
+
+Runs no external commands; reads files and system APIs only.
 
 ### `malware_scan_indicators`
 
@@ -1842,6 +1882,11 @@ systemsetup -getremotelogin
 /usr/sbin/kextstat
 /usr/sbin/sysctl kern.proc.all
 ```
+
+### `rootkit_scanners`
+
+
+Plus 1 command(s) built at runtime.
 
 ### `safari_extensions`
 
@@ -2012,6 +2057,15 @@ scutil --nc status …
 systemextensionsctl list
 ```
 
+### `vulnerable_runtimes`
+
+```text
+node --version
+php -n -v
+```
+
+Plus 1 command(s) built at runtime.
+
 ### `win_antivirus_status`
 
 ```text
@@ -2086,6 +2140,10 @@ powershell -NoProfile -Command …
 powershell -NoProfile -Command 'Get-MpComputerStatus | ConvertTo-Json'
 powershell -NoProfile -Command 'Get-MpPreference | ConvertTo-Json'
 ```
+
+### `win_defender_scan`
+
+Runs no external commands; reads files and system APIs only.
 
 ### `win_firewall`
 

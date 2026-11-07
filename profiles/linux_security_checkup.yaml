@@ -22,6 +22,8 @@ modules:
     - linux_disk_encryption_check
     # Then what is arranged to run again, which is where persistence lives.
     - linux_persistence_audit
+    # rkhunter and chkrootkit, when installed; they need root and say so.
+    - rootkit_scanners
     # Then the patch level, which is what most real compromises actually use.
     - linux_package_updates
     # Then health: services that have failed, and hardware asking for help.
@@ -31,5 +33,7 @@ modules:
     # Cross-platform checks that apply here too.
     - disk_space
   exclude: []
-module_config: {}
+module_config:
+  rootkit_scanners:
+    run_scanners: true
 guides: []
