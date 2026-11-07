@@ -271,8 +271,11 @@ def test_time_machine_health_no_destination():
     with patch("subprocess.run", side_effect=_fake_run_no_destination()):
         result = mod.check(_make_profile())
     assert result.has_issues
-    assert any(f.data.get("check") == "no_destination_configured" for f in result.findings)
-    assert any(f.severity == Severity.CRITICAL for f in result.findings)
+    # time_machine_check owns "is this Mac backed up?"; this check only says
+    # that it had no disk to look at.
+    assert [f.data.get("check") for f in result.findings] == ["no_destination_configured"]
+    assert result.findings[0].severity == Severity.INFO
+    assert "Add Backup Disk" not in result.findings[0].description
 
 
 def test_time_machine_health_destination_disconnected():
@@ -348,8 +351,8 @@ def test_time_machine_health_fix_no_destination():
         check = mod.check(_make_profile())
         fix = mod.fix(check, Mode.MANUAL)
     assert fix.all_succeeded
-    assert any("backup destination" in a.title.lower() for a in fix.actions)
-    assert all(a.risk_level == RiskLevel.SAFE for a in fix.actions)
+    # No duplicate of time_machine_check's "set up a backup" guidance.
+    assert fix.actions == []
 
 
 def test_time_machine_health_fix_destination_disconnected():

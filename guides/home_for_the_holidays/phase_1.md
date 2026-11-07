@@ -48,6 +48,11 @@ sign out of anything that isn't recognized or hasn't been used in months.
 Turn on a backup solution — local, cloud, or both — so the next device
 problem doesn't mean losing photos and documents.
 
+If they already use another backup tool (Backblaze, Arq, Carbon Copy Cloner
+and so on), you don't need Time Machine as well: open it and check that the
+last backup finished recently. Dropbox, Google Drive, OneDrive and iCloud
+Drive are sync, not backup: a deleted file is deleted everywhere.
+
 ## Step 9: Review social media privacy settings
 
 Walk through privacy settings on the platforms they actually use, and

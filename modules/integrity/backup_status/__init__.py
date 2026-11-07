@@ -28,21 +28,39 @@ class Module(ModuleBase):
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
-        # Check if Time Machine is enabled
+        # No Time Machine drive: nothing here to check. Whether the Mac is backed
+        # up at all (another backup app, sync only, nothing) is time_machine_check's.
+        destination_info = self._get_destination_info()
+        if destination_info is None:
+            findings.append(
+                Finding(
+                    title="No Time Machine drive to check",
+                    description=(
+                        "Whether the backup drive is plugged in and whether automatic "
+                        "backups are on are checked only when Time Machine has a backup "
+                        "drive. Time Machine didn't report one, so neither was checked."
+                    ),
+                    severity=Severity.INFO,
+                    category=self.category,
+                    data={"check": "no_destination"},
+                )
+            )
+            return CheckResult(module_name=self.name, findings=findings)
+
+        # Time Machine has a drive: are automatic backups on?
         is_enabled = self._check_timemachine_enabled()
         if is_enabled is False:
             findings.append(
                 Finding(
-                    title="Your Mac is not making automatic backups",
+                    title="Automatic Time Machine backups are off",
                     description=(
-                        "Time Machine, the built-in backup tool, is currently turned off. "
-                        "This means your files are not being saved automatically. If something "
-                        "happens to your Mac, you could lose your photos, documents, and "
-                        "other work.\n\n"
-                        "What to do: Plug in an external drive, open System Settings > "
-                        "General > Time Machine, click Add Backup Disk, and choose it."
+                        "Time Machine has a backup drive, but it is set to back up only "
+                        "when you ask it to. If you forget, your newest photos, documents "
+                        "and other work are not saved.\n\n"
+                        "What to do: Open System Settings > General > Time Machine, click "
+                        "Options, and choose to back up automatically."
                     ),
-                    severity=Severity.CRITICAL,
+                    severity=Severity.WARNING,
                     category=self.category,
                     data={"check": "timemachine_disabled"},
                 )
@@ -64,25 +82,7 @@ class Module(ModuleBase):
                 )
             )
 
-        # Check backup destination
-        destination_info = self._get_destination_info()
-        if destination_info is None:
-            findings.append(
-                Finding(
-                    title="No backup drive is set up for Time Machine",
-                    description=(
-                        "Time Machine doesn't have a backup drive to save your backups to. "
-                        "You need to connect an external drive and tell your Mac to use "
-                        "it.\n\n"
-                        "What to do: Plug in an external drive, open System Settings > "
-                        "General > Time Machine, click Add Backup Disk, and choose it."
-                    ),
-                    severity=Severity.WARNING,
-                    category=self.category,
-                    data={"check": "no_destination"},
-                )
-            )
-        elif not destination_info.get("connected", False):
+        if not destination_info.get("connected", False):
             findings.append(
                 Finding(
                     title=(
@@ -143,17 +143,15 @@ class Module(ModuleBase):
                     )
                 )
 
-        # Add destination info if available
-        if destination_info is not None:
-            findings.append(
-                Finding(
-                    title="Time Machine destination info",
-                    description=f"Destination: {destination_info.get('name', 'Unknown')} ({destination_info.get('id', 'Unknown')})",
-                    severity=Severity.INFO,
-                    category=self.category,
-                    data={"check": "destination_info", "destination": destination_info},
-                )
+        findings.append(
+            Finding(
+                title="Time Machine destination info",
+                description=f"Destination: {destination_info.get('name', 'Unknown')} ({destination_info.get('id', 'Unknown')})",
+                severity=Severity.INFO,
+                category=self.category,
+                data={"check": "destination_info", "destination": destination_info},
             )
+        )
 
         return CheckResult(module_name=self.name, findings=findings)
 
@@ -164,22 +162,10 @@ class Module(ModuleBase):
             if check == "timemachine_disabled":
                 actions.append(
                     Action(
-                        title="Enable Time Machine",
+                        title="Turn on automatic Time Machine backups",
                         description=(
-                            "Open System Settings > General > Time Machine, "
-                            "click 'Turn On', and select a backup destination."
-                        ),
-                        risk_level=RiskLevel.SAFE,
-                        success=True,
-                    )
-                )
-            elif check == "no_destination":
-                actions.append(
-                    Action(
-                        title="Configure Time Machine backup destination",
-                        description=(
-                            "Open System Settings > General > Time Machine, "
-                            "click 'Select Backup Disk', and choose an external drive or network destination."
+                            "Open System Settings > General > Time Machine, click 'Options', "
+                            "and choose to back up automatically."
                         ),
                         risk_level=RiskLevel.SAFE,
                         success=True,

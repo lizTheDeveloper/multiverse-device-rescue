@@ -314,3 +314,20 @@ def test_skips_data_count_commands():
     with patch("rescue.command.run", side_effect=run):
         _get_module().check(_make_profile(Platform.LINUX))
     assert seen == [["ss", "-tunapH"]]
+
+
+def test_listening_items_say_port_program_and_who_can_reach_it():
+    lsof = (
+        "COMMAND   PID  USER  FD   TYPE             DEVICE SIZE/OFF NODE NAME\n"
+        "mysqld    321 me     4  IPv4  0x1 0t0 TCP *:3306 (LISTEN)\n"
+        "node      654 me     5  IPv4  0x2 0t0 TCP 127.0.0.1:5173 (LISTEN)\n"
+    )
+    result = _check(lsof=lsof)
+    by = {f.data["check"]: f for f in result.findings}
+    assert by["exposed_risky_ports"].data["items"] == [
+        {"port": 3306, "address": "*", "process": "mysqld", "pid": 321, "service": "MySQL", "reach": "network"},
+    ]
+    items = by["listening_ports"].data["items"]
+    assert {"port": 5173, "address": "127.0.0.1", "process": "node", "pid": 654, "service": None,
+            "reach": "this computer"} in items
+    assert len(items) == 2

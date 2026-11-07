@@ -644,3 +644,148 @@ def test_full_edge_name_gets_the_browser_threshold():
     assert "microsoft edge" in nm.BROWSER_PREFIXES
     assert not any("\\x" in p for p in nm.BROWSER_PREFIXES)
     assert nm._threshold_for("Microsoft Edge Helper") == nm.BROWSER_CONNECTION_THRESHOLD
+
+
+# --- connection items: direction, program, parent, SSH settings -------------
+
+_LSOF_HEAD = "COMMAND  PID  USER  FD  TYPE             DEVICE SIZE/OFF NODE NAME"
+
+
+def _darwin_check(lsof_lines, ps_out="", ssh_config=None, tmp_path=None):
+    """Replay lsof (and ps) on macOS; ssh_config is written to a fake home."""
+    seen = []
+
+    def run(args, **kwargs):
+        seen.append(list(args))
+        if args[0] == "lsof":
+            return _result("\n".join([_LSOF_HEAD, *lsof_lines]))
+        if args[0] == "ps":
+            return _result(ps_out)
+        return _result(returncode=1)
+
+    home = tmp_path
+    if ssh_config is not None:
+        (home / ".ssh").mkdir()
+        (home / ".ssh" / "config").write_text(ssh_config)
+    with patch("rescue.command.run", side_effect=run), patch("pathlib.Path.home", return_value=home):
+        return _get_module().check(_make_profile()), seen
+
+
+_SSH_OUT = ("ssh       31674 liz   3u  IPv4 0x1 0t0 TCP "
+            "192.168.0.114:49542->87.5.113.252:64456 (ESTABLISHED)")
+
+
+def test_outgoing_uncommon_port_item_names_program_parent_and_ssh_host(tmp_path):
+    result, seen = _darwin_check(
+        [_SSH_OUT],
+        ps_out="31674 31627 ssh -T vast-tests bash /root/vast-run.sh --token=abc123\n",
+        ssh_config="Host *\n  ServerAliveInterval 30\n\nHost vast-tests\n  HostName 87.5.113.252\n"
+                   "  Port 64456\n  IdentityFile ~/.ssh/id_vast\n",
+        tmp_path=tmp_path,
+    )
+    odd = [f for f in result.findings if f.data.get("check") == "unusual_ports"]
+    assert len(odd) == 1
+    assert odd[0].data["connections"] == ["ssh -> 87.5.113.252:64456"]
+    (item,) = odd[0].data["items"]
+    assert item["direction"] == "out"
+    assert item["process"] == "ssh" and item["pid"] == 31674 and item["ppid"] == 31627
+    assert item["local_addr"] == "192.168.0.114" and item["local_port"] == 49542
+    assert item["remote_addr"] == "87.5.113.252" and item["remote_port"] == 64456
+    assert item["state"] == "ESTABLISHED" and item["proto"] == "tcp"
+    assert item["remote_scope"] == "public"
+    assert item["ssh_host"] == "vast-tests"
+    # Only the program and its SSH destination are kept from the command line.
+    assert item["command"] == "ssh vast-tests"
+    # Nothing else from the SSH settings is kept.
+    assert "id_vast" not in json.dumps(odd[0].data)
+    assert ["ps", "-o", "pid=,ppid=,command=", "-p", "31674"] in seen
+
+
+def test_incoming_connection_to_a_listening_port_is_marked_in(tmp_path):
+    result, _ = _darwin_check(
+        [
+            "sshd      900 root  3u  IPv4 0x1 0t0 TCP *:2222 (LISTEN)",
+            "sshd      901 root  4u  IPv4 0x1 0t0 TCP 192.168.0.114:2222->203.0.113.9:51234 (ESTABLISHED)",
+        ],
+        tmp_path=tmp_path,
+    )
+    odd = [f for f in result.findings if f.data.get("check") == "unusual_ports"]
+    (item,) = odd[0].data["items"]
+    assert item["direction"] == "in"
+    assert item["local_port"] == 2222 and item["remote_port"] == 51234
+    assert "ssh_host" not in item
+    assert "ppid" not in item and "command" not in item  # ps said nothing
+
+
+def test_ssh_host_needs_matching_port(tmp_path):
+    result, _ = _darwin_check(
+        [_SSH_OUT], ssh_config="Host other\n  HostName 87.5.113.252\n  Port 2200\n", tmp_path=tmp_path,
+    )
+    (item,) = [f for f in result.findings if f.data.get("check") == "unusual_ports"][0].data["items"]
+    assert "ssh_host" not in item
+
+
+def test_no_ssh_config_is_fine(tmp_path):
+    result, _ = _darwin_check([_SSH_OUT], tmp_path=tmp_path)
+    (item,) = [f for f in result.findings if f.data.get("check") == "unusual_ports"][0].data["items"]
+    assert item["direction"] == "out" and "ssh_host" not in item
+
+
+SECRET = "S3cr3tV4lue"
+
+
+@pytest.mark.parametrize("cmdline, kept", [
+    (f"mysql -uroot -p{SECRET} -h db.example", "mysql"),
+    (f"mysql --password {SECRET} prod", "mysql"),
+    (f"myapp --password={SECRET}", "myapp"),
+    (f"myapp --token {SECRET} --api-key {SECRET}", "myapp"),
+    (f"myapp --auth {SECRET}", "myapp"),
+    (f"myapp --secret={SECRET} --key {SECRET}", "myapp"),
+    (f"sshpass -p {SECRET} ssh root@host", "sshpass"),
+    (f"curl https://user:{SECRET}@example.com/x", "curl"),
+    (f"psql postgres://admin:{SECRET}@10.0.0.5/db", "psql"),
+    (f"env API_KEY={SECRET} node server.js", "env"),
+    (f"/usr/bin/ssh -i ~/.ssh/id_{SECRET} -o ProxyCommand={SECRET} -l {SECRET} -p 64456 deploy@vast-tests ls",
+     "ssh vast-tests -p 64456"),
+    (f"ssh {SECRET}:{SECRET}@vast-tests", "ssh vast-tests"),
+    (f"ssh -T vast-tests bash -c 'echo {SECRET}'", "ssh vast-tests"),
+    (f"scp -P 2222 ./f {SECRET}@host.example:/tmp/x", "scp host.example -p 2222"),
+    (f"python3 /opt/tools/run.py --token {SECRET}", "python3 /opt/tools/run.py"),
+    # Clustered and attached option values (getopt rules): a value is never the destination.
+    ("ssh -vp2222 vast-tests", "ssh vast-tests -p 2222"),
+    (f"ssh -4l{SECRET} vast-tests", "ssh vast-tests"),
+    (f"ssh -4 -l {SECRET} vast-tests", "ssh vast-tests"),
+    (f"ssh -oProxyCommand=nc_{SECRET} vast-tests", "ssh vast-tests"),
+    (f"ssh -o ProxyCommand={SECRET} vast-tests", "ssh vast-tests"),
+    (f"ssh -oUser={SECRET} vast-tests", "ssh vast-tests"),
+    (f"ssh -i~/key_{SECRET} vast-tests", "ssh vast-tests"),
+    (f"ssh -vi key_{SECRET} vast-tests", "ssh vast-tests"),
+    (f"ssh -l {SECRET} vast-tests", "ssh vast-tests"),
+    (f"ssh -p 22 -l {SECRET} vast-tests", "ssh vast-tests -p 22"),
+    (f"ssh -- {SECRET}@vast-tests uptime", "ssh vast-tests"),
+    (f"ssh ssh://{SECRET}:{SECRET}@vast-tests:22", "ssh vast-tests -p 22"),
+    (f"ssh ssh://vast-tests", "ssh vast-tests"),
+    # Unclear: keep only the program.
+    (f"ssh -l", "ssh"),
+    (f"ssh -p {SECRET} vast-tests", "ssh"),
+    (f"mosh --ssh='ssh -l {SECRET}' vast-tests", "mosh"),
+    (f"ssh {SECRET}:x@bad/host", "ssh"),
+    (f"scp {SECRET}@a.example:/x {SECRET}@b.example:/y", "scp"),
+    (f"node --inspect {SECRET}.js", f"node {SECRET}.js"),  # a script path is kept; its name isn't a credential form
+])
+def test_command_line_keeps_only_the_program_and_ssh_destination(tmp_path, cmdline, kept):
+    import importlib
+
+    from rescue.case import RescueCase, case_to_json
+
+    result, _ = _darwin_check([_SSH_OUT], ps_out=f"31674 31627 {cmdline}\n", tmp_path=tmp_path)
+    (finding,) = [f for f in result.findings if f.data.get("check") == "unusual_ports"]
+    (item,) = finding.data["items"]
+    assert item["command"] == kept
+    if SECRET not in kept:
+        assert SECRET not in json.dumps(finding.data)
+        case = RescueCase()
+        case.add(_get_module(), result)
+        assert SECRET not in case_to_json(case), "nor in rescue export"
+    module = importlib.import_module(type(_get_module()).__module__)
+    assert module._command_summary("") is None

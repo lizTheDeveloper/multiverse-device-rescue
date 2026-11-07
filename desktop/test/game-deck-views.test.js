@@ -89,6 +89,16 @@ test('rows say what they are: DRILL, LOOK CLOSER, MARKED, changed; the threat bo
   assert.match(html, /KNOWN AND NOTED \(1\)[\s\S]*MARKED/);
 });
 
+test('every signal card opens its clues: queue rows say OPEN, threat board titles are buttons too', async () => {
+  const html = await deck({ items: [sig('a', 'warning')], threats: [sig('t1', 'critical', { tag: 'threat', missionId: 't1' })],
+    known: [sig('k', 'info', { tag: 'mine' })] });
+  assert.match(html, /<button type="button" class="sig sev-warning" data-go="signal:a"[^>]*>[\s\S]*?<span class="sig-open" aria-hidden="true">OPEN ▶<\/span><\/button>/);
+  assert.match(html, /<li class="threat"><button type="button" class="sig-title threat-open" data-go="signal:t1">T t1 ▶<\/button>/);
+  assert.match(html, /data-go="signal:k"/);
+  const css = fs.readFileSync(path.join(__dirname, '..', 'renderer', 'game', 'game.css'), 'utf8');
+  assert.match(css, /\.sig:hover, \.sig:focus-visible/, 'a queue row looks pressable');
+});
+
 test('a moment is a banner with a role; a filter shows its district with a way back', async () => {
   const html = await deck({ moment: { kind: 'clean', title: 'CLEAN SWEEP', text: 'No open signals.' }, filter: { id: 'wires', name: 'The Wires' } });
   assert.match(html, /<div class="moment moment-clean" role="status"><b>CLEAN SWEEP<\/b> No open signals\.<\/div>/);
@@ -112,7 +122,7 @@ test('instruments: integrity with a text equivalent, a hidden sparkline, confirm
   assert.match(html, /City integrity 72%, up from 61% last sweep\./);
   assert.match(html, /<b>4<\/b> <small>SORTED<\/small>[\s\S]*<b>2<\/b> <small>CONFIRMED<\/small>[\s\S]*<b>3<\/b> <small>YOU REPORTED<\/small>/);
   assert.doesNotMatch(html, /<b>5<\/b>/, 'confirmed and reported are never summed');
-  assert.match(html, /ROOKIE[\s\S]*40 POINTS[\s\S]*aria-valuenow="40"[\s\S]*60 points to SIGNAL ANALYST/);
+  assert.match(html, /ROOKIE[\s\S]*40 XP[\s\S]*aria-valuenow="40"[\s\S]*60 XP to SIGNAL ANALYST/);
   const none = v.renderInstruments({ integrity: null, previous: null, history: [null], bars: {}, rank: v.rankOf(v.emptyDeck()) });
   assert.match(none, /<b>—<\/b>/);
   assert.doesNotMatch(none, /<b>\d+%<\/b>/);

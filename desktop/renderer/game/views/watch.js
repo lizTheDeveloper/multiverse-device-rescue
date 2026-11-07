@@ -42,7 +42,9 @@ export function watchProgress(w, ev) {
 export function watchFinished(w, r) {
   if (r && r.ok) return { ...again(w), state: 'done' };
   const failed = !r || r.reason === 'failed';
-  return { ...again(w), state: failed ? 'failed' : 'refused', message: String((r && r.message) || FAILED) };
+  // `why`: main's one plain line on what went wrong (watch.js whyFailed), if any.
+  const why = r && typeof r.why === 'string' ? r.why : null;
+  return { ...again(w), state: failed ? 'failed' : 'refused', message: String((r && r.message) || FAILED), why };
 }
 
 // The same test main's gate uses: a warning or critical finding from a monitoring check.
@@ -75,7 +77,7 @@ function startHtml(n, lookups) {
 }
 
 export function renderWatch({ state = 'idle', minutes, lookups = true, stopping = false, phase = 'watch', elapsed = 0,
-  snapshots = 0, lookupDone = 0, lookupTotal = 0, message = '' } = {}) {
+  snapshots = 0, lookupDone = 0, lookupTotal = 0, message = '', why = null } = {}) {
   const n = minutesOf(minutes);
   let body;
   if (state === 'running') {
@@ -86,8 +88,10 @@ export function renderWatch({ state = 'idle', minutes, lookups = true, stopping 
   } else {
     const said = state === 'done' ? 'Watch finished. What it saw is in INCOMING SIGNALS.'
       : state === 'refused' || state === 'failed' ? String(message || FAILED) : '';
+    const whyLine = state === 'failed' && why ? `
+    <p class="intel faint watch-why">${esc(why)}</p>` : '';
     body = `${said ? `
-    <p class="intel watch-said" role="status">${esc(said)}</p>` : ''}${startHtml(n, lookups !== false)}`;
+    <p class="intel watch-said" role="status">${esc(said)}</p>` : ''}${whyLine}${startHtml(n, lookups !== false)}`;
   }
   return `
   <section class="panel watch" aria-label="Watch connections">

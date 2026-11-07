@@ -4,9 +4,12 @@ The distinction that has to hold: an unreadable /etc/shadow reports "not
 checked", never "no empty passwords found".
 """
 
+import os
 import sys
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -175,3 +178,76 @@ def test_fix_is_guidance_only(tmp_path):
     fix = mod.fix(check, Mode.CLI)
     assert fix.actions
     assert fix.executed_mutations == []
+
+
+# ---------------- offline: a Linux disk mounted elsewhere ----------------
+
+from rescue.profiler.base import gather_target_profile  # noqa: E402
+
+
+def _offline(linux_disk):
+    return gather_target_profile(linux_disk, Platform.LINUX)
+
+
+def test_account_audit_offline_reads_target_files(linux_disk):
+    with open(linux_disk / "etc/passwd", "a") as f:
+        f.write("toor:x:0:0::/root:/bin/bash\n")
+    (linux_disk / "etc/sudoers.d").mkdir()
+    (linux_disk / "etc/sudoers.d/90-sam").write_text("sam ALL=(ALL) NOPASSWD:ALL\n")
+    result = _get_module().check(_offline(linux_disk))
+    uid0 = [f for f in result.findings if f.data.get("check") == "extra_uid0_account"]
+    assert [f.data["account"] for f in uid0] == ["toor"]
+    sudo = [f for f in result.findings if f.data.get("check") == "passwordless_sudo"]
+    assert sudo and sudo[0].data["path"] == "/etc/sudoers.d/90-sam"
+    assert str(linux_disk) not in sudo[0].description
+
+
+def test_account_audit_offline_ignores_host_files(linux_disk):
+    result = _get_module().check(_offline(linux_disk))
+    inv = next(f for f in result.findings if f.data.get("check") == "admin_inventory")
+    assert set(inv.data["accounts"]) == {"root", "sam"}
+    assert not any(f.data.get("check") == "extra_uid0_account" for f in result.findings)
+
+
+def test_account_audit_offline_follows_symlinks_inside_the_disk(linux_disk):
+    (linux_disk / "etc/passwd").unlink()
+    (linux_disk / "real-passwd").write_text("root:x:0:0:r:/root:/bin/sh\nev:x:0:0::/:/bin/sh\n")
+    (linux_disk / "etc/passwd").symlink_to("/real-passwd")
+    result = _get_module().check(_offline(linux_disk))
+    assert any(f.data.get("account") == "ev" for f in result.findings)
+
+
+def test_account_audit_offline_missing_shadow_says_not_checked(linux_disk):
+    result = _get_module().check(_offline(linux_disk))
+    assert any(f.data.get("check") == "shadow_unreadable" for f in result.findings)
+
+
+def test_account_audit_is_offline_capable():
+    assert _get_module().offline_capable is True
+
+
+_ADMIN_ONLY = "some files only an administrator can read"
+_as_root = pytest.mark.skipif(
+    getattr(os, "geteuid", lambda: 1)() == 0, reason="root can read mode-000 files"
+)
+
+
+@_as_root
+def test_account_audit_offline_unreadable_sudoers_d_is_not_checked(linux_disk):
+    d = linux_disk / "etc/sudoers.d"
+    d.mkdir()
+    for name in ("10-a", "20-b"):
+        (d / name).write_text("sam ALL=(ALL) NOPASSWD:ALL\n")
+        (d / name).chmod(0)
+    try:
+        result = _get_module().check(_offline(linux_disk))
+    finally:
+        for name in ("10-a", "20-b"):
+            (d / name).chmod(0o644)
+    assert result.not_checked.count(_ADMIN_ONLY) == 1
+
+
+def test_account_audit_offline_readable_disk_has_no_admin_only_entry(linux_disk):
+    (linux_disk / "etc/sudoers.d").mkdir()
+    (linux_disk / "etc/sudoers.d/10-a").write_text("# nothing\n")
+    assert _ADMIN_ONLY not in _get_module().check(_offline(linux_disk)).not_checked

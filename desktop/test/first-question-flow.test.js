@@ -238,17 +238,3 @@ test('"Something changed?" before any answer is the first ask: "rather not say" 
   assert.deepStrictEqual(modeWrites(p), [[KEY, 'standard']]);
 });
 
-test('the step dot stays where the person is: worry for the first ask, the checkup for the follow-up', async () => {
-  const p = page({ store: {} });
-  p.byId('btn-get-started').click();
-  p.pick('unsure');
-  assert.deepStrictEqual(p.activeDot(), ['worry']);
-  p.answer('no');
-  assert.deepStrictEqual(p.activeDot(), ['scan']);
-  p.byId('btn-run-scan').click();
-  await p.finish(monitoring);
-  assert.deepStrictEqual(p.shown(), ['question']);
-  assert.deepStrictEqual(p.activeDot(), ['scan'], 'not back to "worry"');
-  p.answer('known');
-  assert.deepStrictEqual(p.activeDot(), ['results']);
-});

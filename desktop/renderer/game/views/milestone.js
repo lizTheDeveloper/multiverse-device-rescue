@@ -23,7 +23,7 @@ export function renderMilestone({ district: d, progress, scout }) {
   return `
   <section class="outcome ${fog ? 'o-err' : 'o-win'} milestone">
     ${fog ? '<span class="badge fog">NOT EVERYTHING HERE COULD BE CHECKED</span>' : '<span class="badge safe">DISTRICT TAKEN BACK</span>'}
-    <h2>${esc(d.name.toUpperCase())}</h2>
+    <h2 data-landing>${esc(d.name.toUpperCase())}</h2>
     ${scout('proud', 72)}
     <p>${esc(lead)}</p>
     ${fixed.length ? `<div class="panel"><div class="label">FIXED AND CHECKED</div><ul class="notes">${fixed.map((m) => `<li>${esc(m.title)}</li>`).join('')}</ul></div>` : ''}

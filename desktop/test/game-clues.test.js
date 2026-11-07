@@ -90,8 +90,8 @@ test('who made it: verified, Apple, several programs, and the program’s descri
 });
 
 test('a place with no note still shows its path, with the plain how-to-read line', async () => {
-  const { cluesFor, READING } = await load();
-  assert.deepStrictEqual(cluesFor({ data: { path: '/opt/x/bin' } }), [{ kind: 'where', label: 'WHERE IT LIVES', lines: ['/opt/x/bin'], reading: READING.placeUnknown }]);
+  const { cluesFor, READING, PLACE_UNKNOWN_PLAIN } = await load();
+  assert.deepStrictEqual(cluesFor({ data: { path: '/opt/x/bin' } }), [{ kind: 'where', label: 'WHERE IT LIVES', lines: ['/opt/x/bin'], reading: READING.placeUnknown, plain: PLACE_UNKNOWN_PLAIN }]);
 });
 
 test('Scout’s read: says whether the scan agrees and why; never “wrong”; the person’s call stands', async () => {
@@ -202,4 +202,102 @@ test('WHERE THEY WENT: registry and DNS text is capped and stripped of control c
   assert.doesNotMatch(c.lines.join('\n'), /\u0007/);
   const [g] = cluesFor(gaps(group(app('A', [dst('1.1.1.1', 443, 1)], { lookup_sources: ['RIPE\u0000 NCC\u001b[31m'] })), ['Stopped\u0007 early.']));
   assert.deepStrictEqual(g.lines.slice(1), ['Stopped early.', 'Looked up with: RIPE NCC [31m.'], 'gaps and sources too');
+});
+
+// Network findings: direction, program, who, and one next step (engine `data.items`).
+const lineText = (l) => (typeof l === 'string' ? l : l.text);
+const SSH_ITEM = { direction: 'out', process: 'ssh', pid: 31674, ppid: 31627, proto: 'tcp', local_addr: '192.168.0.114', local_port: 49542,
+  remote_addr: '87.5.113.252', remote_port: 64456, remote_scope: 'public', state: 'ESTABLISHED',
+  command: 'ssh -T vast-tests bash /root/vast-run.sh', ssh_host: 'vast-tests' };
+const UNCOMMON = (items, platform = 'darwin') => ({ title: 'Connections on uncommon ports (1)', severity: 'warning',
+  code: 'security.network_connections_monitor.unusual_ports',
+  description: 'We found 1 connection(s) using port numbers that are not typically used by standard apps:\nssh -> 87.5.113.252:64456',
+  data: { check: 'unusual_ports', connections: ['ssh -> 87.5.113.252:64456'], items, platform },
+  remediation: { title: 'Review active network connections', steps: [{ number: 3, title: 'Check connections on unusual ports', body: '…' }] } });
+
+test('every next-step sentence and command template for network clues is in its walkthrough', async () => {
+  const { NET_NEXT, NET_COMMANDS } = await load();
+  for (const [k, n] of Object.entries(NET_NEXT)) {
+    assert.ok(src(n.source).includes(norm(n.quote)), `${k}: its quote isn’t in ${n.source}`);
+  }
+  for (const [k, c] of Object.entries(NET_COMMANDS)) {
+    const text = src(c.source);
+    for (const cmd of [...c.darwin, ...c.linux]) assert.ok(text.includes(`\`${cmd}\``), `${k}: \`${cmd}\` isn’t in ${c.source}`);
+    assert.ok(text.includes(norm(c.win32Quote)), `${k}: the Windows line isn’t in ${c.source}`);
+  }
+});
+
+test('an outgoing SSH session: OUT, the program, its parent and command, the SSH settings match, and MINE as the next step', async () => {
+  const { cluesFor } = await load();
+  const clues = cluesFor(UNCOMMON([SSH_ITEM]));
+  assert.deepStrictEqual(clues.map((c) => c.kind), ['conn', 'who', 'next'], 'no raw WHAT IT DOES text');
+  const [conn, who, next] = clues.map((c) => ({ ...c, text: c.lines.map(lineText) }));
+  assert.deepStrictEqual(conn.text, [
+    'Your computer is connecting OUT to 87.5.113.252, port 64456.',
+    'Program: ssh (PID 31674), started by PID 31627',
+    'ssh -T vast-tests bash /root/vast-run.sh',
+    '192.168.0.114:49542 → 87.5.113.252:64456 · ESTABLISHED',
+  ]);
+  assert.strictEqual(conn.lines[2].code, true, 'the command line is code');
+  assert.deepStrictEqual(who.text, ['87.5.113.252: this matches “vast-tests” in your SSH settings (~/.ssh/config).']);
+  assert.match(next.text[0], /^If you started this SSH session, it’s yours: tag it MINE\./);
+  assert.deepStrictEqual(next.text.slice(2), ['ps -p 31674 -o pid,ppid,command', 'lsof -i :64456']);
+  assert.ok(next.move, 'the next step offers the steps too');
+  for (const c of clues) assert.strictEqual(c.reading, null, 'no how-to-read filler');
+});
+
+test('an incoming connection says IN and the local port; a public address says a watch can look it up', async () => {
+  const { cluesFor } = await load();
+  const inbound = { direction: 'in', process: 'sshd', pid: 901, proto: 'tcp', local_addr: '192.168.0.114', local_port: 2222,
+    remote_addr: '203.0.113.9', remote_port: 51234, remote_scope: 'public', state: 'ESTABLISHED' };
+  const [conn, who, next] = cluesFor(UNCOMMON([inbound], 'linux'));
+  assert.strictEqual(lineText(conn.lines[0]), 'Something is connecting IN to your computer on port 2222, from 203.0.113.9.');
+  assert.strictEqual(lineText(conn.lines[1]), 'Program: sshd (PID 901)');
+  assert.strictEqual(lineText(conn.lines[2]), '203.0.113.9:51234 → 192.168.0.114:2222 · ESTABLISHED');
+  assert.deepStrictEqual(who.lines, ['203.0.113.9: an address on the internet.', 'A checkup doesn’t look up who runs an address. A connection watch can.']);
+  assert.match(next.lines[0], /^Another computer started this connection\./);
+  assert.deepStrictEqual(next.lines.slice(2).map(lineText), ['ps -p 901 -o args=', 'ss -tnap'], 'Linux commands');
+  const win = cluesFor(UNCOMMON([{ ...inbound, pid: null }], 'win32')).find((c) => c.kind === 'next');
+  assert.match(lineText(win.lines[2]), /Resource Monitor/);
+});
+
+test('a finding with an SSH session and an incoming connection names both in its next step', async () => {
+  const { cluesFor } = await load();
+  const inbound = { direction: 'in', process: 'sshd', pid: 4410, local_addr: '192.168.0.114', local_port: 22,
+    remote_addr: '203.0.113.9', remote_port: 51234, remote_scope: 'public', state: 'ESTABLISHED' };
+  const next = cluesFor(UNCOMMON([SSH_ITEM, inbound])).find((c) => c.kind === 'next');
+  assert.match(next.lines[0], /^If you started this SSH session/);
+  assert.match(next.lines[1], /^Another computer started this connection\./);
+});
+
+test('listening ports: the port, who can reach it, the program, and how to check it', async () => {
+  const { cluesFor } = await load();
+  const f = { title: 'A database service is open to your network (1 found)', severity: 'warning', code: 'security.open_ports_scan.exposed_risky_ports',
+    description: 'raw', data: { check: 'exposed_risky_ports', platform: 'darwin',
+      items: [{ port: 3306, address: '*', process: 'mysqld', pid: 321, service: 'MySQL', reach: 'network' }] } };
+  const [listen, next] = cluesFor(f);
+  assert.strictEqual(listen.kind, 'listen');
+  assert.deepStrictEqual(listen.lines, ['Listening on port 3306 for other devices on your network (*).', 'Program: mysqld (PID 321) · port 3306 is usually MySQL']);
+  assert.strictEqual(next.kind, 'next');
+  assert.deepStrictEqual(next.lines.slice(2).map(lineText), ['lsof -i :3306', 'ps -p 321 -o pid,ppid,command']);
+});
+
+test('a finding with a walkthrough gets a plain next step; network text from the engine is cut and cleaned', async () => {
+  const { cluesFor } = await load();
+  const f = { title: 't', description: 'Plain words.', data: { program: '/opt/x' },
+    remediation: { title: 'Review it', steps: [{ number: 1, title: 'Look at the file', body: '' }] } };
+  const next = cluesFor(f).pop();
+  assert.deepStrictEqual(next, { kind: 'next', label: 'WHAT TO DO NEXT', reading: null, move: true,
+    lines: ['If you recognise it, it’s yours: tag it MINE.', 'If you don’t, start with: Look at the file.'] });
+  const [conn] = cluesFor(UNCOMMON([{ ...SSH_ITEM, process: 'a\u0007b', command: 'x'.repeat(900) }]));
+  assert.strictEqual(lineText(conn.lines[1]), 'Program: a b (PID 31674), started by PID 31627');
+  assert.ok(lineText(conn.lines[2]).length <= 300);
+});
+
+test('Scout: a connection’s own evidence as the clue; silent when it agrees and has nothing to add', async () => {
+  const { scoutRead } = await load();
+  const sig = (finding, severity = 'warning') => ({ kind: 'real', severity, finding, marked: false });
+  assert.match(scoutRead(sig(UNCOMMON([SSH_ITEM])), 'mine'), /One clue: it matches “vast-tests” in your SSH settings\./);
+  assert.match(scoutRead(sig(UNCOMMON([{ ...SSH_ITEM, ssh_host: undefined, direction: 'in' }])), 'closer'), /another computer connected in/);
+  assert.strictEqual(scoutRead(sig({}), 'closer'), '', 'nothing to add');
 });

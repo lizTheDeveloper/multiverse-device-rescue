@@ -28,20 +28,19 @@ class Module(ModuleBase):
     def check(self, profile: SystemProfile) -> CheckResult:
         findings = []
 
-        # Check if backup destination is configured (CRITICAL if not)
+        # No Time Machine disk: nothing here to check. Whether the Mac is backed
+        # up at all (another backup app, sync only, nothing) is time_machine_check's.
         destination_info = self._get_destination_info()
         if destination_info is None:
             findings.append(
                 Finding(
-                    title="No Time Machine backup destination is set up",
+                    title="No Time Machine disk to check",
                     description=(
-                        "Your Mac is not currently set up to make automatic backups. This "
-                        "means that if your computer breaks or you accidentally delete "
-                        "files, you may not be able to get them back.\n\n"
-                        "What to do: Plug in an external drive, open System Settings > "
-                        "General > Time Machine, click Add Backup Disk, and choose it."
+                        "Drive space, the date of the last backup and recent backup errors "
+                        "are checked only when Time Machine has a backup disk. Time Machine "
+                        "didn't report one, so none of these were checked."
                     ),
-                    severity=Severity.CRITICAL,
+                    severity=Severity.INFO,
                     category=self.category,
                     data={"check": "no_destination_configured"},
                 )
@@ -216,20 +215,7 @@ class Module(ModuleBase):
         actions = []
         for finding in findings.findings:
             check = finding.data.get("check")
-            if check == "no_destination_configured":
-                actions.append(
-                    Action(
-                        title="Configure Time Machine backup destination",
-                        description=(
-                            "Open System Settings > General > Time Machine, "
-                            "click 'Select Backup Disk', and choose an external drive or network destination. "
-                            "Your data is at risk without a backup."
-                        ),
-                        risk_level=RiskLevel.SAFE,
-                        success=True,
-                    )
-                )
-            elif check == "destination_disconnected":
+            if check == "destination_disconnected":
                 dest_name = finding.data.get("destination", {}).get("name", "backup disk")
                 actions.append(
                     Action(

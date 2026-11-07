@@ -74,3 +74,18 @@ test('walkthrough markdown renders lists, code and bold, and escapes HTML', () =
     '<p>Intro with <code>brew install clamav</code>.</p><ol><li><strong>Decide</strong> first</li><li>Then &lt;script&gt;x&lt;/script&gt;</li></ol>');
   assert.strictEqual(renderMiniMarkdown('```\nsudo x\n```'), '<pre><code>sudo x</code></pre>');
 });
+
+test('the app scan asks for progress, commands and each finished check as it lands (--trace --live)', async () => {
+  const { runScan } = require('../engine-runner');
+  const { EventEmitter } = require('events');
+  let args = null;
+  const spawnFn = (_bin, a) => {
+    args = a;
+    const p = new EventEmitter();
+    p.stdout = new EventEmitter(); p.stderr = new EventEmitter();
+    setImmediate(() => { p.stdout.emit('data', '{"schema_version":1,"platform":"darwin","modules":[]}'); p.emit('close', 0); });
+    return p;
+  };
+  await runScan(spawnFn, 'digital_security_reset');
+  assert.deepStrictEqual(args, ['scan', '--json', '--profile', 'digital_security_reset', '--trace', '--live']);
+});

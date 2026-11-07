@@ -65,20 +65,57 @@ test('a drill: stamped, practice-only, its setup shown, and never the real “It
   assert.doesNotMatch(after, /<b>MARK<\/b>/);
   assert.match(after, /The tell: Because\./);
   assert.match(after, /aria-disabled="true" disabled/, 'a drill takes one answer, and the keyboard cannot re-answer');
-  assert.doesNotMatch(after, /POINTS/, 'a wrong answer scores nothing');
+  assert.doesNotMatch(after, /RESPONSE XP/, 'a wrong answer scores nothing');
 });
 
 test('after tagging: Scout’s read, the points, and each tag’s next step', async () => {
   const mine = await panel({ tagged: 'mine', read: 'The checkup marked this critical.', points: 20, mineHtml: '<div data-mark-card>MARK IT</div>' });
   assert.match(mine, /The checkup marked this critical\./);
-  assert.match(mine, /\+20 POINTS for the clues you checked/);
+  assert.match(mine, /\+20 INCIDENT RESPONSE XP for looking at the clues/);
   assert.match(mine, /OPTIONAL: TELL RECLAIM CITY TOO[\s\S]*It asks first, and you can undo it\.[\s\S]*MARK IT/);
   assert.match(mine, /data-act="tag:mine" aria-pressed="true"/);
   const threat = await panel({ tagged: 'threat', read: 'r' });
   assert.match(threat, /ON YOUR THREAT BOARD[\s\S]*data-go="mission:m\|c\|program=\/tmp\/x"[^>]*>SEE THE FIX ▶/);
   assert.doesNotMatch(threat, /MARK IT/);
-  assert.doesNotMatch(threat, /POINTS/);
+  assert.doesNotMatch(threat, /RESPONSE XP/);
   assert.match(await panel({ tagged: 'closer', read: 'r' }), /It stays in your queue/);
+});
+
+test('points show as soon as clues are looked at, before any tag; a drill’s only after its answer', async () => {
+  const looked = await panel({ opened: ['maker', 'where', 'what'], points: 15 });
+  assert.match(looked, /\+15 INCIDENT RESPONSE XP for looking at the clues/);
+  assert.ok(looked.indexOf('RESPONSE XP') < looked.indexOf('YOUR CALL'), 'the points sit with the clues');
+  assert.doesNotMatch(await panel({ opened: ['maker'], points: 0 }), /RESPONSE XP/);
+  assert.doesNotMatch(await panel({ signal: drillSig, points: 15 }), /RESPONSE XP/, 'a drill pays on its answer');
+});
+
+test('network clues: code lines are copyable code, no how-to-read filler, and the next step offers the steps', async () => {
+  const v = await views();
+  const item = { direction: 'out', process: 'ssh', pid: 31674, ppid: 31627, local_addr: '192.168.0.114', local_port: 49542,
+    remote_addr: '87.5.113.252', remote_port: 64456, remote_scope: 'public', state: 'ESTABLISHED', command: `ssh ${EVIL}`, ssh_host: 'vast-tests' };
+  const finding = { title: 'Connections on uncommon ports (1)', description: 'raw', data: { check: 'unusual_ports', items: [item], platform: 'darwin' } };
+  const signal = real({ severity: 'warning', title: finding.title, finding, missionId: 'n|u', fixable: false });
+  const clues = v.cluesFor(finding);
+  const html = await panel({ signal, clues, opened: clues.map((c) => c.kind) });
+  assert.match(html, /THE CONNECTION[\s\S]*Your computer is connecting OUT to 87\.5\.113\.252, port 64456\./);
+  assert.match(html, /<code class="clue-line code">ps -p 31674 -o pid,ppid,command<\/code>/);
+  assert.match(html, /WHAT TO DO NEXT[\s\S]*data-go="mission:n\|u"[^>]*>SEE THE STEPS ▶/);
+  assert.strictEqual((html.match(/data-go="mission:/g) || []).length, 1, 'offered once, in the clue');
+  assert.doesNotMatch(html, /How to read this/);
+  assert.ok(!html.includes('<img src=x'), 'the command line is escaped');
+});
+
+test('Scout stays out of it when there’s nothing to say', async () => {
+  const html = await panel({ tagged: 'closer', read: '' });
+  assert.doesNotMatch(html, /class="say"/);
+});
+
+test('the steps are one click away before any call, and offered once after THREAT', async () => {
+  const before = await panel({});
+  assert.match(before, /data-go="mission:m\|c\|program=\/tmp\/x"[^>]*>SEE THE FIX ▶[\s\S]*BACK TO THE DECK/);
+  const threat = await panel({ tagged: 'threat', read: 'r' });
+  assert.strictEqual((threat.match(/data-go="mission:/g) || []).length, 1);
+  assert.doesNotMatch(await panel({ signal: drillSig }), /data-go="mission:/);
 });
 
 // Review Focus 2.

@@ -109,13 +109,21 @@ separately: Apple and Google use them for push notifications, so they're
 normal for chat and mail apps. A port number does not prove who is using
 it, so check that you recognize the programs listed.
 
-1. Note the program and remote address:port.
+1. Note the program, the remote address:port, and which way the connection
+   goes: out from your computer to another one, or in from another computer
+   to a port your computer listens on. A connection that came in deserves
+   more care than one your own program started.
 2. Check whether the program and its documented behavior explain the
    port choice (many apps use custom high ports for their own protocols).
-   Research the port number online.
-3. To see what's using the port:
-   - **Mac:** `lsof -i :<port>`.
-   - **Linux:** `ss -tnap`.
+   Research the port number online. If the program is `ssh` and the
+   address and port match a `Host` entry in your `~/.ssh/config`, this is
+   an SSH session to a server set up in your SSH settings. If you started
+   it, it's yours; to end it, type `exit` in the Terminal window running
+   it, or close that window.
+3. To see what's using the port, and which program started it:
+   - **Mac:** `lsof -i :<port>`, and `ps -p <PID> -o pid,ppid,command`
+     for its full command and its parent (the program that started it).
+   - **Linux:** `ss -tnap`, and `ps -p <PID> -o args=` for its full command.
    - **Windows:** in Resource Monitor's Network tab, look under TCP
      Connections for the program using the port.
 4. If the program itself is unfamiliar, find out where it lives and who

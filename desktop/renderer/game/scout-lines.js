@@ -9,6 +9,8 @@ export const SCOUT = {
     critical: 'This one is worth doing first. Read what it is, then pick how you want to handle it.',
     warning: 'This isn’t urgent, but it’s worth a look when you’re ready.',
   },
+  // "I think I've been hacked", on a check that can let someone in or read what's typed.
+  briefingForHack: 'Sort this out before you change passwords on this computer, or change them on a device you trust.',
   checking: 'Checking again. This only looks; it doesn’t change anything.',
   reclaimed: 'Reclaim City checked again, and it’s gone.',
   notYet: 'It’s still showing. Some programs put themselves back. Let’s look at the steps again.',

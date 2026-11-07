@@ -39,3 +39,12 @@ export function refreshDebriefForm(e, rc) {
   const shown = new Set(rc.visibleQuestions(mission, readAnswers(form, mission)).map((q) => q.id));
   for (const group of form.querySelectorAll('[data-question]')) group.hidden = !shown.has(group.dataset.question);
 }
+
+// The game's mission rows and briefings show "~5 min" beside each mission.
+// The app never gives time estimates, so those labels are taken out of the
+// game's HTML before it's drawn. Only a whole element holding nothing but the
+// estimate is removed.
+const TIME_ESTIMATE = /<div style="[^"<>]*">~\d+ ?(?:min|MIN|m)<\/div>/g;
+export function withoutTimeEstimates(html) {
+  return String(html).replace(TIME_ESTIMATE, '');
+}

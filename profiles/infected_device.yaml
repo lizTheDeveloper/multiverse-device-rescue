@@ -1,0 +1,72 @@
+name: infected_device
+display_name: "Infected Device, Kept Offline"
+description: >
+  For a computer that is clearly infected and is being kept off the
+  internet on purpose. The app is installed from a USB Rescue Stick and the
+  checkup runs with Wi-Fi off and the cable out. Every check here works
+  without a network: what starts on its own, what is running, monitoring
+  and remote-access software, browser add-ons and hijacked settings,
+  miners, and whether the built-in protection is on. Checks that need the
+  internet (router, Wi-Fi neighbours, speed, updates) are left out, and the
+  AI tools check never downloads its helper here: it runs only if a copy is
+  already saved, and otherwise says it couldn't check. A computer that
+  won't start can't be scanned at all; the guide covers that case. Changing
+  passwords happens on a different, clean device.
+modules:
+  include:
+    # What starts on its own: where malware and monitoring software persist.
+    - launch_agent_audit
+    - launchd_persistence_audit
+    - scheduled_tasks_audit
+    - login_items
+    - cron_jobs_audit
+    - win_autoruns_audit
+    - win_scheduled_tasks_security
+    - win_services_security_audit
+    - linux_persistence_audit
+    # What is running, and known malware signs.
+    - malware_scan_indicators
+    - win_malware_indicators
+    - suspicious_processes
+    - win_suspicious_processes
+    - process_scanner
+    - rootkit_check
+    - win_rootkit_check
+    - code_signature_audit
+    - crypto_miner_detect
+    - win_crypto_miner_detect
+    - crypto_miner_persistence
+    - ai_worm_filesystem
+    - ai_worm_persistence
+    - ai_agent_audit
+    # Someone else's way in or way of watching.
+    - stalkerware_scan
+    - keylogger_indicators
+    - remote_login_check
+    - win_remote_access_audit
+    - sharing_services
+    # Browser and settings that malware changes.
+    - browser_extension_audit
+    - browser_hijack_check
+    - hosts_file_check
+    - win_hosts_file_check
+    - network_proxy_check
+    # Whether the built-in protection is on.
+    - xprotect_status
+    - sip_gatekeeper
+    - system_extensions
+    - win_defender
+    # Whether this start is Safe Boot / safe mode, and whether a backup exists before any erase.
+    - safe_boot_check
+    - win_safe_mode_check
+    - time_machine_check
+    - win_restore_points
+  exclude: []
+module_config:
+  malware_scan_indicators:
+    sensitivity: elevated
+  # Kept offline: never fetch HackMyAgent. A copy already saved still runs.
+  ai_agent_audit:
+    downloads: false
+guides:
+  - infected_device

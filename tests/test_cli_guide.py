@@ -76,6 +76,20 @@ def test_guide_command_renders_steps(tmp_path):
     assert "[human] [pending] Step 2" in result.output
 
 
+def test_guide_without_an_estimated_time_prints_no_time_line(tmp_path):
+    untimed = Guide(profile="test_profile", phase=0, title="No Clock", estimated_time="",
+                    steps=[GuideStep(number=1, title="Only step", body="...", automatable=False)],
+                    automatable_steps=[], human_only_steps=[1])
+    with patch("rescue.cli.discover_profiles", return_value={"test_profile": FAKE_PROFILE}), \
+         patch("rescue.cli.discover_guides", return_value=[untimed]), \
+         patch("rescue.cli._get_session_dir", return_value=tmp_path):
+        result = CliRunner().invoke(main, ["guide", "test_profile"])
+
+    assert result.exit_code == 0
+    assert "Estimated time" not in result.output
+    assert "No Clock" in result.output
+
+
 def test_guide_command_mark_step_complete_persists(tmp_path):
     with patch("rescue.cli.discover_profiles", return_value={"test_profile": FAKE_PROFILE}), \
          patch("rescue.cli.discover_guides", return_value=[FAKE_GUIDE]), \

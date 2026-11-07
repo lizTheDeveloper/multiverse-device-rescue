@@ -716,6 +716,17 @@ def _ai_tooling_identity(finding) -> dict | None:
     return None
 
 
+def _backup_identity(finding) -> dict | None:
+    """No Time Machine and only sync apps: the answer "I back up another way"."""
+    data = finding.data
+    if data.get("check") != "sync_only":
+        return None
+    tools = data.get("sync_tools")
+    if not isinstance(tools, list) or not tools or not all(_text(t, 64) for t in tools):
+        return None
+    return {"sync_tools": ", ".join(sorted(set(tools)))}
+
+
 def _show_sharing(ident, finding):
     return [["Setting", _SERVICE_NAMES.get(ident["service"], ident["service"])], ["Now", "On"]]
 
@@ -745,6 +756,10 @@ def _show_apps(ident, finding):
 
 def _show_ssh(ident, finding):
     return [["Saved keys", ident["key_count"]], ["Fingerprint of the list", ident["list_sha256"][:16] + "…"]]
+
+
+def _show_backup(ident, finding):
+    return [["Time Machine", "Not set up"], ["Sync apps found", ident["sync_tools"]]]
 
 
 def _show_ai(ident, finding):
@@ -851,6 +866,29 @@ ITEM_KINDS: dict[str, dict] = {
         "monitoring": False,
         "show": _show_ai,
     },
+    # Not a thing on the computer: the person's answer that this Mac is backed
+    # up some way the checkup can't see. Retired (like any mark) once the
+    # finding goes: Time Machine set up, a backup app found, or no sync left.
+    "backup_elsewhere": {
+        "keys": ("code", "sync_tools"),
+        "evidence_keys": ("sync_tools",),
+        "modules": ("time_machine_check",),
+        "identify": _backup_identity,
+        "label_of": lambda i: "you back up another way",
+        "title": "Backup you marked as yours: you back up this Mac another way",
+        "noun": "answer about backups",
+        "said": "you said you back up this Mac another way",
+        "retired": (
+            "On {when} you said you back up this Mac another way. This checkup no longer "
+            "gives that warning (Time Machine is set up, a backup app was found, or the "
+            "sync apps are gone), so Reclaim City removed your answer. If the warning "
+            "comes back, you can answer again."
+        ),
+        "what": "having only sync ({sync_tools}) and no backup",
+        "changed": "the list of sync apps",
+        "monitoring": False,
+        "show": _show_backup,
+    },
 }
 # Only these codes are offered: warnings about one thing the person may have set up.
 ITEM_CODES: dict[str, str] = {
@@ -882,6 +920,7 @@ ITEM_CODES: dict[str, str] = {
     "security.session_revocation_scan.ssh_authorized_keys": "ssh_authorized_keys",
     "security.ai_threat_indicators.ai_api_key_found": "ai_tooling",
     "security.ai_threat_indicators.cron_ai_call": "ai_tooling",
+    "integrity.time_machine_check.sync_only": "backup_elsewhere",
 }
 for _kind, _spec in ITEM_KINDS.items():
     assert not set(_spec["modules"]) & NEVER_MARKABLE_MODULES, _kind
@@ -1029,6 +1068,7 @@ def retired_notice(item: KnownItem) -> Finding:
     return Finding(
         title=f"No longer marked as yours: {label}",
         description=(
+            spec["retired"].format(when=when) if spec.get("retired") else
             f"On {when} you marked {label} as yours. This checkup didn't find it any more "
             "(it is turned off, or gone), so Reclaim City removed that mark. If it comes "
             "back, you'll be warned about it again and can decide again."
@@ -1048,7 +1088,7 @@ def retired_notice(item: KnownItem) -> Finding:
 def item_will_change(kind: str, identity: dict) -> str:
     spec = KINDS[kind]
     label = (spec.get("label_of") or (lambda i: ""))(identity)
-    what = spec["what"].replace("{label}", label)
+    what = spec["what"].replace("{label}", label).replace("{sync_tools}", identity.get("sync_tools", ""))
     return (
         f"The checkup will stop warning you about {what}. It will still be listed, as "
         "\"marked as yours\", on every checkup and in anything you export, so anyone "
@@ -1132,8 +1172,13 @@ def find_item(code: str, expect_id: str, run_check: Callable[[str], list]) -> tu
 
 def marked_description(finding: Finding, item: KnownItem, noun: str) -> str:
     when = item.marked_at or "an unknown date"
+    said = KINDS.get(item.kind, {}).get("said")
+    opening = (
+        f"On {when} {said}, so this is no longer flagged. " if said
+        else f"You marked this {noun} as yours on {when}, so it is no longer flagged. "
+    )
     return (
-        f"You marked this {noun} as yours on {when}, so it is no longer flagged. "
+        opening +
         "It stays on this list so that anyone helping you can see it.\n\n"
         f"What the check found before it was marked: {finding.title}\n\n"
         f"If you did not mark it, or you do not recognize it, undo the mark with "

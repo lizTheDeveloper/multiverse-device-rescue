@@ -25,11 +25,13 @@ file cap, so a pathological home directory cannot stall a rescue.
 import os
 import re
 import stat
+import time
+from itertools import islice
 from pathlib import Path
 from shlex import quote
 
 from rescue.command import run
-from rescue.fsbounds import WalkLimits, bounded_walk, is_dir_nofollow
+from rescue.fsbounds import WalkLimits, bounded_walk, is_dir_nofollow, is_file_nofollow
 from rescue.models import (
     Action,
     ActionKind,
@@ -43,6 +45,7 @@ from rescue.models import (
     SystemProfile,
 )
 from rescue.module_base import ModuleBase
+from rescue.target import ADMIN_ONLY_NOT_CHECKED, Target, permission_denied
 
 _TIMEOUT = 15.0
 
@@ -69,6 +72,7 @@ class Module(ModuleBase):
     priority = 88
     depends_on = []
     estimated_duration = "20s"
+    offline_capable = True
 
     emits_codes = [
         "security.linux_persistence_audit.suspicious_content",
@@ -96,6 +100,8 @@ class Module(ModuleBase):
         "~/.config/fish/config.fish",
     ]
     ld_preload_path: str = "/etc/ld.so.preload"
+    # Where cron keeps per-user crontabs: Debian/Ubuntu, then Fedora.
+    cron_spool_dirs: list[str] = ["/var/spool/cron/crontabs", "/var/spool/cron"]
 
     max_files: int = 2000
 
@@ -110,19 +116,24 @@ class Module(ModuleBase):
                 ),
             )
 
+        target = profile.target
+        self._denied = False
         entries: list[dict] = []
-        entries += self._scan_dirs(self.system_unit_dirs, "systemd system unit", ("*.service", "*.timer"))
-        entries += self._scan_dirs(self.user_unit_dirs, "systemd user unit", ("*.service", "*.timer"))
-        entries += self._scan_dirs(self.autostart_dirs, "desktop autostart", ("*.desktop",))
-        entries += self._scan_dirs(self.cron_dirs, "cron job", ("*",))
-        entries += self._scan_files(self.shell_rc_files, "shell startup file")
-        entries += self._user_crontab()
+        entries += self._scan_dirs(self.system_unit_dirs, "systemd system unit", ("*.service", "*.timer"), target)
+        entries += self._scan_dirs(self.user_unit_dirs, "systemd user unit", ("*.service", "*.timer"), target)
+        entries += self._scan_dirs(self.autostart_dirs, "desktop autostart", ("*.desktop",), target)
+        entries += self._scan_dirs(self.cron_dirs, "cron job", ("*",), target)
+        entries += self._scan_files(self.shell_rc_files, "shell startup file", target)
+        if target is None:
+            entries += self._user_crontab()
+        else:
+            entries += self._spool_crontabs(target)
 
         findings: list[Finding] = []
         for entry in entries:
             findings.extend(self._findings_for(entry))
 
-        findings.extend(self._ld_preload_findings())
+        findings.extend(self._ld_preload_findings(target))
 
         findings.append(
             Finding(
@@ -147,23 +158,106 @@ class Module(ModuleBase):
             )
         )
 
-        return CheckResult(module_name=self.name, findings=findings)
+        not_checked = [ADMIN_ONLY_NOT_CHECKED] if self._denied else []
+        return CheckResult(module_name=self.name, findings=findings, not_checked=not_checked)
 
-    def _scan_dirs(self, roots: list[str], kind: str, patterns: tuple[str, ...]) -> list[dict]:
+    # Set during an offline check when a file or folder on the disk was admin-only.
+    _denied = False
+
+    def _note_denied(self, exc: OSError) -> None:
+        if permission_denied(exc):
+            self._denied = True
+
+    def _scan_dirs(
+        self,
+        roots: list[str],
+        kind: str,
+        patterns: tuple[str, ...],
+        target: Target | None = None,
+    ) -> list[dict]:
         entries: list[dict] = []
+        limits = WalkLimits(max_depth=2, max_files=self.max_files, deadline_s=10.0)
+        if target is not None:
+            for view, path in self._walk_target(roots, limits, target):
+                if patterns != ("*",) and not any(Path(view).match(p) for p in patterns):
+                    continue
+                entries.append(self._describe(path, kind, target, view))
+            return entries
         expanded = [Path(os.path.expanduser(root)) for root in roots]
         existing = [p for p in expanded if is_dir_nofollow(p)]
         if not existing:
             return entries
-        limits = WalkLimits(max_depth=2, max_files=self.max_files, deadline_s=10.0)
         for path in bounded_walk(existing, limits=limits):
             if patterns != ("*",) and not any(path.match(p) for p in patterns):
                 continue
             entries.append(self._describe(path, kind))
         return entries
 
-    def _scan_files(self, paths: list[str], kind: str) -> list[dict]:
+    @staticmethod
+    def _expand_all(roots: list[str], target: Target) -> list[tuple[str, Path]]:
+        """(view path, host path) for every root, skipping ones that fail."""
+        out: list[tuple[str, Path]] = []
+        for root in roots:
+            try:
+                out.extend(target.expand_views(root))
+            except OSError:
+                continue
+        return out
+
+    @staticmethod
+    def _clean(text: str) -> str:
+        """Control characters in a name from an untrusted disk become "?"."""
+        return re.sub(r"[\x00-\x1f\x7f]", "?", text)
+
+    def _walk_target(self, roots: list[str], limits: WalkLimits, target: Target):
+        """Yield (view path, host path) for files and file symlinks under the roots.
+
+        Unlike bounded_walk this lists symlinked files too (a unit enabled by
+        a link into /lib/systemd/system is the normal case on a real disk), but
+        it never descends into a directory symlink: that link could point
+        anywhere, and the walk works on host paths.
+        """
+        start = time.monotonic()
+        seen = 0
+        for root_view, root in self._expand_all(roots, target):
+            if not is_dir_nofollow(root):
+                continue
+            stack = [(root, root_view.rstrip("/"), 0)]
+            while stack:
+                current, current_view, depth = stack.pop()
+                try:
+                    with os.scandir(current) as it:
+                        # Never list more than the cap, so a huge directory
+                        # is neither fully read nor fully sorted.
+                        children = sorted(islice(it, limits.max_files + 1), key=lambda e: e.name)
+                except OSError as exc:
+                    self._note_denied(exc)
+                    continue
+                for entry in children:
+                    if seen >= limits.max_files or time.monotonic() - start >= limits.deadline_s:
+                        return
+                    view = current_view + "/" + entry.name
+                    try:
+                        if entry.is_symlink():
+                            if is_file_nofollow(target.resolve(view)):
+                                seen += 1
+                                yield view, Path(entry.path)
+                        elif entry.is_dir(follow_symlinks=False):
+                            if depth < limits.max_depth:
+                                stack.append((Path(entry.path), view, depth + 1))
+                        elif entry.is_file(follow_symlinks=False):
+                            seen += 1
+                            yield view, Path(entry.path)
+                    except OSError:
+                        continue
+
+    def _scan_files(self, paths: list[str], kind: str, target: Target | None = None) -> list[dict]:
         entries = []
+        if target is not None:
+            for view, path in self._expand_all(paths, target):
+                if is_file_nofollow(path):
+                    entries.append(self._describe(path, kind, target, view))
+            return entries
         for raw in paths:
             path = Path(os.path.expanduser(raw))
             try:
@@ -171,6 +265,20 @@ class Module(ModuleBase):
                     entries.append(self._describe(path, kind))
             except OSError:
                 continue
+        return entries
+
+    def _spool_crontabs(self, target: Target) -> list[dict]:
+        """Per-user crontabs live in spool files; read them off the disk."""
+        entries = []
+        limits = WalkLimits(max_depth=0, max_files=self.max_files, deadline_s=10.0)
+        for view, path in self._walk_target(self.cron_spool_dirs, limits, target):
+            described = self._describe(path, "user crontab", target, view)
+            described["content"] = "\n".join(
+                line for line in described["content"].splitlines()
+                if line.strip() and not line.strip().startswith("#")
+            )
+            described["mode"] = None
+            entries.append(described)
         return entries
 
     def _user_crontab(self) -> list[dict]:
@@ -191,9 +299,24 @@ class Module(ModuleBase):
             "mode": None,
         }]
 
-    def _describe(self, path: Path, kind: str) -> dict:
+    def _describe(
+        self, path: Path, kind: str, target: Target | None = None, view: str | None = None
+    ) -> dict:
         content = ""
         mode = None
+        if target is not None:
+            # `path` is a host path under the mounted disk. Read and stat the
+            # file the disk's own view of the path leads to, never the host's.
+            view = view if view is not None else target.display(path)
+            try:
+                content = target.read_text(view, limit=64_000)
+            except OSError as exc:
+                self._note_denied(exc)
+            try:
+                mode = stat.S_IMODE(os.lstat(target.resolve(view)).st_mode)
+            except OSError:
+                pass
+            return {"path": self._clean(view), "kind": kind, "content": content, "mode": mode}
         try:
             # Persistence files are small; a huge one is itself odd, and reading
             # a bounded prefix is enough to spot an execution pattern.
@@ -316,19 +439,25 @@ class Module(ModuleBase):
 
         return findings
 
-    def _ld_preload_findings(self) -> list[Finding]:
+    def _ld_preload_findings(self, target: Target | None = None) -> list[Finding]:
         """/etc/ld.so.preload injects a library into every dynamically linked process.
 
         It is empty or absent on a normal system. When it is not, whatever it
         names is running inside every program on the machine, which is why
         userland rootkits reach for it first.
         """
-        path = Path(self.ld_preload_path)
+        shown_path = self.ld_preload_path
         try:
-            if not path.is_file():
-                return []
-            content = path.read_text(errors="replace").strip()
-        except OSError:
+            if target is not None:
+                content = target.read_text(self.ld_preload_path).strip()
+            else:
+                path = Path(self.ld_preload_path)
+                if not path.is_file():
+                    return []
+                content = path.read_text(errors="replace").strip()
+        except OSError as exc:
+            if target is not None:
+                self._note_denied(exc)
             return []
         if not content:
             return []
@@ -336,7 +465,7 @@ class Module(ModuleBase):
             Finding(
                 title="A file is forcing extra code into every program on your computer",
                 description=(
-                    f"Your system file {self.ld_preload_path} lists:\n{content[:500]}\n\n"
+                    f"Your system file {shown_path} lists:\n{content[:500]}\n\n"
                     "This file tells your computer to load a specific piece of software "
                     "into every program that starts. While some technical tools use this, "
                     "it is also a common way for hidden malicious software to stay active "
@@ -354,7 +483,7 @@ class Module(ModuleBase):
                 category=self.category,
                 code="security.linux_persistence_audit.ld_preload_set",
                 confidence=0.7,
-                data={"check": "ld_preload_set", "path": self.ld_preload_path, "content": content[:500]},
+                data={"check": "ld_preload_set", "path": shown_path, "content": content[:500]},
             )
         ]
 
@@ -383,9 +512,9 @@ class Module(ModuleBase):
                 actions.append(self._guidance(
                     f"Work out what {path} is before removing it",
                     "  1. Read the whole file:\n"
-                    f"         cat '{path}'\n"
+                    f"         cat {quote(str(path))}\n"
                     "  2. Find out when it appeared:\n"
-                    f"         stat '{path}'\n"
+                    f"         stat {quote(str(path))}\n"
                     "  3. If it is a systemd unit, see what it is doing:\n"
                     "         systemctl status <unit>\n"
                     "         journalctl -u <unit> --since '7 days ago'\n"

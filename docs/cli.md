@@ -119,7 +119,7 @@ profile ships a guide, the available walkthroughs are named at the end.
 ## `rescue scan` — read-only checks
 
 ```console
-$ rescue scan [--json] [--profile <name> | --module <name> ...]
+$ rescue scan [--json] [--profile <name> | --module <name> ...] [--target-root <path> --target-os linux]
 ```
 
 Runs every check that supports the current platform and prints one report per
@@ -130,6 +130,11 @@ module. Never applies a fix and never prompts.
 | `--json` | Emit structured results to stdout instead of the human report. |
 | `--profile <name>` | Only run the modules the named profile selects. Exits `1` on an unknown or invalid profile. |
 | `--module <name>` | Only run this module. Repeat it to run several. Read-only, same JSON. Exits `1` on an unknown module (the valid names go to stderr), and `2` if combined with `--profile`. The desktop app uses it to re-check one finding after a fix. |
+| `--progress` | Write one `{"progress": …}` JSON line per check to stderr as the scan runs (`start` and `done`, with the check's index, the total and how many findings it had). stdout is unchanged. |
+| `--trace` | `--progress`, plus one `{"exec": …}` line per system command a check runs (see [commands](commands.md)). |
+| `--live` | With `--json` and `--progress` or `--trace`: each `done` line also carries the finished check as `result`, in the same shape as its entry in the final JSON's `modules`. The desktop app uses it to show what a check found while the rest of the scan runs. The "who made it" lookups happen once, as each check finishes, and the final JSON reuses them. |
+| `--target-root <path>` | Check the disk mounted at `<path>` instead of this computer (for example from a rescue stick). Needs `--target-os`; one without the other exits `2`. Reads only, never writes to the disk. Only checks for the disk's system appear (with `--target-os linux`, the Linux checks; checks for other systems are left out, not reported). Of those, the ones that can work from files run; the rest are reported as `"supported": false` (couldn't check, not clean). Findings carry no fix or "It's mine" offers, because those would act on this computer, not the disk. Warns on stderr when not run as an administrator, since files only an administrator can read on the disk are then skipped (and named in `not_checked`). "Who made it" lookups and "marked as yours" entries are skipped. Refuses `/` (exit `2`). Warns on stderr if the disk is mounted read-write; mounting with `-o ro` is safer. |
+| `--target-os windows\|linux\|macos` | Which system is on the disk. Only `linux` works so far; the others exit `2`. With `--json` the output gains a top-level `"target": {"root", "os", "read_only"}` and `"platform"` is the disk's OS. |
 | `--no-downloads` | Don't download tools a check needs. Today that is one: the AI tools check (`ai_agent_audit`) fetches HackMyAgent from the npm registry the first time it runs. With this flag (or `RESCUE_NO_DOWNLOADS=1`) that check reports "couldn't check" instead; a copy already downloaded still runs, without the network, after it is checked against the committed file list. `rescue export` and `rescue run` take the same flag. |
 
 The AI tools check (`ai_agent_audit`) needs Node.js 18 or newer. The first
@@ -159,6 +164,7 @@ The JSON shape is `schema_version` 1:
       "category": "integrity",
       "status": "ok",
       "error": null,
+      "not_checked": [],
       "findings": [
         {
           "title": "1 package update(s) available",
@@ -175,6 +181,13 @@ The JSON shape is `schema_version` 1:
   ]
 }
 ```
+
+`not_checked` lists parts of a check that couldn't be done here, in plain
+words (for example `"whether SSH was running"` when checking a disk from
+outside, or `"some files only an administrator can read"`). It is empty when
+the check looked at everything. A module with entries there didn't fully
+check: treat those parts as unknown, not clean. The human report shows the
+same list as a "Not checked here:" line.
 
 !!! warning "`--json` output is not redacted"
     `scan --json` is the raw result stream, intended for tooling on the same
@@ -670,6 +683,7 @@ Two families of things can be marked:
 | `app_permissions` | `app_permissions.accessibility_access`, `privacy_permissions_audit` camera/microphone/combination warnings, `accessibility_permissions.suspicious_accessibility` | code, SHA-256 of the sorted app list, how many | any app is added or removed |
 | `ssh_authorized_keys` | `security.session_revocation_scan.ssh_authorized_keys` | code, SHA-256 of the key lines, how many | any key is added, removed or changed |
 | `ai_tooling` | `ai_threat_indicators.ai_api_key_found`, `ai_threat_indicators.cron_ai_call` | code, the key's name, or a SHA-256 of the whole scheduled line | (a different line is a different item) |
+| `backup_elsewhere` | `integrity.time_machine_check.sync_only` (no Time Machine, only sync apps): the answer "I back up another way" | code, the sync apps found | the list of sync apps changes |
 
 Nothing from `stalkerware_scan`, `mvt_spyware_scan` or `keylogger_indicators`
 can ever be marked, whatever the code.

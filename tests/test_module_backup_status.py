@@ -66,7 +66,7 @@ def _fake_run_healthy():
 
 
 def _fake_run_disabled():
-    """Time Machine is disabled"""
+    """Time Machine has a drive, but automatic backups are off"""
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list):
             cmd_str = " ".join(cmd)
@@ -78,7 +78,14 @@ def _fake_run_disabled():
         elif "tmutil" in cmd_str and "latestbackup" in cmd_str:
             return _make_subprocess_result(stdout="", returncode=1)
         elif "tmutil" in cmd_str and "destinationinfo" in cmd_str:
-            return _make_subprocess_result(stdout="", returncode=1)
+            return _make_subprocess_result(
+                stdout=(
+                    "     Name: External Drive\n"
+                    "     ID: ABC123DEF456\n"
+                    "     Kind: Physical\n"
+                    "     Mounted: Yes\n"
+                )
+            )
         return _make_subprocess_result()
     return fake_run
 
@@ -157,7 +164,7 @@ def _fake_run_stale_backup():
 
 
 def _fake_run_timemachine_status_unknown():
-    """Unable to determine Time Machine status"""
+    """Time Machine has a drive, but its settings can't be read"""
     def fake_run(cmd, **kwargs):
         if isinstance(cmd, list):
             cmd_str = " ".join(cmd)
@@ -169,7 +176,14 @@ def _fake_run_timemachine_status_unknown():
         elif "tmutil" in cmd_str and "latestbackup" in cmd_str:
             return _make_subprocess_result(stdout="", returncode=1)
         elif "tmutil" in cmd_str and "destinationinfo" in cmd_str:
-            return _make_subprocess_result(stdout="", returncode=1)
+            return _make_subprocess_result(
+                stdout=(
+                    "     Name: External Drive\n"
+                    "     ID: ABC123DEF456\n"
+                    "     Kind: Physical\n"
+                    "     Mounted: Yes\n"
+                )
+            )
         return _make_subprocess_result()
     return fake_run
 
@@ -198,8 +212,11 @@ def test_backup_status_disabled():
     with patch("subprocess.run", side_effect=_fake_run_disabled()):
         result = mod.check(_make_profile())
     assert result.has_issues
-    assert any(f.data.get("check") == "timemachine_disabled" for f in result.findings)
-    assert any(f.severity == Severity.CRITICAL for f in result.findings)
+    disabled = [f for f in result.findings if f.data.get("check") == "timemachine_disabled"]
+    assert disabled
+    # Time Machine is set up, just manual: a warning, not "no backup".
+    assert all(f.severity == Severity.WARNING for f in disabled)
+    assert not any(f.severity == Severity.CRITICAL for f in result.findings)
 
 
 def test_backup_status_no_destination():
@@ -208,8 +225,11 @@ def test_backup_status_no_destination():
     with patch("subprocess.run", side_effect=_fake_run_no_destination()):
         result = mod.check(_make_profile())
     assert result.has_issues
-    assert any(f.data.get("check") == "no_destination" for f in result.findings)
-    assert any(f.severity == Severity.WARNING for f in result.findings)
+    # time_machine_check owns "is this Mac backed up?"; this check only says
+    # that it had no drive to look at.
+    assert [f.data.get("check") for f in result.findings] == ["no_destination"]
+    assert result.findings[0].severity == Severity.INFO
+    assert "Add Backup Disk" not in result.findings[0].description
 
 
 def test_backup_status_destination_disconnected():
@@ -269,7 +289,7 @@ def test_backup_status_fix_disabled():
         check = mod.check(_make_profile())
         fix = mod.fix(check, Mode.MANUAL)
     assert fix.all_succeeded
-    assert any("Enable Time Machine" in a.title for a in fix.actions)
+    assert any("automatic" in a.title.lower() for a in fix.actions)
 
 
 def test_backup_status_fix_no_destination():
@@ -279,7 +299,8 @@ def test_backup_status_fix_no_destination():
         check = mod.check(_make_profile())
         fix = mod.fix(check, Mode.MANUAL)
     assert fix.all_succeeded
-    assert any("backup destination" in a.title.lower() for a in fix.actions)
+    # No duplicate of time_machine_check's "set up a backup" guidance.
+    assert fix.actions == []
 
 
 def test_backup_status_fix_destination_disconnected():

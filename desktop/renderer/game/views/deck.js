@@ -19,23 +19,30 @@ function clock(iso, withDate = false) {
   return withDate ? d.toLocaleString() : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-export function signalRow(sig, districtName = () => '') {
+// `open`: the case open in its own row (views/guided.js inlineCaseHtml), in place of the row.
+// `badge`: the case's badge (new, everyday) in place of the severity's.
+export function signalRow(sig, districtName = () => '', { extra = '', chips = '', open = '', badge = '' } = {}) {
+  if (open) return `<li class="open-row">${open}</li>`;
   const drill = sig.kind === 'drill';
+  const echoes = Array.isArray(sig.also) && sig.also.length ? `<span class="badge skip" title="Reported by ${sig.also.length + 1} checks">×${sig.also.length + 1}</span>` : '';
   const badges = [
     drill ? '<span class="badge drill-stamp">DRILL</span>' : '',
-    SEV_BADGE[sig.severity] || '',
+    (drill ? '' : badge) || SEV_BADGE[sig.severity] || '',
+    echoes,
     sig.marked ? '<span class="badge yours">MARKED</span>' : '',
     sig.tag === 'closer' ? '<span class="badge cyan">LOOK CLOSER</span>' : '',
     sig.stale ? '<span class="badge warn">CHANGED SINCE YOU MARKED IT</span>' : '',
     sig.changed ? '<span class="badge warn">CHANGED SINCE YOU TAGGED IT</span>' : '',
-  ].join('');
-  return `<li><button type="button" class="sig sev-${esc(sig.severity)}${drill ? ' drill' : ''}" data-go="signal:${esc(sig.id)}">
-      <span class="sig-badges">${badges}</span><span class="sig-title">${esc(sig.title)}</span><small>${esc(districtName(sig.districtId))}</small></button></li>`;
+  ].filter(Boolean).join(' ');
+  // Spaces between the parts, so a screen reader hears "WARNING Old-style driver…", not one run-on word.
+  return `<li${extra ? ' class="has-mine"' : ''}><button type="button" class="sig sev-${esc(sig.severity)}${drill ? ' drill' : ''}" data-go="signal:${esc(sig.id)}">
+      <span class="sig-badges">${badges}</span> <span class="sig-title">${esc(sig.title)}</span> ${chips} <small>${esc(districtName(sig.districtId))}</small><span class="sig-open" aria-hidden="true">OPEN ▶</span></button>${extra}</li>`;
 }
 
 // THREAT's next move: the finding's own briefing, where any real fix asks first.
 // Breach Protocol (piece 3) and account steps (piece 5) aren't built yet.
 export function nextMoveHtml(sig) {
+  if (sig.live) return ''; // found during the sweep: its steps wait for the deck (LIVE_NOTE)
   if (sig.missionId) {
     return `<button type="button" class="btn-s mag" data-go="mission:${esc(sig.missionId)}">${sig.fixable ? 'SEE THE FIX ▶' : 'SEE THE STEPS ▶'}</button>`;
   }
@@ -44,14 +51,14 @@ export function nextMoveHtml(sig) {
 
 export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOpen = false, threats = [], known = [], filter = null,
   cityHtml = '', instrumentsHtml = '', log = [], moment = null, moments = [], panelHtml = '', nothingChecked = false, scanRunning = false, watching = false,
-  districtName = () => '', notice = '', heldLine = '' }) {
+  districtName = () => '', notice = '', heldLine = '', rowParts = () => ({}), queueTop = '', pickerHtml = '', reportHtml = '', upkeep = [] }) {
   const dn = districtName;
   // While the Signal or Noise panel is open, the deck behind it is inert:
   // Tab stays in the panel, and Escape (or BACK TO THE DECK) closes it.
   const behind = panelHtml ? ' inert' : '';
   const top = `
   <header class="hud deck-top"${behind}>
-    <span class="hud-title">${esc(title)}</span>
+    <h1 class="hud-title">${esc(title)}</h1>
     <span class="stat lime"><small>RANK</small> ${esc(rank.name)}</span>
     <span class="stat grey">${lastSweep ? `<small>LAST SWEEP</small> ${esc(clock(lastSweep.at, true))} · ${esc(lastSweep.checks)} CHECKS` : '<small>NO SWEEP YET</small>'}</span>
     ${scanRunning ? '<span class="stat cyan"><small>SWEEPING…</small></span>'
@@ -79,21 +86,21 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   const lowHtml = low.length ? `
       <li class="low-group">
         <button type="button" class="sig low-row" data-act="toggle-low" aria-expanded="${lowOpen ? 'true' : 'false'}">LOW-PRIORITY SIGNALS (${low.length})</button>
-        ${lowOpen ? `<ul class="queue">${low.slice(0, LOW_SHOWN).map((x) => signalRow(x, dn)).join('')}</ul>
+        ${lowOpen ? `<ul class="queue">${low.slice(0, LOW_SHOWN).map((x) => signalRow(x, dn, rowParts(x))).join('')}</ul>
         ${low.length > LOW_SHOWN ? `<p class="intel">And ${low.length - LOW_SHOWN} more. THESE ARE ALL FINE sorts all ${low.length}, including the ones not shown.</p>` : ''}
         <button type="button" class="btn-s" data-act="batch-fine">THESE ARE ALL FINE</button>
         <p class="intel">Sorting them all at once earns no points. Open one to look at its clues.</p>` : ''}
       </li>` : '';
   const threatHtml = threats.length ? `
       <section class="panel threat-board" aria-label="Threat board"><div class="label">THREAT BOARD (${threats.length})</div>
-        <ul class="queue">${threats.map((x) => `<li class="threat"><span class="sig-title">${esc(x.title)}</span>${nextMoveHtml(x)}</li>`).join('')}</ul>
+        <ul class="queue">${threats.map((x) => `<li class="threat"><button type="button" class="sig-title threat-open" data-go="signal:${esc(x.id)}">${esc(x.title)} ▶</button>${nextMoveHtml(x)}</li>`).join('')}</ul>
         <p class="intel">Tagging changes nothing on your computer. A fix happens only when you say yes to it.</p></section>` : '';
   const knownHtml = known.length ? `
       <details class="panel known"><summary class="label">KNOWN AND NOTED (${known.length})</summary>
         <ul class="queue">${known.slice(0, LOW_SHOWN).map((x) => signalRow(x, dn)).join('')}</ul>
         ${known.length > LOW_SHOWN ? `<p class="intel">And ${known.length - LOW_SHOWN} more.</p>` : ''}</details>` : '';
   const logHtml = `
-    <section class="panel deck-log" aria-label="Ops log"><div class="label">OPS LOG</div>
+    <section class="panel deck-log" aria-label="Ops log"><h2 class="label">OPS LOG</h2>
       ${log.length ? `<ol class="log">${log.slice(0, LOG_SHOWN).map((e) => `<li><time>${esc(clock(e.at))}</time> <span class="badge skip">${esc(e.kind)}</span> ${esc(e.text)}</li>`).join('')}</ol>`
     : '<p class="intel">Nothing yet. Tags, sweeps, fixes and reports show up here.</p>'}
     </section>`;
@@ -101,11 +108,13 @@ export function renderDeck({ title, rank, lastSweep, items = [], low = [], lowOp
   // motion the animation is off, so they are still banners.
   const all = [...(moment ? [moment] : []), ...(Array.isArray(moments) ? moments : [])];
   const momentHtml = all.length ? `<div class="moments">${all.map((m) => `<div class="moment moment-${esc(m.kind)}" role="status"><b>${esc(m.title)}</b> ${esc(m.text)}</div>`).join('')}</div>` : '';
-  return `${top}${notice}${momentHtml}
+  return `${top}${pickerHtml}${notice}${momentHtml}
   <div class="deck"${behind}>
     <aside class="deck-queue" aria-label="Incoming signals">
-      <div class="label">INCOMING SIGNALS</div>${head}${blank}${next}
-      <ul class="queue">${items.map((x) => signalRow(x, dn)).join('')}${lowHtml}</ul>
+      <h2 class="label">INCOMING SIGNALS</h2>${reportHtml}${queueTop}${head}${blank}${next}
+      <ul class="queue">${items.map((x) => signalRow(x, dn, rowParts(x))).join('')}${lowHtml}</ul>
+      ${upkeep.length ? `<details class="panel upkeep"><summary class="label">UPKEEP (${upkeep.length}) · TIDY-UPS, NOT THREATS</summary>
+        <ul class="queue">${upkeep.map((x) => signalRow(x, dn, rowParts(x))).join('')}</ul></details>` : ''}
       ${threatHtml}${knownHtml}
       <button type="button" class="btn-s lime" data-go="range">DRILL RANGE ▶</button>
     </aside>

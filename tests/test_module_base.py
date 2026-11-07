@@ -87,3 +87,21 @@ def test_module_report_no_issues():
     check = CheckResult(module_name="fake_module")
     report = mod.report(check)
     assert "No issues found" in report
+
+
+def test_module_report_no_issues_names_what_was_not_checked():
+    check = CheckResult(module_name="fake_module", not_checked=["whether SSH was running", "x"])
+    report = FakeModule().report(check)
+    assert "No issues found." in report
+    assert "Not checked here: whether SSH was running; x" in report
+
+
+def test_module_report_with_issues_names_what_was_not_checked():
+    mod = FakeModule()
+    check = mod.check(_make_profile())
+    check.not_checked = ["programs running right now"]
+    assert "Not checked here: programs running right now" in mod.report(check)
+
+
+def test_module_report_without_not_checked_has_no_such_line():
+    assert "Not checked here" not in FakeModule().report(CheckResult(module_name="fake_module"))

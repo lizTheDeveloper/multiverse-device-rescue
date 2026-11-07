@@ -19,7 +19,11 @@ pinned lockfile in ``vendor/hackmyagent/`` (every package and its integrity
 hash, no install scripts) into the user cache folder, then reused. Node.js is
 never installed for the person: no Node.js means "couldn't check".
 ``rescue scan --no-downloads`` (or ``RESCUE_NO_DOWNLOADS=1``) turns the fetch
-off; a copy already fetched still runs.
+off; a copy already fetched still runs. So does a profile's
+``module_config: {ai_agent_audit: {downloads: false}}`` (the infected_device
+profile, for a computer kept off the internet). With no internet at all (the
+registry's name doesn't resolve), the fetch is skipped at once instead of
+waiting out npm's retries, and the finding says the computer is offline.
 
 HackMyAgent's governance findings (SOUL.md, identity) and its remediation
 lines (which name OpenA2A products) are not passed on. Credential values are
@@ -34,9 +38,11 @@ import json
 import os
 import re
 import shutil
+import socket
 import stat
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -57,6 +63,9 @@ from rescue.runtime import bundled_root
 
 HMA_VERSION = "0.33.2"
 REGISTRY = "https://registry.npmjs.org/"
+REGISTRY_HOST = "registry.npmjs.org"
+# How long the "is there any internet?" lookup may take before it counts as no.
+RESOLVE_TIMEOUT = 5.0
 MIN_NODE_MAJOR = 18
 FETCH_TIMEOUT = 180
 DETECT_TIMEOUT = 60
@@ -273,6 +282,18 @@ _COULD_NOT_CHECK = {
         "downloads the first time it's needed. Downloads are turned off for this "
         "scan, so it didn't run. Run the scan without --no-downloads to include it."
     ),
+    "offline": (
+        "This check uses a free tool called HackMyAgent, which Reclaim City "
+        "downloads the first time it's needed. This computer isn't connected to the "
+        "internet, so it wasn't downloaded and the check didn't run. If you're "
+        "keeping this computer offline on purpose, keep it that way: this one check "
+        "can wait."
+    ),
+    "kept_offline": (
+        "This checkup is for a computer you're keeping off the internet, so "
+        "Reclaim City didn't download HackMyAgent, the free tool this check needs, "
+        "and the check didn't run."
+    ),
     "fetch_failed": (
         "This check uses a free tool called HackMyAgent, which Reclaim City "
         "downloads from the npm registry the first time it's needed. The download "
@@ -323,6 +344,26 @@ _SECRET_PREFIXES = ("ghp_", "gho_", "ghs_", "ghu_", "github_pat_", "xox", "AKIA"
                     "sk_live", "sk_test", "rk_live", "glpat")
 # HackMyAgent's own "config" finding detail: `.claude/settings.json:3 — "NAME" = …`
 _DETAIL_RE = re.compile(r"^(?P<file>[^:\n]+):(?P<line>\d+)\s+\S+\s+\"(?P<token>[^\"]*)\"")
+
+
+def registry_resolves(host: str = REGISTRY_HOST, timeout: float = RESOLVE_TIMEOUT) -> bool:
+    """Whether the npm registry's name resolves within ``timeout`` seconds.
+
+    With Wi-Fi off or the cable out this fails at once, so a computer kept
+    offline doesn't wait out npm's minute of retries. Never raises.
+    """
+    answer: list[bool] = []
+
+    def lookup() -> None:
+        try:
+            answer.append(bool(socket.getaddrinfo(host, 443, proto=socket.IPPROTO_TCP)))
+        except Exception:
+            answer.append(False)
+
+    worker = threading.Thread(target=lookup, name="registry-resolves", daemon=True)
+    worker.start()
+    worker.join(timeout)
+    return bool(answer and answer[0])
 
 
 def _safe_name(token: Any) -> str | None:
@@ -711,9 +752,16 @@ class Module(ModuleBase):
     system_node_dirs: list[Path] | None = None
     vendor_dir: Path | None = None
     elevated: bool | None = None  # None = ask the operating system
+    # None = the real DNS lookup (registry_resolves); tests put a stand-in here.
+    registry_resolves: Any = None
+    # A profile's module_config can say {downloads: false}: a computer kept offline.
+    downloads_allowed: bool = True
     _left_in_home: str | None = None
 
     # --- check ------------------------------------------------------------------
+
+    def configure(self, config: dict[str, Any]) -> None:
+        self.downloads_allowed = (config or {}).get("downloads", True) is not False
 
     def check(self, profile: SystemProfile) -> CheckResult:
         self._left_in_home = None
@@ -783,10 +831,11 @@ class Module(ModuleBase):
         expected = self._expected_tree()
         if install.parent.is_dir():
             self._clean_stale(install.parent)
-        downloads_off = os.environ.get("RESCUE_NO_DOWNLOADS") == "1"
+        flag_off = os.environ.get("RESCUE_NO_DOWNLOADS") == "1"
+        downloads_off = flag_off or not self.downloads_allowed
         usable = self._installed(install)
         if not usable and downloads_off:
-            raise _CouldNotCheck("downloads_off")
+            raise _CouldNotCheck("downloads_off" if flag_off else "kept_offline")
 
         node = self._find_node(platform)
         if node is None:
@@ -799,6 +848,7 @@ class Module(ModuleBase):
             raise _CouldNotCheck("node_too_old", node_version=version.stdout.strip()[:20])
 
         if not usable:
+            self._require_internet()
             self._fetch(node, install, platform, expected)
         # HackMyAgent runs from a fresh private copy that is checked right
         # before and again right after the run; a saved copy that changed is
@@ -808,6 +858,7 @@ class Module(ModuleBase):
             _remove_tree(install)
             if not usable or downloads_off:
                 raise _CouldNotCheck("tampered")
+            self._require_internet()
             self._fetch(node, install, platform, expected)
             run_dir = self._verified_copy(install, expected, platform)
             if run_dir is None:
@@ -835,6 +886,11 @@ class Module(ModuleBase):
             raise failure
         assert doc is not None
         return doc
+
+    def _require_internet(self) -> None:
+        resolves = self.registry_resolves if self.registry_resolves is not None else registry_resolves
+        if not resolves():
+            raise _CouldNotCheck("offline")
 
     def _verified_copy(self, install: Path, expected: dict[str, str], platform: Platform) -> Path | None:
         """Copy exactly the manifest's files from the saved copy into a new private folder.
